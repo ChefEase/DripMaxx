@@ -1,3 +1,13 @@
+node_modules
+.expo
+.expo-shared
+dist
+build
+.DS_Store
+*.log
+.env
+.env.*
+
 # Learn more https://docs.github.com/en/get-started/getting-started-with-git/ignoring-files
 
 # dependencies

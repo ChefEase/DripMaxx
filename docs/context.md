@@ -6,9 +6,9 @@ Mobile Frontend: Flutter or React Native for cross-platform iOS/Android app.
 
 Backend Services: Supabase (PostgreSQL) or Firebase for authentication, storage, and user data; plus a custom Python (FastAPI) API to handle AI processing.
 
-AI Image Analysis: Pre-trained models like CLIP or cloud APIs (Gemini) to extract outfit features (colors, fit, style).
+AI Image Analysis: Pre-trained models like CLIP or fashion-focused models hosted on Replicate to extract outfit features (colors, fit, style).
 
-Scoring & Suggestions: Python logic calculates weighted “Drip Score”; GPT-4 or similar LLM generates personalized improvement tips.
+Scoring & Suggestions: Python logic calculates weighted “Drip Score”; Replicate-hosted text or multimodal models generate personalized improvement tips.
 
 Data Storage: Relational database (PostgreSQL) for user profiles, outfit history, and optional vector embeddings (pgvector) for advanced personalization.
 

@@ -9,6 +9,7 @@ import {
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../App";
+import * as ImagePicker from "expo-image-picker";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -22,9 +23,13 @@ export default function CameraPermissionScreen() {
     };
   }, []);
 
-  const handleAllow = () => {
+  const handleAllow = async () => {
     console.log("[CameraPermissionScreen] Allow Camera pressed");
-    // Camera permission + actual camera wiring will be implemented later.
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== ImagePicker.PermissionStatus.GRANTED) {
+      console.log("[CameraPermissionScreen] camera permission denied");
+      return;
+    }
     navigation.navigate("Scan");
   };
 
@@ -50,11 +55,28 @@ export default function CameraPermissionScreen() {
           </Text>
         </View>
 
-        <View style={styles.placeholder}>
-          <Text style={styles.placeholderText}>
-            System permission prompt will appear after tapping &quot;Allow
-            Camera&quot;. This screen explains the why before we ask.
-          </Text>
+        <View style={styles.card}>
+          <View style={styles.row}>
+            <View style={styles.bullet} />
+            <Text style={styles.cardText}>No photos are stored without consent.</Text>
+          </View>
+          <View style={styles.row}>
+            <View style={styles.bullet} />
+            <Text style={styles.cardText}>Used only to score your current outfit.</Text>
+          </View>
+          <View style={styles.row}>
+            <View style={styles.bullet} />
+            <Text style={styles.cardText}>
+              You can pick from gallery instead if you prefer.
+            </Text>
+          </View>
+
+          <View style={styles.notice}>
+            <Text style={styles.noticeTitle}>If you tap &quot;Not Now&quot;</Text>
+            <Text style={styles.noticeCopy}>
+              Scanning will be limited until camera access is granted in settings.
+            </Text>
+          </View>
         </View>
 
         <View style={styles.actions}>
@@ -101,20 +123,51 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#9CA3AF",
   },
-  placeholder: {
+  card: {
     flex: 1,
     marginVertical: 24,
     borderRadius: 16,
     borderWidth: 1,
     borderColor: "#1F2937",
-    alignItems: "center",
-    justifyContent: "center",
     padding: 16,
+    gap: 12,
+    backgroundColor: "#0B1224",
   },
-  placeholderText: {
+  row: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+  },
+  bullet: {
+    width: 8,
+    height: 8,
+    borderRadius: 999,
+    backgroundColor: "#22C55E",
+  },
+  cardText: {
+    color: "#E5E7EB",
     fontSize: 14,
-    color: "#6B7280",
-    textAlign: "center",
+    flex: 1,
+    lineHeight: 20,
+  },
+  notice: {
+    marginTop: 8,
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: "#111827",
+    borderWidth: 1,
+    borderColor: "#1F2937",
+    gap: 4,
+  },
+  noticeTitle: {
+    color: "#F9FAFB",
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  noticeCopy: {
+    color: "#9CA3AF",
+    fontSize: 13,
+    lineHeight: 18,
   },
   actions: {
     flexDirection: "row",

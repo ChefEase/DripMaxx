@@ -9,6 +9,7 @@ import StyleInspirationScreen from "./app/style-inspiration";
 import BodyFitScreen from "./app/body-fit";
 import CameraPermissionScreen from "./app/camera-permission";
 import ScanStubScreen from "./app/scan";
+import { StoreProvider } from "./app/store";
 
 export type RootStackParamList = {
   ValueProposition: undefined;
@@ -33,37 +34,39 @@ export default function App() {
   }, []);
 
   return (
-    <NavigationContainer
-      onReady={() => {
-        console.log("[NavigationContainer] ready");
-      }}
-    >
-      <Stack.Navigator
-        screenOptions={{
-          headerShown: false,
-          contentStyle: { backgroundColor: "#020617" },
+    <StoreProvider>
+      <NavigationContainer
+        onReady={() => {
+          console.log("[NavigationContainer] ready");
         }}
       >
-        <Stack.Screen
-          name="ValueProposition"
-          component={ValuePropositionScreen}
-        />
-        <Stack.Screen
-          name="StylePreference"
-          component={StylePreferenceScreen}
-        />
-        <Stack.Screen
-          name="StyleInspiration"
-          component={StyleInspirationScreen}
-        />
-        <Stack.Screen name="BodyFit" component={BodyFitScreen} />
-        <Stack.Screen
-          name="CameraPermission"
-          component={CameraPermissionScreen}
-        />
-        <Stack.Screen name="Scan" component={ScanStubScreen} />
-      </Stack.Navigator>
-    </NavigationContainer>
+        <Stack.Navigator
+          screenOptions={{
+            headerShown: false,
+            contentStyle: { backgroundColor: "#020617" },
+          }}
+        >
+          <Stack.Screen
+            name="ValueProposition"
+            component={ValuePropositionScreen}
+          />
+          <Stack.Screen
+            name="StylePreference"
+            component={StylePreferenceScreen}
+          />
+          <Stack.Screen
+            name="StyleInspiration"
+            component={StyleInspirationScreen}
+          />
+          <Stack.Screen name="BodyFit" component={BodyFitScreen} />
+          <Stack.Screen
+            name="CameraPermission"
+            component={CameraPermissionScreen}
+          />
+          <Stack.Screen name="Scan" component={ScanStubScreen} />
+        </Stack.Navigator>
+      </NavigationContainer>
+    </StoreProvider>
   );
 }
 

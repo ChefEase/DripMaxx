@@ -6,10 +6,14 @@ import {
   StyleSheet,
   Pressable,
 } from "react-native";
-import { useRouter } from "expo-router";
+import { useNavigation } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import type { RootStackParamList } from "../App";
+
+type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 export default function StyleInspirationScreen() {
-  const router = useRouter();
+  const navigation = useNavigation<Nav>();
 
   useEffect(() => {
     console.log("[StyleInspirationScreen] mounted");
@@ -20,17 +24,17 @@ export default function StyleInspirationScreen() {
 
   const handleNext = () => {
     console.log("[StyleInspirationScreen] Next pressed");
-    router.push("/body-fit");
+    navigation.navigate("BodyFit");
   };
 
   const handleBack = () => {
     console.log("[StyleInspirationScreen] Back pressed");
-    router.back();
+    navigation.goBack();
   };
 
   const handleSkip = () => {
     console.log("[StyleInspirationScreen] Skip pressed");
-    router.push("/body-fit");
+    navigation.navigate("BodyFit");
   };
 
   return (

@@ -6,10 +6,14 @@ import {
   StyleSheet,
   Pressable,
 } from "react-native";
-import { useRouter } from "expo-router";
+import { useNavigation } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import type { RootStackParamList } from "../App";
+
+type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 export default function StylePreferenceScreen() {
-  const router = useRouter();
+  const navigation = useNavigation<Nav>();
 
   useEffect(() => {
     console.log("[StylePreferenceScreen] mounted");
@@ -20,17 +24,17 @@ export default function StylePreferenceScreen() {
 
   const handleNext = () => {
     console.log("[StylePreferenceScreen] Next pressed");
-    router.push("/style-inspiration");
+    navigation.navigate("StyleInspiration");
   };
 
   const handleBack = () => {
     console.log("[StylePreferenceScreen] Back pressed");
-    router.back();
+    navigation.goBack();
   };
 
   const handleSkip = () => {
     console.log("[StylePreferenceScreen] Skip pressed");
-    router.push("/style-inspiration");
+    navigation.navigate("StyleInspiration");
   };
 
   return (

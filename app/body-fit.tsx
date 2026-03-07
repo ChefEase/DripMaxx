@@ -6,10 +6,14 @@ import {
   StyleSheet,
   Pressable,
 } from "react-native";
-import { useRouter } from "expo-router";
+import { useNavigation } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import type { RootStackParamList } from "../App";
+
+type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 export default function BodyFitScreen() {
-  const router = useRouter();
+  const navigation = useNavigation<Nav>();
 
   useEffect(() => {
     console.log("[BodyFitScreen] mounted");
@@ -20,17 +24,17 @@ export default function BodyFitScreen() {
 
   const handleNext = () => {
     console.log("[BodyFitScreen] Next pressed");
-    router.push("/camera-permission");
+    navigation.navigate("CameraPermission");
   };
 
   const handleBack = () => {
     console.log("[BodyFitScreen] Back pressed");
-    router.back();
+    navigation.goBack();
   };
 
   const handleSkip = () => {
     console.log("[BodyFitScreen] Skip pressed");
-    router.push("/camera-permission");
+    navigation.navigate("CameraPermission");
   };
 
   return (

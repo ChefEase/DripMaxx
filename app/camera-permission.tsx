@@ -6,10 +6,14 @@ import {
   StyleSheet,
   Pressable,
 } from "react-native";
-import { useRouter } from "expo-router";
+import { useNavigation } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import type { RootStackParamList } from "../App";
+
+type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 export default function CameraPermissionScreen() {
-  const router = useRouter();
+  const navigation = useNavigation<Nav>();
 
   useEffect(() => {
     console.log("[CameraPermissionScreen] mounted");
@@ -21,17 +25,17 @@ export default function CameraPermissionScreen() {
   const handleAllow = () => {
     console.log("[CameraPermissionScreen] Allow Camera pressed");
     // Camera permission + actual camera wiring will be implemented later.
-    router.push("/scan");
+    navigation.navigate("Scan");
   };
 
   const handleNotNow = () => {
     console.log("[CameraPermissionScreen] Not Now pressed");
-    router.push("/scan");
+    navigation.navigate("Scan");
   };
 
   const handleBack = () => {
     console.log("[CameraPermissionScreen] Back pressed");
-    router.back();
+    navigation.goBack();
   };
 
   return (

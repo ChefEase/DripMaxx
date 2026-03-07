@@ -1,10 +1,10 @@
 {
   "expo": {
-    "scheme": "acme",
-    "plugins": [
-      "expo-router"
-    ],
     "name": "DripMaxx",
-    "slug": "DripMaxx"
+    "slug": "DripMaxx",
+    "version": "1.0.0",
+    "scheme": "acme",
+    "sdkVersion": "54.0.0",
+    "platforms": ["ios", "android", "web"]
   }
 }

@@ -1,9 +1,13 @@
 import React, { useEffect } from "react";
 import { SafeAreaView, View, Text, StyleSheet, Pressable } from "react-native";
-import { useRouter } from "expo-router";
+import { useNavigation } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import type { RootStackParamList } from "../App";
+
+type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 export default function ValuePropositionScreen() {
-  const router = useRouter();
+  const navigation = useNavigation<Nav>();
 
   useEffect(() => {
     console.log("[ValuePropositionScreen] mounted");
@@ -14,12 +18,12 @@ export default function ValuePropositionScreen() {
 
   const handleGetStarted = () => {
     console.log("[ValuePropositionScreen] Get Started pressed");
-    router.push("/style-preference");
+    navigation.navigate("StylePreference");
   };
 
   const handleSeeExample = () => {
     console.log("[ValuePropositionScreen] See Example pressed");
-    router.push("/scan");
+    navigation.navigate("Scan");
   };
 
   return (

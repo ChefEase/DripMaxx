@@ -6,10 +6,14 @@ import {
   StyleSheet,
   Pressable,
 } from "react-native";
-import { useRouter } from "expo-router";
+import { useNavigation } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import type { RootStackParamList } from "../App";
+
+type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 export default function ScanStubScreen() {
-  const router = useRouter();
+  const navigation = useNavigation<Nav>();
 
   useEffect(() => {
     console.log("[ScanStubScreen] mounted");
@@ -25,7 +29,7 @@ export default function ScanStubScreen() {
 
   const handleBackToStart = () => {
     console.log("[ScanStubScreen] Back to Start pressed");
-    router.push("/");
+    navigation.navigate("ValueProposition");
   };
 
   return (

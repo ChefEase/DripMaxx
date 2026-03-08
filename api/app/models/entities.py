@@ -1,0 +1,184 @@
+import enum
+from sqlalchemy import (
+  Boolean,
+  CheckConstraint,
+  Column,
+  DateTime,
+  Enum,
+  ForeignKey,
+  Integer,
+  Numeric,
+  String,
+  Text,
+  UniqueConstraint,
+  Index,
+  func,
+)
+from sqlalchemy.dialects.postgresql import UUID, JSONB, ARRAY
+from sqlalchemy.sql import text
+
+from app.db.session import Base
+
+
+class BodyTypeEnum(str, enum.Enum):
+  slim = "slim"
+  athletic = "athletic"
+  average = "average"
+  broad = "broad"
+  plus_size = "plus_size"
+
+
+class GenderStyleEnum(str, enum.Enum):
+  menswear = "menswear"
+  womenswear = "womenswear"
+  neutral = "neutral"
+
+
+class SuggestionTypeEnum(str, enum.Enum):
+  fit = "fit"
+  layering = "layering"
+  color = "color"
+  accessory = "accessory"
+  other = "other"
+
+
+class User(Base):
+  __tablename__ = "users"
+
+  id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
+  auth_id = Column(Text, unique=True)
+  email = Column(Text, unique=True)
+  display_name = Column(Text)
+  avatar_url = Column(Text)
+  created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+  updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
+class UserProfile(Base):
+  __tablename__ = "user_profile"
+
+  user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+  style_preference = Column(Text)
+  height_cm = Column(Numeric(5, 2))
+  body_type = Column(Enum(BodyTypeEnum, name="body_type_enum", create_constraint=True))
+  gender_style_preference = Column(Enum(GenderStyleEnum, name="gender_style_enum", create_constraint=True))
+  country = Column(Text)
+  locale = Column(Text)
+  created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+  updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
+class StyleInspirationCatalog(Base):
+  __tablename__ = "style_inspiration_catalog"
+
+  id = Column(Integer, primary_key=True, autoincrement=True)
+  name = Column(Text, nullable=False)
+  slug = Column(Text, unique=True)
+  image_url = Column(Text)
+  created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
+class UserStyleInspiration(Base):
+  __tablename__ = "user_style_inspiration"
+
+  user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+  inspiration_id = Column(Integer, ForeignKey("style_inspiration_catalog.id", ondelete="CASCADE"), primary_key=True)
+  created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
+class UserCustomInspiration(Base):
+  __tablename__ = "user_custom_inspiration"
+
+  id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
+  user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"))
+  label = Column(Text, nullable=False)
+  created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
+class Outfit(Base):
+  __tablename__ = "outfits"
+  __table_args__ = (
+    Index("idx_outfits_user_id_scanned_at", "user_id", "scanned_at"),
+  )
+
+  id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
+  user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"))
+  source = Column(Text, nullable=False)
+  image_url = Column(Text, nullable=False)
+  thumb_url = Column(Text)
+  notes = Column(Text)
+  scanned_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+  is_example = Column(Boolean, nullable=False, server_default=text("false"))
+  created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+  updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
+class OutfitScore(Base):
+  __tablename__ = "outfit_scores"
+  __table_args__ = (
+    UniqueConstraint("outfit_id", name="uq_outfit_scores_outfit_id"),
+    CheckConstraint("color_match BETWEEN 0 AND 10", name="ck_color_match_bounds"),
+    CheckConstraint("fit_quality BETWEEN 0 AND 10", name="ck_fit_quality_bounds"),
+    CheckConstraint("body_compatibility BETWEEN 0 AND 10", name="ck_body_compatibility_bounds"),
+    CheckConstraint("trend_score BETWEEN 0 AND 10", name="ck_trend_score_bounds"),
+    CheckConstraint("style_match BETWEEN 0 AND 10", name="ck_style_match_bounds"),
+    CheckConstraint("drip_score BETWEEN 0 AND 10", name="ck_drip_score_bounds"),
+    Index("idx_outfit_scores_drip_score", "drip_score"),
+  )
+
+  id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
+  outfit_id = Column(UUID(as_uuid=True), ForeignKey("outfits.id", ondelete="CASCADE"), nullable=False)
+
+  color_match = Column(Numeric(4, 2))
+  fit_quality = Column(Numeric(4, 2))
+  body_compatibility = Column(Numeric(4, 2))
+  trend_score = Column(Numeric(4, 2))
+  style_match = Column(Numeric(4, 2))
+  drip_score = Column(Numeric(4, 2))
+
+  model_version = Column(Text)
+  raw_features = Column(JSONB)
+  created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
+class OutfitSuggestion(Base):
+  __tablename__ = "outfit_suggestions"
+  __table_args__ = (
+    Index("idx_outfit_suggestions_outfit_rank", "outfit_id", "rank"),
+  )
+
+  id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
+  outfit_id = Column(UUID(as_uuid=True), ForeignKey("outfits.id", ondelete="CASCADE"))
+  type = Column(Enum(SuggestionTypeEnum, name="suggestion_type_enum", create_constraint=True), nullable=False)
+  title = Column(Text, nullable=False)
+  description = Column(Text)
+  rank = Column(Integer, nullable=False, server_default=text("1"))
+  is_applied = Column(Boolean)
+  is_liked = Column(Boolean)
+  created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+  updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
+class StyleDNA(Base):
+  __tablename__ = "style_dna"
+
+  user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+  label = Column(Text)
+  description = Column(Text)
+  tags = Column(ARRAY(Text), server_default=text("'{}'::text[]"))
+  embedding = Column(JSONB)  # placeholder until pgvector is available
+  metadata_json = Column("metadata", JSONB)
+  updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
+class DripScoreHistory(Base):
+  __tablename__ = "drip_score_history"
+  __table_args__ = (
+    Index("idx_drip_score_history_user_time", "user_id", "recorded_at"),
+  )
+
+  id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
+  user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"))
+  outfit_id = Column(UUID(as_uuid=True), ForeignKey("outfits.id", ondelete="SET NULL"))
+  drip_score = Column(Numeric(4, 2))
+  recorded_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())

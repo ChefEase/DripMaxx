@@ -19,15 +19,18 @@ export default function ScanStubScreen() {
   const navigation = useNavigation<Nav>();
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [isScoring, setIsScoring] = useState(false);
+  const [saved, setSaved] = useState(false);
   const [result, setResult] = useState<
     | null
     | {
         dripScore: number;
         categories: { label: string; value: number }[];
-        suggestions: string[];
+        suggestions: { title: string; type: string; description: string }[];
         warnings: string[];
       }
   >(null);
+  const API_BASE =
+    process.env.EXPO_PUBLIC_API_BASE?.trim() || "http://127.0.0.1:8000";
 
   useEffect(() => {
     console.log("[ScanStubScreen] mounted");
@@ -70,6 +73,7 @@ export default function ScanStubScreen() {
       if (uri) {
         setImageUri(uri);
         setResult(null);
+        setSaved(false);
       }
     }
   };
@@ -89,6 +93,7 @@ export default function ScanStubScreen() {
       if (uri) {
         setImageUri(uri);
         setResult(null);
+        setSaved(false);
       }
     }
   };
@@ -99,38 +104,68 @@ export default function ScanStubScreen() {
       return;
     }
     setIsScoring(true);
-    // Fake scoring stub: random-ish numbers with deterministic order.
-    const rand = () => Math.round((6 + Math.random() * 4) * 10) / 10;
-    const categories = [
-      { label: "Color Match", value: rand() },
-      { label: "Fit Quality", value: rand() },
-      { label: "Trend Score", value: rand() },
-      { label: "Body Compatibility", value: rand() },
-      { label: "Style Match", value: rand() },
-    ];
-    const dripScore = Math.round(
-      (0.3 * categories[0].value +
-        0.2 * categories[1].value +
-        0.2 * categories[3].value +
-        0.15 * categories[2].value +
-        0.15 * categories[4].value) *
-        10
-    ) / 10;
+    try {
+      const form = new FormData();
+      form.append("image", {
+        uri: imageUri,
+        name: "upload.jpg",
+        type: "image/jpeg",
+      } as any);
+      form.append(
+        "user_context",
+        JSON.stringify({
+          style_preferences: ["streetwear"],
+          style_inspirations: ["ASAP Rocky"],
+          user_height: "180",
+          user_body_type: "athletic",
+          gender_style_preference: "menswear",
+        })
+      );
 
-    // Heuristic warnings (stubbed for now).
-    const warnings: string[] = [
-      "Use a well-lit photo so we can see textures and colors clearly.",
-      "Make sure the photo contains clothing; non-clothing objects may not be scored.",
-    ];
+      const resp = await fetch(`${API_BASE}/v1/outfits/score`, {
+        method: "POST",
+        headers: {
+          Accept: "application/json",
+        },
+        body: form,
+      });
 
-    const suggestions = [
-      "Try wider pants to balance the top silhouette.",
-      "Add a lightweight jacket to create depth.",
-      "Swap shoes for a darker pair to match your top.",
-    ];
+      if (!resp.ok) {
+        const text = await resp.text();
+        throw new Error(`API ${resp.status}: ${text}`);
+      }
 
-    setResult({ dripScore, categories, suggestions, warnings });
-    setIsScoring(false);
+      const data = await resp.json();
+      const categories = [
+        { label: "Color Match", value: data.breakdown.color_match },
+        { label: "Fit Quality", value: data.breakdown.fit_quality },
+        { label: "Trend Score", value: data.breakdown.trend_score },
+        { label: "Body Compatibility", value: data.breakdown.body_compatibility },
+        { label: "Style Match", value: data.breakdown.style_match },
+      ];
+      setResult({
+        dripScore: data.drip_score,
+        categories,
+        suggestions: data.suggestions,
+        warnings: data.warnings || [],
+      });
+    } catch (err: any) {
+      console.error("score failed", err);
+      Alert.alert("Scoring failed", err?.message || "Try again in a moment.");
+    } finally {
+      setIsScoring(false);
+    }
+  };
+
+  const handleRescan = () => {
+    setImageUri(null);
+    setResult(null);
+    setSaved(false);
+  };
+
+  const handleSaveOutfit = () => {
+    setSaved(true);
+    Alert.alert("Saved locally", "This outfit was saved for this session.");
   };
 
   return (
@@ -196,10 +231,11 @@ export default function ScanStubScreen() {
               ))}
             </View>
             <View style={styles.suggestions}>
-              {result.suggestions.map((tip) => (
-                <View key={tip} style={styles.suggestionCard}>
-                  <Text style={styles.suggestionTag}>Suggestion</Text>
-                  <Text style={styles.suggestionText}>{tip}</Text>
+              {result.suggestions.map((tip, idx) => (
+                <View key={`${tip.title}-${idx}`} style={styles.suggestionCard}>
+                  <Text style={styles.suggestionTag}>{tip.type}</Text>
+                  <Text style={styles.suggestionTitle}>{tip.title}</Text>
+                  <Text style={styles.suggestionText}>{tip.description}</Text>
                 </View>
               ))}
             </View>
@@ -209,6 +245,22 @@ export default function ScanStubScreen() {
                   • {w}
                 </Text>
               ))}
+            </View>
+            <View style={styles.resultActions}>
+              <Pressable style={styles.secondaryButton} onPress={handleRescan}>
+                <Text style={styles.secondaryButtonText}>Rescan</Text>
+              </Pressable>
+              <Pressable
+                style={[
+                  styles.primaryButton,
+                  saved && { backgroundColor: "#16A34A" },
+                ]}
+                onPress={handleSaveOutfit}
+              >
+                <Text style={styles.primaryButtonText}>
+                  {saved ? "Saved" : "Save Outfit"}
+                </Text>
+              </Pressable>
             </View>
           </View>
         ) : null}
@@ -241,7 +293,7 @@ const styles = StyleSheet.create({
   stepLabel: {
     fontSize: 13,
     color: "#9CA3AF",
-    marginBottom: 8,
+    marginBottom: -10,
   },
   title: {
     fontSize: 24,
@@ -311,7 +363,7 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   resultCard: {
-    marginBottom: 20,
+    marginBottom: 12,
     borderRadius: 16,
     borderWidth: 1,
     borderColor: "#1F2937",
@@ -369,6 +421,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: "700",
   },
+  suggestionTitle: {
+    color: "#E5E7EB",
+    fontSize: 14,
+    fontWeight: "700",
+  },
   suggestionText: {
     color: "#E5E7EB",
     fontSize: 14,
@@ -386,6 +443,10 @@ const styles = StyleSheet.create({
     color: "#FCD34D",
     fontSize: 13,
     lineHeight: 18,
+  },
+  resultActions: {
+    flexDirection: "row",
+    gap: 10,
   },
   actions: {
     flexDirection: "row",
@@ -419,4 +480,3 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
 });
-

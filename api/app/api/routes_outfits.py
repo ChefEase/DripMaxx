@@ -8,7 +8,7 @@ import uuid
 from app.schemas.outfits import ScoreResponse, UserContext
 from app.db.session import get_db
 from app.services.ai_scoring import score_with_ai
-from app.models import Outfit, OutfitScore, OutfitSuggestion, SuggestionTypeEnum
+from app.models import Outfit, OutfitScore, OutfitSuggestion, SuggestionTypeEnum, DripScoreHistory
 
 router = APIRouter(prefix="/v1/outfits", tags=["outfits"])
 
@@ -55,6 +55,8 @@ async def score_outfit(
     notes=None,
     is_example=False,
   )
+  if user_ctx.user_id:
+    outfit.user_id = user_ctx.user_id
   db.add(outfit)
   await db.flush()
 
@@ -68,6 +70,14 @@ async def score_outfit(
       style_match=score.breakdown.style_match,
       drip_score=score.drip_score,
       model_version="clip+llama",
+    )
+  )
+
+  db.add(
+    DripScoreHistory(
+      user_id=user_ctx.user_id,
+      outfit_id=outfit.id,
+      drip_score=score.drip_score,
     )
   )
 

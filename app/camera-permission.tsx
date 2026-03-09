@@ -10,11 +10,14 @@ import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../App";
 import * as ImagePicker from "expo-image-picker";
+import { trackEvent } from "./lib/analytics";
+import { useStore } from "./store";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 export default function CameraPermissionScreen() {
   const navigation = useNavigation<Nav>();
+  const { userId } = useStore();
 
   useEffect(() => {
     console.log("[CameraPermissionScreen] mounted");
@@ -30,12 +33,14 @@ export default function CameraPermissionScreen() {
       console.log("[CameraPermissionScreen] camera permission denied");
       return;
     }
-    navigation.navigate("Scan");
+    trackEvent("onboard_completed", { camera: "granted" }, userId);
+    navigation.navigate("Paywall");
   };
 
   const handleNotNow = () => {
     console.log("[CameraPermissionScreen] Not Now pressed");
-    navigation.navigate("Scan");
+    trackEvent("onboard_completed", { camera: "skipped" }, userId);
+    navigation.navigate("Paywall");
   };
 
   const handleBack = () => {

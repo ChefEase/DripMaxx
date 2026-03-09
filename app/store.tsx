@@ -1,4 +1,5 @@
-import React, { createContext, useContext, useMemo, useState } from "react";
+import React, { createContext, useContext, useMemo, useState, useEffect } from "react";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 
 type StoreState = {
   stylePreferences: string[];
@@ -8,6 +9,10 @@ type StoreState = {
   userHeight: string;
   userBodyType: string | null;
   genderStylePreference: string | null;
+  userId: string | null;
+  userEmail: string | null;
+  displayName: string | null;
+  avatarUrl: string | null;
 };
 
 type StoreContextValue = StoreState & {
@@ -18,9 +23,15 @@ type StoreContextValue = StoreState & {
   setUserHeight: React.Dispatch<React.SetStateAction<string>>;
   setUserBodyType: React.Dispatch<React.SetStateAction<string | null>>;
   setGenderStylePreference: React.Dispatch<React.SetStateAction<string | null>>;
+  setUserId: React.Dispatch<React.SetStateAction<string | null>>;
+  setUserEmail: React.Dispatch<React.SetStateAction<string | null>>;
+  setDisplayName: React.Dispatch<React.SetStateAction<string | null>>;
+  setAvatarUrl: React.Dispatch<React.SetStateAction<string | null>>;
 };
 
 const StoreContext = createContext<StoreContextValue | undefined>(undefined);
+
+const genId = () => `user_${Math.random().toString(36).slice(2, 10)}_${Date.now()}`;
 
 export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
@@ -34,6 +45,60 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
   const [genderStylePreference, setGenderStylePreference] = useState<
     string | null
   >(null);
+  const [userId, setUserId] = useState<string | null>(null);
+  const [userEmail, setUserEmail] = useState<string | null>(null);
+  const [displayName, setDisplayName] = useState<string | null>(null);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+
+  useEffect(() => {
+    AsyncStorage.multiGet([
+      "dripmaxx:userId",
+      "dripmaxx:userEmail",
+      "dripmaxx:displayName",
+      "dripmaxx:avatarUrl",
+    ]).then(
+      (entries) => {
+        const idVal = entries.find((e) => e[0] === "dripmaxx:userId")?.[1];
+        const emailVal = entries.find((e) => e[0] === "dripmaxx:userEmail")?.[1];
+        const nameVal = entries.find((e) => e[0] === "dripmaxx:displayName")?.[1];
+        const avatarVal = entries.find((e) => e[0] === "dripmaxx:avatarUrl")?.[1];
+        if (idVal) {
+          setUserId(idVal);
+        } else {
+          const next = genId();
+          setUserId(next);
+          AsyncStorage.setItem("dripmaxx:userId", next).catch(() => {});
+        }
+        if (emailVal) setUserEmail(emailVal);
+        if (nameVal) setDisplayName(nameVal);
+        if (avatarVal) setAvatarUrl(avatarVal);
+      }
+    );
+  }, []);
+
+  useEffect(() => {
+    if (userId) {
+      AsyncStorage.setItem("dripmaxx:userId", userId).catch(() => {});
+    }
+  }, [userId]);
+
+  useEffect(() => {
+    if (userEmail) {
+      AsyncStorage.setItem("dripmaxx:userEmail", userEmail).catch(() => {});
+    }
+  }, [userEmail]);
+
+  useEffect(() => {
+    if (displayName) {
+      AsyncStorage.setItem("dripmaxx:displayName", displayName).catch(() => {});
+    }
+  }, [displayName]);
+
+  useEffect(() => {
+    if (avatarUrl) {
+      AsyncStorage.setItem("dripmaxx:avatarUrl", avatarUrl).catch(() => {});
+    }
+  }, [avatarUrl]);
 
   const value = useMemo(
     () => ({
@@ -44,6 +109,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
       userHeight,
       userBodyType,
       genderStylePreference,
+      userId,
+      userEmail,
+      displayName,
+      avatarUrl,
       setStylePreferences,
       setCustomStyle,
       setFavoriteCelebrityStyle,
@@ -51,6 +120,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
       setUserHeight,
       setUserBodyType,
       setGenderStylePreference,
+      setUserId,
+      setUserEmail,
+      setDisplayName,
+      setAvatarUrl,
     }),
     [
       stylePreferences,
@@ -60,6 +133,10 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
       userHeight,
       userBodyType,
       genderStylePreference,
+      userId,
+      userEmail,
+      displayName,
+      avatarUrl,
     ]
   );
 

@@ -13,6 +13,7 @@ from app.models.entities import (
   OutfitSuggestion,
   StyleDNA,
   DripScoreHistory,
+  EventLog,
 )
 
 __all__ = [

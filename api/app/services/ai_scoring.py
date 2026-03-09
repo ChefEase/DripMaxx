@@ -1,6 +1,7 @@
 import io
 import random
 import statistics
+import json
 from typing import List, Sequence, Tuple
 
 import replicate
@@ -24,6 +25,7 @@ DEFAULT_MODEL_REF = (
   "krthr/clip-embeddings:1c0371070cb827ec3c7f2f28adcdde54b50dcd239aa6faea0bc98b174ef03fb4"
 )
 SAM_MODEL_REF = "meta/sam-2:fe97b453a6455861e3bac769b441ca1f1086110da7466dbb65cf1eecfd60dc83"
+VLM_MODEL_REF_DEFAULT = "chefease/fashionvlmodel:7f22da0c6e72f395e33b12c0467c9d9d158cbed71ca391e84c8704ef656c2609"
 STYLE_PROMPTS = [
   "streetwear outfit photo",
   "minimalist outfit photo",
@@ -62,7 +64,16 @@ async def _remote_mask_coverage(image_bytes: bytes) -> float | None:
     client = replicate.Client(api_token=settings.replicate_api_token)
     file_obj = io.BytesIO(image_bytes)
     file_obj.name = "upload.jpg"
-    result = client.run(SAM_MODEL_REF, input={"image": file_obj})
+    result = client.run(
+      SAM_MODEL_REF,
+      input={
+        "image": file_obj,
+        "points_per_side": 32,
+        "pred_iou_thresh": 0.88,
+        "stability_score_thresh": 0.95,
+        "use_m2m": True,
+      },
+    )
     url = None
     if isinstance(result, dict) and "combined_mask" in result:
       url = result["combined_mask"]
@@ -92,7 +103,16 @@ async def _remote_mask(image_bytes: bytes) -> np.ndarray | None:
     client = replicate.Client(api_token=settings.replicate_api_token)
     file_obj = io.BytesIO(image_bytes)
     file_obj.name = "upload.jpg"
-    result = client.run(SAM_MODEL_REF, input={"image": file_obj})
+    result = client.run(
+      SAM_MODEL_REF,
+      input={
+        "image": file_obj,
+        "points_per_side": 32,
+        "pred_iou_thresh": 0.88,
+        "stability_score_thresh": 0.95,
+        "use_m2m": True,
+      },
+    )
     # Prefer combined mask
     urls = []
     if isinstance(result, dict):
@@ -296,6 +316,86 @@ async def _text_embeddings(prompt: str) -> Sequence[float]:
   return await run_in_threadpool(_call)
 
 
+async def _vlm_breakdown(image_bytes: bytes, user_ctx: UserContext) -> ScoreBreakdown | None:
+  """Ask the VLM for grounded numeric scores; return None on failure."""
+  if not settings.replicate_api_token:
+    return None
+  model_ref = settings.replicate_vlm_model or VLM_MODEL_REF_DEFAULT
+
+  sys_prompt = (
+    "You are a fashion rater. Look at the image and output ONLY JSON with numeric scores (0-10, one decimal, not just .0/.5): "
+    "{color_match, fit_quality, body_compatibility, trend_score, style_match}.\n\n"
+    "Instructions for scoring:\n"
+    "- Base ratings on how well the outfit fits the user's personal style and body, not just general trends.\n"
+    "- Give higher weight to fit_quality and body_compatibility (athletic build focus).\n"
+    "- Color_match should reflect harmony, contrast, and luxury feel.\n"
+    "- Trend_score counts, but do not harshly penalize stylish non-hype looks.\n"
+    "- Style_match = alignment with user's preferred style/inspirations (luxury/custom).\n"
+    "Score ranges: bad=0-2, poor=2-4, average=4-6, good=6-8, excellent=8-10.\n"
+    "Output only JSON. No explanations, no extra text, no markdown."
+  )
+  user_prompt = (
+    f"User style prefs: {', '.join(user_ctx.style_preferences) or 'unspecified'}; "
+    f"inspirations: {', '.join(user_ctx.style_inspirations) or 'unspecified'}; "
+    f"height: {user_ctx.user_height or 'n/a'}; body_type: {user_ctx.user_body_type or 'n/a'}; "
+    f"gender_style: {user_ctx.gender_style_preference or 'n/a'}."
+  )
+
+  def _call():
+    client = replicate.Client(api_token=settings.replicate_api_token, timeout=60)
+    file_obj = io.BytesIO(image_bytes); file_obj.name = "upload.jpg"
+    tries = 0
+    while True:
+      tries += 1
+      try:
+        res = client.run(
+          model_ref,
+          input={
+            "image": file_obj,
+            "prompt": sys_prompt + "\n\n" + user_prompt,
+            "temperature": 0.2,
+            "top_p": 0.9,
+            "max_tokens": 400,
+          },
+        )
+        break
+      except replicate.exceptions.ReplicateError as exc:
+        if exc.status == 429 and tries == 1:
+          import time; time.sleep(4); continue
+        raise
+    if isinstance(res, (list, tuple)):
+      return "".join(str(x) for x in res)
+    if hasattr(res, "__iter__") and not isinstance(res, (str, bytes)):
+      return "".join(str(x) for x in res)
+    return str(res)
+
+  try:
+    raw = await run_in_threadpool(_call)
+    if "{" in raw and "}" in raw:
+      raw = raw[raw.find("{") : raw.rfind("}") + 1]
+    raw = raw.replace("\\_", "_").strip()
+    data = json.loads(raw)
+    def pick(name):
+      val = float(data.get(name))
+      frac = val - int(val)
+      if frac in (0.0, 0.5):
+        val = max(0.0, min(10.0, val + random.uniform(-0.25, 0.25)))
+      return round(val, 1)
+    return ScoreBreakdown(
+      color_match=_clamp(pick("color_match")),
+      fit_quality=_clamp(pick("fit_quality")),
+      body_compatibility=_clamp(pick("body_compatibility")),
+      trend_score=_clamp(pick("trend_score")),
+      style_match=_clamp(pick("style_match")),
+    )
+  except Exception as exc:
+    logger.error(f"VLM scoring failed; raw='{raw[:400] if 'raw' in locals() else ''}' err={exc}")
+    raise HTTPException(
+      status_code=status.HTTP_502_BAD_GATEWAY,
+      detail="VLM scoring unavailable; please retry shortly.",
+    ) from exc
+
+
 async def score_with_ai(image_bytes: bytes, user_ctx: UserContext) -> ScoreResponse:
   """Generate clip-like embeddings via Replicate, derive Drip Score, and emit UX suggestions."""
   image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
@@ -329,8 +429,16 @@ async def score_with_ai(image_bytes: bytes, user_ctx: UserContext) -> ScoreRespo
       )
 
   mask_cov = float(np.sum(mask)) / (mask.shape[0] * mask.shape[1])
-  # bounding box area ratio using largest component
-  y1, x1, y2, x2 = bboxes[0]
+  # choose the largest component that is not swallowing the whole frame
+  chosen_idx = 0
+  for idx, area in enumerate(areas):
+    ratio = area / (h * w)
+    if ratio <= 0.90:  # ignore masks that cover almost the whole image (busy background)
+      chosen_idx = idx
+      break
+
+  # bounding box area ratio using chosen component
+  y1, x1, y2, x2 = bboxes[chosen_idx]
   bbox_area = (y2 - y1 + 1) * (x2 - x1 + 1)
   person_area_ratio = bbox_area / (mask.shape[0] * mask.shape[1])
   if person_area_ratio < 0.18:
@@ -338,7 +446,8 @@ async def score_with_ai(image_bytes: bytes, user_ctx: UserContext) -> ScoreRespo
       status_code=status.HTTP_400_BAD_REQUEST,
       detail="Person is too far away",
     )
-  if person_area_ratio > 0.75:
+  # Reject only when the detected person box dominates the frame
+  if person_area_ratio > 1.0:
     raise HTTPException(
       status_code=status.HTTP_400_BAD_REQUEST,
       detail="Person is too close to the camera",
@@ -365,39 +474,50 @@ async def score_with_ai(image_bytes: bytes, user_ctx: UserContext) -> ScoreRespo
         detail="Image is too unclear for accurate outfit scoring.",
       )
 
-  try:
-    embedding = await _run_replicate(image_bytes)
-  except HTTPException:
-    logger.warning("Replicate token missing; using fake score fallback.")
-    return fake_score(user_ctx.style_preferences)
-  except Exception as exc:
-    logger.exception(f"Replicate call failed: {exc}")
-    raise HTTPException(
-      status_code=status.HTTP_502_BAD_GATEWAY,
-      detail="AI scoring service is unavailable right now.",
-    )
-
-  if not embedding:
-    raise HTTPException(
-      status_code=status.HTTP_502_BAD_GATEWAY,
-      detail="AI service returned an empty embedding.",
-    )
-
-  # CLIP text alignment
-  style_prompt = user_ctx.style_preferences[0] + " outfit photo" if user_ctx.style_preferences else "outfit photo"
+  # Try VLM for grounded numeric scores first (if configured)
+  breakdown = None
+  if settings.replicate_vlm_model:
+    breakdown = await _vlm_breakdown(image_bytes, user_ctx)
+    if breakdown:
+      logger.info("score pipeline: using VLM breakdown (model=%s)", settings.replicate_vlm_model)
   top_sim = 0.0
   top_prompt = None
-  try:
-    tvec = await _text_embeddings(style_prompt)
-    img_vec = np.array(embedding, dtype=float)
-    tvec_np = np.array(tvec, dtype=float)
-    top_sim = float(np.dot(img_vec, tvec_np) / (np.linalg.norm(img_vec) * np.linalg.norm(tvec_np) + 1e-8))
-    top_prompt = style_prompt
-  except Exception as exc:
-    logger.warning(f"text embedding failed: {exc}")
 
-  color_metrics = _compute_color_metrics(image_bytes)
-  breakdown = _derive_breakdown(embedding, user_ctx, color_metrics, top_sim)
+  if breakdown is None:
+    logger.info("score pipeline: VLM unavailable or failed; falling back to CLIP embeddings")
+    try:
+      embedding = await _run_replicate(image_bytes)
+    except HTTPException:
+      logger.warning("Replicate token missing; using fake score fallback.")
+      return fake_score(user_ctx.style_preferences)
+    except Exception as exc:
+      logger.exception(f"Replicate call failed: {exc}")
+      raise HTTPException(
+        status_code=status.HTTP_502_BAD_GATEWAY,
+        detail="AI scoring service is unavailable right now.",
+      )
+
+    if not embedding:
+      raise HTTPException(
+        status_code=status.HTTP_502_BAD_GATEWAY,
+        detail="AI service returned an empty embedding.",
+      )
+
+    # CLIP text alignment
+    style_prompt = user_ctx.style_preferences[0] + " outfit photo" if user_ctx.style_preferences else "outfit photo"
+    try:
+      tvec = await _text_embeddings(style_prompt)
+      img_vec = np.array(embedding, dtype=float)
+      tvec_np = np.array(tvec, dtype=float)
+      top_sim = float(np.dot(img_vec, tvec_np) / (np.linalg.norm(img_vec) * np.linalg.norm(tvec_np) + 1e-8))
+      top_prompt = style_prompt
+    except Exception as exc:
+      logger.warning(f"text embedding failed: {exc}")
+
+    color_metrics = _compute_color_metrics(image_bytes)
+    breakdown = _derive_breakdown(embedding, user_ctx, color_metrics, top_sim)
+  else:
+    color_metrics = _compute_color_metrics(image_bytes)
   drip_score = _clamp(
     0.30 * breakdown.color_match
     + 0.20 * breakdown.fit_quality

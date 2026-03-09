@@ -1,4 +1,5 @@
 import enum
+import uuid
 from sqlalchemy import (
   Boolean,
   CheckConstraint,
@@ -13,11 +14,15 @@ from sqlalchemy import (
   UniqueConstraint,
   Index,
   func,
+  JSON,
+  text,
 )
-from sqlalchemy.dialects.postgresql import UUID, JSONB, ARRAY
-from sqlalchemy.sql import text
-
 from app.db.session import Base
+
+# SQLite-safe UUID string column
+UUID_STR = String(36)
+def _uuid():
+  return str(uuid.uuid4())
 
 
 class BodyTypeEnum(str, enum.Enum):
@@ -45,7 +50,7 @@ class SuggestionTypeEnum(str, enum.Enum):
 class User(Base):
   __tablename__ = "users"
 
-  id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
+  id = Column(UUID_STR, primary_key=True, default=_uuid)
   auth_id = Column(Text, unique=True)
   email = Column(Text, unique=True)
   display_name = Column(Text)
@@ -57,7 +62,7 @@ class User(Base):
 class UserProfile(Base):
   __tablename__ = "user_profile"
 
-  user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+  user_id = Column(UUID_STR, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
   style_preference = Column(Text)
   height_cm = Column(Numeric(5, 2))
   body_type = Column(Enum(BodyTypeEnum, name="body_type_enum", create_constraint=True))
@@ -81,7 +86,7 @@ class StyleInspirationCatalog(Base):
 class UserStyleInspiration(Base):
   __tablename__ = "user_style_inspiration"
 
-  user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+  user_id = Column(UUID_STR, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
   inspiration_id = Column(Integer, ForeignKey("style_inspiration_catalog.id", ondelete="CASCADE"), primary_key=True)
   created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
@@ -89,8 +94,8 @@ class UserStyleInspiration(Base):
 class UserCustomInspiration(Base):
   __tablename__ = "user_custom_inspiration"
 
-  id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
-  user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"))
+  id = Column(UUID_STR, primary_key=True, default=_uuid)
+  user_id = Column(UUID_STR, ForeignKey("users.id", ondelete="CASCADE"))
   label = Column(Text, nullable=False)
   created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
@@ -101,8 +106,8 @@ class Outfit(Base):
     Index("idx_outfits_user_id_scanned_at", "user_id", "scanned_at"),
   )
 
-  id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
-  user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"))
+  id = Column(UUID_STR, primary_key=True, default=_uuid)
+  user_id = Column(UUID_STR, ForeignKey("users.id", ondelete="CASCADE"))
   source = Column(Text, nullable=False)
   image_url = Column(Text, nullable=False)
   thumb_url = Column(Text)
@@ -126,8 +131,8 @@ class OutfitScore(Base):
     Index("idx_outfit_scores_drip_score", "drip_score"),
   )
 
-  id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
-  outfit_id = Column(UUID(as_uuid=True), ForeignKey("outfits.id", ondelete="CASCADE"), nullable=False)
+  id = Column(UUID_STR, primary_key=True, default=_uuid)
+  outfit_id = Column(UUID_STR, ForeignKey("outfits.id", ondelete="CASCADE"), nullable=False)
 
   color_match = Column(Numeric(4, 2))
   fit_quality = Column(Numeric(4, 2))
@@ -137,7 +142,7 @@ class OutfitScore(Base):
   drip_score = Column(Numeric(4, 2))
 
   model_version = Column(Text)
-  raw_features = Column(JSONB)
+  raw_features = Column(JSON)
   created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
 
@@ -147,8 +152,8 @@ class OutfitSuggestion(Base):
     Index("idx_outfit_suggestions_outfit_rank", "outfit_id", "rank"),
   )
 
-  id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
-  outfit_id = Column(UUID(as_uuid=True), ForeignKey("outfits.id", ondelete="CASCADE"))
+  id = Column(UUID_STR, primary_key=True, default=_uuid)
+  outfit_id = Column(UUID_STR, ForeignKey("outfits.id", ondelete="CASCADE"))
   type = Column(Enum(SuggestionTypeEnum, name="suggestion_type_enum", create_constraint=True), nullable=False)
   title = Column(Text, nullable=False)
   description = Column(Text)
@@ -162,12 +167,12 @@ class OutfitSuggestion(Base):
 class StyleDNA(Base):
   __tablename__ = "style_dna"
 
-  user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+  user_id = Column(UUID_STR, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
   label = Column(Text)
   description = Column(Text)
-  tags = Column(ARRAY(Text), server_default=text("'{}'::text[]"))
-  embedding = Column(JSONB)  # placeholder until pgvector is available
-  metadata_json = Column("metadata", JSONB)
+  tags = Column(JSON, default=list)
+  embedding = Column(JSON)  # placeholder until pgvector is available
+  metadata_json = Column("metadata", JSON)
   updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
 
@@ -177,8 +182,19 @@ class DripScoreHistory(Base):
     Index("idx_drip_score_history_user_time", "user_id", "recorded_at"),
   )
 
-  id = Column(UUID(as_uuid=True), primary_key=True, server_default=text("gen_random_uuid()"))
-  user_id = Column(UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"))
-  outfit_id = Column(UUID(as_uuid=True), ForeignKey("outfits.id", ondelete="SET NULL"))
+  id = Column(UUID_STR, primary_key=True, default=_uuid)
+  user_id = Column(UUID_STR, ForeignKey("users.id", ondelete="CASCADE"))
+  outfit_id = Column(UUID_STR, ForeignKey("outfits.id", ondelete="SET NULL"))
   drip_score = Column(Numeric(4, 2))
   recorded_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
+class EventLog(Base):
+  __tablename__ = "event_log"
+  __table_args__ = (Index("idx_event_log_user_time", "user_id", "created_at"),)
+
+  id = Column(UUID_STR, primary_key=True, default=_uuid)
+  user_id = Column(UUID_STR, nullable=True)
+  name = Column(Text, nullable=False)
+  payload = Column(JSON)
+  created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())

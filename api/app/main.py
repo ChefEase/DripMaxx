@@ -1,7 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api import routes_health, routes_outfits
+from app.api import routes_health, routes_outfits, routes_profile, routes_events
 from app.core.config import get_settings
 from app.core.logging import setup_logging
 from app.db.init_db import init_db
@@ -32,3 +32,5 @@ async def on_startup():
 
 app.include_router(routes_health.router)
 app.include_router(routes_outfits.router)
+app.include_router(routes_profile.router)
+app.include_router(routes_events.router)

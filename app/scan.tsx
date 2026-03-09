@@ -7,16 +7,30 @@ import {
   Pressable,
   Image,
   Alert,
+  ScrollView,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../App";
 import * as ImagePicker from "expo-image-picker";
+import { useStore } from "./store";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { trackEvent } from "./lib/analytics";
+import { ActivityIndicator } from "react-native";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 export default function ScanStubScreen() {
   const navigation = useNavigation<Nav>();
+  const {
+    stylePreferences,
+    styleInspirations,
+    userHeight,
+    userBodyType,
+    genderStylePreference,
+    userId,
+    setUserId,
+  } = useStore();
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [isScoring, setIsScoring] = useState(false);
   const [saved, setSaved] = useState(false);
@@ -41,6 +55,7 @@ export default function ScanStubScreen() {
 
   const handleStartScan = () => {
     console.log("[ScanStubScreen] Start Scan pressed");
+    trackEvent("scan_started", {}, userId);
     Alert.alert(
       "Pick an option",
       "Capture with camera or choose from gallery.",
@@ -114,11 +129,12 @@ export default function ScanStubScreen() {
       form.append(
         "user_context",
         JSON.stringify({
-          style_preferences: ["streetwear"],
-          style_inspirations: ["ASAP Rocky"],
-          user_height: "180",
-          user_body_type: "athletic",
-          gender_style_preference: "menswear",
+          style_preferences: stylePreferences.length ? stylePreferences : ["unspecified"],
+          style_inspirations: styleInspirations.length ? styleInspirations : [],
+          user_height: userHeight || "n/a",
+          user_body_type: userBodyType || "n/a",
+          gender_style_preference: genderStylePreference || "n/a",
+          user_id: userId || null,
         })
       );
 
@@ -136,6 +152,30 @@ export default function ScanStubScreen() {
       }
 
       const data = await resp.json();
+      // Sync profile to backend
+      try {
+        const profileResp = await fetch(`${API_BASE}/v1/profile/sync`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            user_id: userId,
+            style_preferences: stylePreferences,
+            style_inspirations: styleInspirations,
+            user_height: userHeight || null,
+            user_body_type: userBodyType,
+            gender_style_preference: genderStylePreference,
+          }),
+        });
+        if (profileResp.ok) {
+          const pr = await profileResp.json();
+          if (pr?.user_id && pr.user_id !== userId) {
+            setUserId(pr.user_id);
+            AsyncStorage.setItem("dripmaxx:userId", pr.user_id).catch(() => {});
+          }
+        }
+      } catch (e) {
+        console.warn("profile sync failed", e);
+      }
       const categories = [
         { label: "Color Match", value: data.breakdown.color_match },
         { label: "Fit Quality", value: data.breakdown.fit_quality },
@@ -149,6 +189,11 @@ export default function ScanStubScreen() {
         suggestions: data.suggestions,
         warnings: data.warnings || [],
       });
+      trackEvent(
+        "score_viewed",
+        { drip_score: data.drip_score, suggestion_count: data.suggestions?.length || 0 },
+        userId
+      );
     } catch (err: any) {
       console.error("score failed", err);
       Alert.alert("Scoring failed", err?.message || "Try again in a moment.");
@@ -165,12 +210,16 @@ export default function ScanStubScreen() {
 
   const handleSaveOutfit = () => {
     setSaved(true);
+    trackEvent("outfit_saved", { dripScore: result?.dripScore }, userId);
     Alert.alert("Saved locally", "This outfit was saved for this session.");
   };
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
+      <ScrollView
+        contentContainerStyle={styles.container}
+        showsVerticalScrollIndicator={false}
+      >
         <View>
           <Text style={styles.stepLabel}>Core Experience</Text>
           <Text style={styles.title}>Scan your outfit</Text>
@@ -178,6 +227,12 @@ export default function ScanStubScreen() {
             This is the core scan screen. We&apos;ll wire up the camera and AI
             rating in later phases.
           </Text>
+          <View style={styles.guidelineCard}>
+            <Text style={styles.guidelineTitle}>Best results</Text>
+            <Text style={styles.guidelineItem}>• Stand centered with full body in frame.</Text>
+            <Text style={styles.guidelineItem}>• Keep a simple, non-busy background.</Text>
+            <Text style={styles.guidelineItem}>• Leave some space above head and below feet.</Text>
+          </View>
         </View>
 
         {imageUri ? (
@@ -218,6 +273,11 @@ export default function ScanStubScreen() {
 
         {result ? (
           <View style={styles.resultCard}>
+            {isScoring && (
+              <View style={styles.loadingOverlay}>
+                <ActivityIndicator size="large" color="#22C55E" />
+              </View>
+            )}
             <View style={styles.resultHeader}>
               <Text style={styles.resultLabel}>Drip Score</Text>
               <Text style={styles.resultValue}>{result.dripScore}/10</Text>
@@ -274,7 +334,7 @@ export default function ScanStubScreen() {
             <Text style={styles.scanButtonText}>Start Drip Scan</Text>
           </Pressable>
         </View>
-      </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
@@ -285,10 +345,10 @@ const styles = StyleSheet.create({
     backgroundColor: "#020617",
   },
   container: {
-    flex: 1,
     paddingHorizontal: 24,
     paddingVertical: 32,
-    justifyContent: "space-between",
+    gap: 18,
+    paddingBottom: 48,
   },
   stepLabel: {
     fontSize: 13,
@@ -305,8 +365,25 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#9CA3AF",
   },
+  guidelineCard: {
+    marginTop: 12,
+    padding: 12,
+    borderRadius: 12,
+    backgroundColor: "#0F172A",
+    borderWidth: 1,
+    borderColor: "#1F2937",
+    gap: 4,
+  },
+  guidelineTitle: {
+    color: "#E5E7EB",
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  guidelineItem: {
+    color: "#9CA3AF",
+    fontSize: 13,
+  },
   previewCard: {
-    flex: 1,
     marginVertical: 24,
     borderRadius: 16,
     borderWidth: 1,
@@ -370,6 +447,19 @@ const styles = StyleSheet.create({
     padding: 16,
     backgroundColor: "#0B1224",
     gap: 12,
+    position: "relative",
+  },
+  loadingOverlay: {
+    position: "absolute",
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: "#0B1224AA",
+    alignItems: "center",
+    justifyContent: "center",
+    borderRadius: 16,
+    zIndex: 2,
   },
   resultHeader: {
     flexDirection: "row",

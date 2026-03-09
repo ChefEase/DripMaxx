@@ -30,6 +30,7 @@ class UserContext(BaseModel):
   user_height: Optional[str] = None
   user_body_type: Optional[str] = None
   gender_style_preference: Optional[str] = None
+  user_id: Optional[str] = None
 
 
 class ScoreRequest(BaseModel):

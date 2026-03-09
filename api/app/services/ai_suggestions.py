@@ -1,4 +1,5 @@
 import json
+import io
 import time
 from typing import List
 
@@ -11,55 +12,77 @@ from app.core.config import get_settings
 from app.schemas.outfits import ScoreBreakdown, SuggestionCard, UserContext
 
 settings = get_settings()
-DEFAULT_LLM_MODEL = "meta/meta-llama-3-70b-instruct"
-PROMPT_TEMPLATE = "{prompt}"  # disable extra formatting on the server side
 
 
-def _build_prompt(breakdown: ScoreBreakdown, user_ctx: UserContext) -> str:
-  sys_msg = (
-    "You are a sharp fashion assistant creating short, punchy improvement cards for an outfit. "
-    "Return 15 suggestions as a JSON array of objects with fields: title (<=8 words), "
-    "type (one of fit, layering, color, accessory, other), description (<=25 words, actionable). "
-    "No extra text, just valid JSON."
-  )
-  user_msg = (
-    "User style prefs: "
-    f"{', '.join(user_ctx.style_preferences) or 'unspecified'}; "
-    f"inspirations: {', '.join(user_ctx.style_inspirations) or 'unspecified'}; "
-    f"height: {user_ctx.user_height or 'n/a'}; "
-    f"body_type: {user_ctx.user_body_type or 'n/a'}; "
-    f"gender_style: {user_ctx.gender_style_preference or 'n/a'}. "
-    "Scores (0-10): "
-    f"color_match={breakdown.color_match}, fit_quality={breakdown.fit_quality}, "
-    f"body_compatibility={breakdown.body_compatibility}, trend_score={breakdown.trend_score}, "
-    f"style_match={breakdown.style_match}. "
-    "Create specific, respectful tweaks that would raise the weakest areas first."
-  )
-  return (
-    "<|begin_of_text|><|start_header_id|>system<|end_header_id|>\n"
-    f"{sys_msg}\n"
-    "<|eot_id|><|start_header_id|>user<|end_header_id|>\n"
-    f"{user_msg}\n"
-    "<|eot_id|><|start_header_id|>assistant<|end_header_id|>\n"
-  )
+def _parse_suggestions(raw: str) -> List[SuggestionCard]:
+  text = raw.strip()
+  if "[" in text and "]" in text:
+    text = text[text.index("[") : text.rindex("]") + 1]
+  text = text.replace("\\_", "_").strip()
+  try:
+    data = json.loads(text)
+  except Exception:
+    data = None
+    import re
+    # Fallback: extract repeating title/type/description triples even if braces are broken
+    titles = re.findall(r'"title"\s*:\s*"([^"]+)"', text)
+    types = re.findall(r'"type"\s*:\s*"([^"]+)"', text)
+    descs = re.findall(r'"description"\s*:\s*"([^"]+)"', text)
+    items = []
+    for idx, title in enumerate(titles):
+      desc = descs[idx] if idx < len(descs) else ""
+      typ = types[idx] if idx < len(types) else "other"
+      items.append({"title": title, "type": typ, "description": desc})
+    if items:
+      data = items
+
+  cards: List[SuggestionCard] = []
+  if isinstance(data, list):
+    for item in data[:15]:
+      if not isinstance(item, dict):
+        continue
+      title = (item.get("title") or "").strip()
+      desc = (item.get("description") or item.get("desc") or item.get("suggestion") or "").strip()
+      type_tag = (item.get("type") or item.get("category") or "other").strip()
+      if title and desc:
+        cards.append(SuggestionCard(title=title, type=type_tag, description=desc))
+  return cards
 
 
 async def generate_suggestions(
   breakdown: ScoreBreakdown, user_ctx: UserContext, image_bytes: bytes
 ) -> List[SuggestionCard]:
+  """Use a vision-language model (VLM) to generate grounded suggestions from the actual image."""
   if not settings.replicate_api_token:
     raise HTTPException(
       status_code=503,
       detail="Replicate API token missing for suggestions.",
     )
 
-  prompt = _build_prompt(breakdown, user_ctx)
+  sys_prompt = (
+    "You are a fashion assistant. Look at the image and produce 15 outfit improvement tips as a JSON array. "
+    "Each item: {\"title\": <=8 words, \"type\": one of [fit, layering, color, accessory, other], "
+    "\"description\": <=25 words, actionable and respectful}. "
+    "Do not repeat the same idea. Balance across types; avoid listing only accessories. "
+    "Ground every tip in what is actually visible. Do NOT invent garments that are not visible. "
+    "Return ONLY valid JSON array, exactly 15 objects, no trailing commas, no extra text."
+  )
+  user_prompt = (
+    f"User style prefs: {', '.join(user_ctx.style_preferences) or 'unspecified'}; "
+    f"inspirations: {', '.join(user_ctx.style_inspirations) or 'unspecified'}; "
+    f"height: {user_ctx.user_height or 'n/a'}; body_type: {user_ctx.user_body_type or 'n/a'}; "
+    f"gender_style: {user_ctx.gender_style_preference or 'n/a'}. "
+    f"Scores (0-10): color_match={breakdown.color_match}, fit_quality={breakdown.fit_quality}, "
+    f"body_compatibility={breakdown.body_compatibility}, trend_score={breakdown.trend_score}, "
+    f"style_match={breakdown.style_match}. "
+    "Focus first on weakest scores. Output JSON array only."
+  )
 
-  def _call_llm():
-    client = replicate.Client(api_token=settings.replicate_api_token, timeout=30)
-    model_ref = settings.replicate_llm_model or DEFAULT_LLM_MODEL
-    if ":" not in model_ref:
-      model_ref = DEFAULT_LLM_MODEL
+  def _call_vlm():
+    client = replicate.Client(api_token=settings.replicate_api_token, timeout=60)
+    model_ref = settings.replicate_vlm_model
+    file_obj = io.BytesIO(image_bytes)
+    file_obj.name = "upload.jpg"
     tries = 0
     while True:
       tries += 1
@@ -67,14 +90,11 @@ async def generate_suggestions(
         result = client.run(
           model_ref,
           input={
-            "prompt": prompt,
-            "prompt_template": PROMPT_TEMPLATE,
-            "max_tokens": 650,
-            "min_tokens": 220,
+            "image": file_obj,
+            "prompt": sys_prompt + "\n\n" + user_prompt,
+            "temperature": 0.2,
             "top_p": 0.9,
-            "temperature": 0.6,
-            "presence_penalty": 0.15,
-            "frequency_penalty": 0.1,
+            "max_tokens": 900,
           },
         )
         break
@@ -83,64 +103,37 @@ async def generate_suggestions(
           time.sleep(4)
           continue
         raise
-    return "".join(result) if isinstance(result, list) else str(result)
+    if isinstance(result, (list, tuple)):
+      return "".join(str(x) for x in result)
+    if hasattr(result, "__iter__") and not isinstance(result, (str, bytes)):
+      return "".join(str(x) for x in result)
+    return str(result)
 
-  raw = await run_in_threadpool(_call_llm)
+  raw = await run_in_threadpool(_call_vlm)
+  cards = _parse_suggestions(raw)
+  # post-filter: dedupe titles, normalize types, cap 15, prefer type diversity
+  seen = set()
+  normalized = []
+  allowed_types = {"fit", "layering", "color", "accessory", "other"}
+  for c in cards:
+    title_key = c.title.strip().lower()
+    if title_key in seen:
+      continue
+    seen.add(title_key)
+    c.type = c.type.lower()
+    if c.type not in allowed_types:
+      c.type = "other"
+    normalized.append(c)
+  # ensure mix: sort to favor non-accessory first then accessories
+  normalized.sort(key=lambda c: 1 if c.type == "accessory" else 0, reverse=False)
+  cards = normalized[:15]
 
-  def parse_cards(text: str) -> List[SuggestionCard]:
-    # try full JSON
-    candidates = []
-    try:
-      obj = json.loads(text)
-      if isinstance(obj, list):
-        candidates = obj
-    except Exception:
-      pass
-
-    # salvage between first [ and last ]
-    if not candidates and "[" in text and "]" in text:
-      frag = text[text.find("[") : text.rfind("]") + 1]
-      try:
-        obj = json.loads(frag)
-        if isinstance(obj, list):
-          candidates = obj
-      except Exception:
-        pass
-
-    # salvage line-by-line objects
-    if not candidates:
-      for line in text.splitlines():
-        line = line.strip().rstrip(",")
-        if line.startswith("{") and line.endswith("}"):
-          try:
-            obj = json.loads(line)
-            if isinstance(obj, dict):
-              candidates.append(obj)
-          except Exception:
-            continue
-
-    cards: List[SuggestionCard] = []
-    for item in candidates:
-      if not isinstance(item, dict):
-        continue
-      title = (item.get("title") or "").strip()
-      desc = (item.get("description") or item.get("desc") or "").strip()
-      type_tag = (item.get("type") or "other").strip()
-      if title and desc:
-        cards.append(SuggestionCard(title=title, type=type_tag, description=desc))
-
-    if not cards:
-      raise ValueError("no parseable JSON from LLM")
-    return cards[:15]
-
-  try:
-    cards = parse_cards(raw)
-  except Exception as exc:
-    logger.error(f"LLM suggestion parse failed; raw='{raw[:800]}' err={exc}")
+  if not cards:
+    logger.error(f"VLM suggestion parse failed; raw='{raw[:800]}'")
     raise HTTPException(
       status_code=502,
       detail="LLM suggestions unavailable; please retry shortly.",
-    ) from exc
+    )
 
-  logger.debug(f"LLM suggestions parsed {len(cards)} items")
+  logger.debug(f"VLM suggestions parsed {len(cards)} items")
   return cards

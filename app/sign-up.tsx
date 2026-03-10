@@ -1,0 +1,127 @@
+import React, { useState } from "react";
+import { SafeAreaView, View, Text, TextInput, Pressable, StyleSheet, Alert } from "react-native";
+import { supabase } from "./lib/supabase";
+import { useStore } from "./store";
+import { useNavigation } from "@react-navigation/native";
+import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+import type { RootStackParamList } from "../App";
+
+type Nav = NativeStackNavigationProp<RootStackParamList>;
+
+export default function SignUpScreen() {
+  const nav = useNavigation<Nav>();
+  const { setUserId, setUserEmail, setUsername, setDisplayName } = useStore();
+  const [username, setUsernameInput] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  const handleSignUp = async () => {
+    const normalizedUsername = username.trim().toLowerCase();
+    if (!normalizedUsername || !email || !password) {
+      Alert.alert("Missing info", "Enter username, email and password.");
+      return;
+    }
+    if (!/^[a-z0-9_]{3,20}$/.test(normalizedUsername)) {
+      Alert.alert("Invalid username", "Use 3-20 chars: lowercase letters, numbers, underscore.");
+      return;
+    }
+    setLoading(true);
+    try {
+      const { data, error } = await supabase.auth.signUp({
+        email,
+        password,
+        options: { data: { username: normalizedUsername } },
+      });
+      if (error) throw error;
+      const userId = data.user?.id;
+      if (!userId) throw new Error("No user returned");
+      const defaultName = normalizedUsername;
+      setUserId(userId);
+      setUserEmail(email);
+      setUsername(normalizedUsername);
+      setDisplayName(defaultName);
+      // sync to backend users table so style_dna/history can attach
+      try {
+        const base = process.env.EXPO_PUBLIC_API_BASE?.trim() || "http://127.0.0.1:8000";
+        await fetch(`${base}/v1/profile/sync`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ user_id: userId, username: normalizedUsername, email, display_name: defaultName }),
+        });
+      } catch (e) {
+        console.warn("profile sync on sign-up failed", e);
+      }
+      Alert.alert("Account created", "Check your email to confirm.", [
+        { text: "OK", onPress: () => nav.navigate("ValueProposition", { celebrate: true }) },
+      ]);
+    } catch (err: any) {
+      Alert.alert("Sign up failed", err.message || "Try again.");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <SafeAreaView style={styles.safeArea}>
+      <View style={styles.container}>
+        <Text style={styles.title}>Create your account</Text>
+        <TextInput
+          style={styles.input}
+          placeholder="Username (e.g. dripking_21)"
+          placeholderTextColor="#6B7280"
+          autoCapitalize="none"
+          value={username}
+          onChangeText={setUsernameInput}
+        />
+        <TextInput
+          style={styles.input}
+          placeholder="Email"
+          placeholderTextColor="#6B7280"
+          autoCapitalize="none"
+          keyboardType="email-address"
+          value={email}
+          onChangeText={setEmail}
+        />
+        <TextInput
+          style={styles.input}
+          placeholder="Password"
+          placeholderTextColor="#6B7280"
+          secureTextEntry
+          value={password}
+          onChangeText={setPassword}
+        />
+        <Pressable style={[styles.button, loading && { opacity: 0.7 }]} onPress={handleSignUp} disabled={loading}>
+          <Text style={styles.buttonText}>{loading ? "Working..." : "Create account"}</Text>
+        </Pressable>
+        <Pressable style={styles.linkButton} onPress={() => nav.navigate("Auth")}>
+          <Text style={styles.linkText}>Back to sign in</Text>
+        </Pressable>
+      </View>
+    </SafeAreaView>
+  );
+}
+
+const styles = StyleSheet.create({
+  safeArea: { flex: 1, backgroundColor: "#020617" },
+  container: { flex: 1, padding: 24, gap: 14, justifyContent: "center" },
+  title: { color: "#F9FAFB", fontSize: 22, fontWeight: "800" },
+  input: {
+    backgroundColor: "#0F172A",
+    borderWidth: 1,
+    borderColor: "#1F2937",
+    borderRadius: 12,
+    color: "#E5E7EB",
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  button: {
+    backgroundColor: "#22C55E",
+    paddingVertical: 14,
+    borderRadius: 12,
+    alignItems: "center",
+  },
+  buttonText: { color: "#022C22", fontWeight: "800", fontSize: 15 },
+  linkButton: { alignItems: "center", paddingVertical: 8 },
+  linkText: { color: "#A5B4FC", fontWeight: "700" },
+});

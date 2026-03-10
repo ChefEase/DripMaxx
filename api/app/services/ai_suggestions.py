@@ -50,7 +50,7 @@ def _parse_suggestions(raw: str) -> List[SuggestionCard]:
 
 
 async def generate_suggestions(
-  breakdown: ScoreBreakdown, user_ctx: UserContext, image_bytes: bytes
+  breakdown: ScoreBreakdown, user_ctx: UserContext, image_bytes: bytes, image_url: str | None = None
 ) -> List[SuggestionCard]:
   """Use a vision-language model (VLM) to generate grounded suggestions from the actual image."""
   if not settings.replicate_api_token:
@@ -60,29 +60,39 @@ async def generate_suggestions(
     )
 
   sys_prompt = (
-    "You are a fashion assistant. Look at the image and produce 15 outfit improvement tips as a JSON array. "
-    "Each item: {\"title\": <=8 words, \"type\": one of [fit, layering, color, accessory, other], "
-    "\"description\": <=25 words, actionable and respectful}. "
-    "Do not repeat the same idea. Balance across types; avoid listing only accessories. "
-    "Ground every tip in what is actually visible. Do NOT invent garments that are not visible. "
-    "Return ONLY valid JSON array, exactly 15 objects, no trailing commas, no extra text."
+    "You are a fashion assistant. Look at the image and provide 15 actionable outfit improvement suggestions. "
+    "Return ONLY a valid JSON array with up to 15 objects. "
+    "Each object must be: {\"title\": \"<=8 words\", \"type\": \"fit|layering|color|accessory|other\", "
+    "\"description\": \"<=25 words\", and it must be a specific suggestion, not a description. "
+    "All items must be unique and non-redundant. Do not repeat the same idea or wording. "
+    "Use varied verbs and phrasing; avoid repeating sentence patterns. "
+    "Be creative within what is visible; suggest distinct angles (fit, proportions, texture, contrast, silhouette, accessories). "
+    "Do NOT use score category names as titles (no 'Color Match', 'Fit Quality', 'Trend Score', etc). "
+    "Do NOT use types outside the allowed list. "
+    "Ground every tip in what is visible; do NOT invent garments. "
+    "Do NOT output captions, summaries, or image descriptions. Suggestions only. "
+    "No extra text, no markdown, no trailing commas."
   )
   user_prompt = (
     f"User style prefs: {', '.join(user_ctx.style_preferences) or 'unspecified'}; "
     f"inspirations: {', '.join(user_ctx.style_inspirations) or 'unspecified'}; "
     f"height: {user_ctx.user_height or 'n/a'}; body_type: {user_ctx.user_body_type or 'n/a'}; "
     f"gender_style: {user_ctx.gender_style_preference or 'n/a'}. "
-    f"Scores (0-10): color_match={breakdown.color_match}, fit_quality={breakdown.fit_quality}, "
+    f"Focus on weakest scores first: "
+    f"color_match={breakdown.color_match}, fit_quality={breakdown.fit_quality}, "
     f"body_compatibility={breakdown.body_compatibility}, trend_score={breakdown.trend_score}, "
     f"style_match={breakdown.style_match}. "
-    "Focus first on weakest scores. Output JSON array only."
+    "Output JSON array only."
   )
 
-  def _call_vlm():
+  def _call_vlm(prompt: str, temperature: float):
     client = replicate.Client(api_token=settings.replicate_api_token, timeout=60)
     model_ref = settings.replicate_vlm_model
-    file_obj = io.BytesIO(image_bytes)
-    file_obj.name = "upload.jpg"
+    image_input = image_url
+    if not image_input:
+      file_obj = io.BytesIO(image_bytes)
+      file_obj.name = "upload.jpg"
+      image_input = file_obj
     tries = 0
     while True:
       tries += 1
@@ -90,11 +100,11 @@ async def generate_suggestions(
         result = client.run(
           model_ref,
           input={
-            "image": file_obj,
-            "prompt": sys_prompt + "\n\n" + user_prompt,
-            "temperature": 0.2,
-            "top_p": 0.9,
-            "max_tokens": 900,
+            "image": image_input,
+            "prompt": prompt,
+            "temperature": temperature,
+            "top_p": 0.95,
+            "max_tokens": 1200,
           },
         )
         break
@@ -109,24 +119,29 @@ async def generate_suggestions(
       return "".join(str(x) for x in result)
     return str(result)
 
-  raw = await run_in_threadpool(_call_vlm)
+  base_prompt = sys_prompt + "\n\n" + user_prompt
+  raw = await run_in_threadpool(lambda: _call_vlm(base_prompt, 0.8))
   cards = _parse_suggestions(raw)
-  # post-filter: dedupe titles, normalize types, cap 15, prefer type diversity
-  seen = set()
+  # post-filter: normalize types, cap 15 (do not dedupe to avoid shrinking output)
   normalized = []
   allowed_types = {"fit", "layering", "color", "accessory", "other"}
   for c in cards:
-    title_key = c.title.strip().lower()
-    if title_key in seen:
-      continue
-    seen.add(title_key)
     c.type = c.type.lower()
     if c.type not in allowed_types:
       c.type = "other"
     normalized.append(c)
-  # ensure mix: sort to favor non-accessory first then accessories
-  normalized.sort(key=lambda c: 1 if c.type == "accessory" else 0, reverse=False)
   cards = normalized[:15]
+
+  # Reject repeated ideas (title + description) to enforce uniqueness.
+  seen = set()
+  unique_cards = []
+  for c in cards:
+    key = (c.title.strip().lower(), c.description.strip().lower())
+    if key in seen:
+      continue
+    seen.add(key)
+    unique_cards.append(c)
+  cards = unique_cards
 
   if not cards:
     logger.error(f"VLM suggestion parse failed; raw='{raw[:800]}'")

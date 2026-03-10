@@ -16,6 +16,12 @@ import ProfileScreen from "./app/profile";
 import PaywallScreen from "./app/paywall";
 import IntroScreen from "./app/intro";
 import ResetPasswordScreen from "./app/reset-password";
+import SignUpScreen from "./app/sign-up";
+import ForgotPasswordScreen from "./app/forgot-password";
+import LeaderboardScreen from "./app/leaderboard";
+import RankingGroupsScreen from "./app/ranking-groups";
+import UserProfileViewScreen from "./app/user-profile-view";
+import GroupLeaderboardScreen from "./app/group-leaderboard";
 import 'react-native-url-polyfill/auto';
 import { supabase } from "./app/lib/supabase";
 
@@ -27,10 +33,16 @@ export type RootStackParamList = {
   CameraPermission: undefined;
   Scan: undefined;
   Auth: undefined;
+  SignUp: undefined;
+  ForgotPassword: undefined;
   Profile: undefined;
   Paywall: undefined;
   ResetPassword: undefined;
   Intro: undefined;
+  Leaderboard: undefined;
+  RankingGroups: undefined;
+  GroupLeaderboard: { groupId: string; groupName?: string };
+  UserProfile: { userId: string };
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -42,6 +54,8 @@ export default function App() {
       screens: {
         ResetPassword: "reset-password",
         Auth: "auth",
+        SignUp: "sign-up",
+        ForgotPassword: "forgot-password",
         ValueProposition: "home",
       },
     },
@@ -98,6 +112,8 @@ export default function App() {
         >
           <Stack.Screen name="Intro" component={IntroScreen} />
           <Stack.Screen name="Auth" component={AuthScreen} />
+          <Stack.Screen name="SignUp" component={SignUpScreen} />
+          <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
           <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
           <Stack.Screen
             name="ValueProposition"
@@ -119,6 +135,10 @@ export default function App() {
           <Stack.Screen name="Paywall" component={PaywallScreen} />
           <Stack.Screen name="Scan" component={ScanStubScreen} />
           <Stack.Screen name="Profile" component={ProfileScreen} />
+          <Stack.Screen name="Leaderboard" component={LeaderboardScreen} />
+          <Stack.Screen name="RankingGroups" component={RankingGroupsScreen} />
+          <Stack.Screen name="GroupLeaderboard" component={GroupLeaderboardScreen} />
+          <Stack.Screen name="UserProfile" component={UserProfileViewScreen} />
         </Stack.Navigator>
       </NavigationContainer>
     </StoreProvider>

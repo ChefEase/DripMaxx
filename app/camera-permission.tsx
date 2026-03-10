@@ -34,13 +34,15 @@ export default function CameraPermissionScreen() {
       return;
     }
     trackEvent("onboard_completed", { camera: "granted" }, userId);
-    navigation.navigate("Paywall");
+    // Paywall temporarily disabled for testing.
+    navigation.navigate("Scan");
   };
 
   const handleNotNow = () => {
     console.log("[CameraPermissionScreen] Not Now pressed");
     trackEvent("onboard_completed", { camera: "skipped" }, userId);
-    navigation.navigate("Paywall");
+    // Paywall temporarily disabled for testing.
+    navigation.navigate("Scan");
   };
 
   const handleBack = () => {

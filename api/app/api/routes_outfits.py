@@ -1,4 +1,5 @@
 import json
+import logging
 
 from fastapi import APIRouter, File, UploadFile, Depends, HTTPException, status, Form
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -8,9 +9,12 @@ import uuid
 from app.schemas.outfits import ScoreResponse, UserContext
 from app.db.session import get_db
 from app.services.ai_scoring import score_with_ai
+from app.services.storage import upload_outfit_image
 from app.models import Outfit, OutfitScore, OutfitSuggestion, SuggestionTypeEnum, DripScoreHistory
+from app.services.usage_limits import get_scan_quota
 
 router = APIRouter(prefix="/v1/outfits", tags=["outfits"])
+logger = logging.getLogger(__name__)
 
 
 @router.post(
@@ -41,15 +45,32 @@ async def score_outfit(
       detail=f"Invalid user_context JSON: {exc}",
     ) from exc
 
+  if not user_ctx.user_id:
+    raise HTTPException(status_code=400, detail="Sign in is required before scanning.")
+
+  quota = await get_scan_quota(db, user_ctx.user_id)
+  if not quota["allowed"]:
+    raise HTTPException(
+      status_code=402,
+      detail={
+        "code": "scan_limit_reached",
+        "message": f"Scan limit reached for your {quota['plan']} plan.",
+        "plan": quota["plan"],
+        "limit_type": quota["limit_type"],
+        "limit": quota["limit"],
+        "used": quota["used"],
+      },
+    )
+
   image_bytes = await image.read()
   if not image_bytes:
     raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Image upload is empty.")
 
-  score = await score_with_ai(image_bytes, user_ctx)
-
-  # Persist outfit + score + suggestions
+  # Persist outfit first to get outfit_id, then upload image
+  style_tags = list(user_ctx.style_preferences) if user_ctx.style_preferences else []
   outfit = Outfit(
     user_id=None,
+    style_tags=style_tags,
     source="upload",
     image_url="uploaded://not-stored",
     notes=None,
@@ -59,6 +80,20 @@ async def score_outfit(
     outfit.user_id = user_ctx.user_id
   db.add(outfit)
   await db.flush()
+
+  # Upload image to Supabase Storage (before AI so AI can use URL)
+  content_type = image.content_type or "image/jpeg"
+  image_url = upload_outfit_image(image_bytes, outfit.id, user_ctx.user_id, content_type)
+  if image_url:
+    outfit.image_url = image_url
+  else:
+    logger.warning("outfit image upload failed; keeping placeholder URL for outfit_id=%s", outfit.id)
+    raise HTTPException(
+      status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+      detail="Image upload failed; check Supabase storage configuration.",
+    )
+
+  score = await score_with_ai(image_bytes, user_ctx, outfit.image_url)
 
   db.add(
     OutfitScore(

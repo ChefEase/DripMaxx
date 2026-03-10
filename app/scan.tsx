@@ -8,6 +8,7 @@ import {
   Image,
   Alert,
   ScrollView,
+  Modal,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -15,6 +16,7 @@ import type { RootStackParamList } from "../App";
 import * as ImagePicker from "expo-image-picker";
 import { useStore } from "./store";
 import AsyncStorage from "@react-native-async-storage/async-storage";
+import RankingsCard from "./components/RankingsCard";
 import { trackEvent } from "./lib/analytics";
 import { ActivityIndicator } from "react-native";
 
@@ -30,8 +32,10 @@ export default function ScanStubScreen() {
     genderStylePreference,
     userId,
     setUserId,
+    country,
   } = useStore();
   const [imageUri, setImageUri] = useState<string | null>(null);
+  const [previewOpen, setPreviewOpen] = useState(false);
   const [isScoring, setIsScoring] = useState(false);
   const [saved, setSaved] = useState(false);
   const [result, setResult] = useState<
@@ -148,6 +152,10 @@ export default function ScanStubScreen() {
 
       if (!resp.ok) {
         const text = await resp.text();
+        if (resp.status === 402) {
+          // Paywall temporarily disabled for testing.
+          throw new Error("Scan limit reached for this account.");
+        }
         throw new Error(`API ${resp.status}: ${text}`);
       }
 
@@ -164,6 +172,7 @@ export default function ScanStubScreen() {
             user_height: userHeight || null,
             user_body_type: userBodyType,
             gender_style_preference: genderStylePreference,
+            country: country || null,
           }),
         });
         if (profileResp.ok) {
@@ -278,9 +287,20 @@ export default function ScanStubScreen() {
                 <ActivityIndicator size="large" color="#22C55E" />
               </View>
             )}
-            <View style={styles.resultHeader}>
-              <Text style={styles.resultLabel}>Drip Score</Text>
-              <Text style={styles.resultValue}>{result.dripScore}/10</Text>
+            <View style={styles.resultTopRow}>
+              <View style={styles.resultHeader}>
+                <Text style={styles.resultLabel}>Drip Score</Text>
+                <Text style={styles.resultValue}>{result.dripScore}/10</Text>
+              </View>
+              {imageUri ? (
+                <Pressable
+                  style={styles.thumbnailBox}
+                  onPress={() => setPreviewOpen(true)}
+                >
+                  <Image source={{ uri: imageUri }} style={styles.thumbnailImage} />
+                  <Text style={styles.thumbnailHint}>Tap to expand</Text>
+                </Pressable>
+              ) : null}
             </View>
             <View style={styles.breakdown}>
               {result.categories.map((c) => (
@@ -306,6 +326,11 @@ export default function ScanStubScreen() {
                 </Text>
               ))}
             </View>
+            <RankingsCard
+              userId={userId}
+              compact
+              refreshTrigger={result?.dripScore}
+            />
             <View style={styles.resultActions}>
               <Pressable style={styles.secondaryButton} onPress={handleRescan}>
                 <Text style={styles.secondaryButtonText}>Rescan</Text>
@@ -335,6 +360,16 @@ export default function ScanStubScreen() {
           </Pressable>
         </View>
       </ScrollView>
+
+      <Modal transparent visible={previewOpen} animationType="fade">
+        <Pressable style={styles.previewOverlay} onPress={() => setPreviewOpen(false)}>
+          <View style={styles.previewModal}>
+            {imageUri ? (
+              <Image source={{ uri: imageUri }} style={styles.previewModalImage} />
+            ) : null}
+          </View>
+        </Pressable>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -462,9 +497,15 @@ const styles = StyleSheet.create({
     zIndex: 2,
   },
   resultHeader: {
+    flexDirection: "column",
+    alignItems: "flex-start",
+    gap: 2,
+  },
+  resultTopRow: {
     flexDirection: "row",
-    justifyContent: "space-between",
     alignItems: "center",
+    justifyContent: "space-between",
+    gap: 12,
   },
   resultLabel: {
     color: "#9CA3AF",
@@ -475,6 +516,27 @@ const styles = StyleSheet.create({
     color: "#F9FAFB",
     fontSize: 24,
     fontWeight: "800",
+  },
+  thumbnailBox: {
+    borderWidth: 1,
+    borderColor: "#1F2937",
+    backgroundColor: "#0F172A",
+    borderRadius: 12,
+    padding: 6,
+    alignItems: "center",
+    width: 110,
+  },
+  thumbnailImage: {
+    width: "100%",
+    aspectRatio: 3 / 4,
+    borderRadius: 8,
+    backgroundColor: "#111827",
+  },
+  thumbnailHint: {
+    marginTop: 6,
+    color: "#9CA3AF",
+    fontSize: 11,
+    fontWeight: "600",
   },
   breakdown: {
     gap: 6,
@@ -568,5 +630,27 @@ const styles = StyleSheet.create({
     color: "#022C22",
     fontSize: 15,
     fontWeight: "700",
+  },
+  previewOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(2, 6, 23, 0.9)",
+    justifyContent: "center",
+    alignItems: "center",
+    padding: 24,
+  },
+  previewModal: {
+    width: "100%",
+    maxWidth: 420,
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: "#1F2937",
+    backgroundColor: "#0B1224",
+    padding: 12,
+  },
+  previewModalImage: {
+    width: "100%",
+    aspectRatio: 3 / 4,
+    borderRadius: 12,
+    backgroundColor: "#111827",
   },
 });

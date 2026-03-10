@@ -5,14 +5,18 @@ from typing import List, Optional
 
 class ProfileSyncRequest(BaseModel):
   user_id: Optional[str] = None
+  username: Optional[str] = None
   email: Optional[str] = None
   display_name: Optional[str] = None
   avatar_url: Optional[str] = None
-  style_preferences: List[str] = Field(default_factory=list)
-  style_inspirations: List[str] = Field(default_factory=list)
+  style_preferences: Optional[List[str]] = None
+  style_inspirations: Optional[List[str]] = None
   user_height: Optional[float] = None
   user_body_type: Optional[str] = None
   gender_style_preference: Optional[str] = None
+  country: Optional[str] = None
+  locale: Optional[str] = None
+  profile_visibility: Optional[str] = None
 
 
 class ProfileSyncResponse(BaseModel):

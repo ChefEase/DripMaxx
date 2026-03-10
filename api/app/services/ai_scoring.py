@@ -55,19 +55,26 @@ def _compute_color_metrics(image_bytes: bytes) -> dict:
   return {"brightness": brightness, "contrast": contrast}
 
 
-async def _remote_mask_coverage(image_bytes: bytes) -> float | None:
+def _replicate_image_input(image_bytes: bytes, image_url: str | None):
+  if image_url:
+    return image_url
+  file_obj = io.BytesIO(image_bytes)
+  file_obj.name = "upload.jpg"
+  return file_obj
+
+
+async def _remote_mask_coverage(image_bytes: bytes, image_url: str | None = None) -> float | None:
   """Fallback using Replicate SAM-2; returns mask coverage ratio."""
   if not settings.replicate_api_token:
     return None
 
   def _call():
     client = replicate.Client(api_token=settings.replicate_api_token)
-    file_obj = io.BytesIO(image_bytes)
-    file_obj.name = "upload.jpg"
+    image_input = _replicate_image_input(image_bytes, image_url)
     result = client.run(
       SAM_MODEL_REF,
       input={
-        "image": file_obj,
+        "image": image_input,
         "points_per_side": 32,
         "pred_iou_thresh": 0.88,
         "stability_score_thresh": 0.95,
@@ -94,19 +101,18 @@ async def _remote_mask_coverage(image_bytes: bytes) -> float | None:
     return None
 
 
-async def _remote_mask(image_bytes: bytes) -> np.ndarray | None:
+async def _remote_mask(image_bytes: bytes, image_url: str | None = None) -> np.ndarray | None:
   """Get binary mask from SAM-2."""
   if not settings.replicate_api_token:
     return None
 
   def _call():
     client = replicate.Client(api_token=settings.replicate_api_token)
-    file_obj = io.BytesIO(image_bytes)
-    file_obj.name = "upload.jpg"
+    image_input = _replicate_image_input(image_bytes, image_url)
     result = client.run(
       SAM_MODEL_REF,
       input={
-        "image": file_obj,
+        "image": image_input,
         "points_per_side": 32,
         "pred_iou_thresh": 0.88,
         "stability_score_thresh": 0.95,
@@ -253,7 +259,7 @@ def _derive_breakdown(
   )
 
 
-async def _run_replicate(image_bytes: bytes) -> Sequence[float]:
+async def _run_replicate(image_bytes: bytes, image_url: str | None = None) -> Sequence[float]:
   if not settings.replicate_api_token:
     raise HTTPException(
       status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -265,13 +271,12 @@ async def _run_replicate(image_bytes: bytes) -> Sequence[float]:
     model_ref = settings.replicate_model or DEFAULT_MODEL_REF
     if ":" not in model_ref:
       model_ref = f"{model_ref}:{DEFAULT_MODEL_REF.split(':', 1)[1]}"
-    file_obj = io.BytesIO(image_bytes)
-    file_obj.name = "upload.jpg"  # hints content-type to Replicate
+    image_input = _replicate_image_input(image_bytes, image_url)
     tries = 0
     while True:
       tries += 1
       try:
-        result = client.run(model_ref, input={"image": file_obj})
+        result = client.run(model_ref, input={"image": image_input})
         break
       except replicate.exceptions.ReplicateError as exc:
         if exc.status == 429 and tries == 1:
@@ -316,7 +321,9 @@ async def _text_embeddings(prompt: str) -> Sequence[float]:
   return await run_in_threadpool(_call)
 
 
-async def _vlm_breakdown(image_bytes: bytes, user_ctx: UserContext) -> ScoreBreakdown | None:
+async def _vlm_breakdown(
+  image_bytes: bytes, user_ctx: UserContext, image_url: str | None = None
+) -> ScoreBreakdown | None:
   """Ask the VLM for grounded numeric scores; return None on failure."""
   if not settings.replicate_api_token:
     return None
@@ -343,7 +350,7 @@ async def _vlm_breakdown(image_bytes: bytes, user_ctx: UserContext) -> ScoreBrea
 
   def _call():
     client = replicate.Client(api_token=settings.replicate_api_token, timeout=60)
-    file_obj = io.BytesIO(image_bytes); file_obj.name = "upload.jpg"
+    image_input = _replicate_image_input(image_bytes, image_url)
     tries = 0
     while True:
       tries += 1
@@ -351,7 +358,7 @@ async def _vlm_breakdown(image_bytes: bytes, user_ctx: UserContext) -> ScoreBrea
         res = client.run(
           model_ref,
           input={
-            "image": file_obj,
+            "image": image_input,
             "prompt": sys_prompt + "\n\n" + user_prompt,
             "temperature": 0.2,
             "top_p": 0.9,
@@ -396,7 +403,9 @@ async def _vlm_breakdown(image_bytes: bytes, user_ctx: UserContext) -> ScoreBrea
     ) from exc
 
 
-async def score_with_ai(image_bytes: bytes, user_ctx: UserContext) -> ScoreResponse:
+async def score_with_ai(
+  image_bytes: bytes, user_ctx: UserContext, image_url: str | None = None
+) -> ScoreResponse:
   """Generate clip-like embeddings via Replicate, derive Drip Score, and emit UX suggestions."""
   image = Image.open(io.BytesIO(image_bytes)).convert("RGB")
   width, height = image.size
@@ -407,7 +416,7 @@ async def score_with_ai(image_bytes: bytes, user_ctx: UserContext) -> ScoreRespo
     )
 
   # Segmentation and person validation
-  mask = await _remote_mask(image_bytes)
+  mask = await _remote_mask(image_bytes, image_url)
   if mask is None:
     raise HTTPException(
       status_code=status.HTTP_400_BAD_REQUEST,
@@ -477,7 +486,7 @@ async def score_with_ai(image_bytes: bytes, user_ctx: UserContext) -> ScoreRespo
   # Try VLM for grounded numeric scores first (if configured)
   breakdown = None
   if settings.replicate_vlm_model:
-    breakdown = await _vlm_breakdown(image_bytes, user_ctx)
+    breakdown = await _vlm_breakdown(image_bytes, user_ctx, image_url)
     if breakdown:
       logger.info("score pipeline: using VLM breakdown (model=%s)", settings.replicate_vlm_model)
   top_sim = 0.0
@@ -486,7 +495,7 @@ async def score_with_ai(image_bytes: bytes, user_ctx: UserContext) -> ScoreRespo
   if breakdown is None:
     logger.info("score pipeline: VLM unavailable or failed; falling back to CLIP embeddings")
     try:
-      embedding = await _run_replicate(image_bytes)
+      embedding = await _run_replicate(image_bytes, image_url)
     except HTTPException:
       logger.warning("Replicate token missing; using fake score fallback.")
       return fake_score(user_ctx.style_preferences)
@@ -527,7 +536,7 @@ async def score_with_ai(image_bytes: bytes, user_ctx: UserContext) -> ScoreRespo
   )
 
   # LLM suggestions (no heuristic fallback; propagate errors)
-  suggestions = await generate_suggestions(breakdown, user_ctx, image_bytes)
+  suggestions = await generate_suggestions(breakdown, user_ctx, image_bytes, image_url)
   if not suggestions:
     raise HTTPException(
       status_code=status.HTTP_502_BAD_GATEWAY,

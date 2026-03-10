@@ -14,6 +14,9 @@ from app.models.entities import (
   StyleDNA,
   DripScoreHistory,
   EventLog,
+  RankingGroup,
+  RankingGroupMember,
+  UserSubscription,
 )
 
 __all__ = [
@@ -31,4 +34,8 @@ __all__ = [
   "OutfitSuggestion",
   "StyleDNA",
   "DripScoreHistory",
+  "EventLog",
+  "RankingGroup",
+  "RankingGroupMember",
+  "UserSubscription",
 ]

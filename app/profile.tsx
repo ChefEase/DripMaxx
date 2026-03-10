@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from "react";
 import { View, Text, Pressable, StyleSheet, SafeAreaView, Alert, ScrollView } from "react-native";
 import { supabase } from "./lib/supabase";
+import RankingsCard from "./components/RankingsCard";
 import { useStore } from "./store";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -22,10 +23,12 @@ export default function ProfileScreen() {
     genderStylePreference,
     setUserId,
     setUserEmail,
+    setUsername,
   } = useStore();
   const [recent, setRecent] = useState<any[]>([]);
   const [history, setHistory] = useState<any[]>([]);
   const [dna, setDna] = useState<{ label: string; description: string; tags: string[] } | null>(null);
+  const [profileVisibility, setProfileVisibility] = useState<"public" | "friends_only" | "private">("public");
 
   useEffect(() => {
     const fetchHistory = async () => {
@@ -37,6 +40,7 @@ export default function ProfileScreen() {
         const data = await res.json();
         setRecent(data.recent_outfits || []);
         setHistory(data.history || []);
+        if (data.profile_visibility) setProfileVisibility(data.profile_visibility);
       } catch (err) {
         console.warn("history fetch failed", err);
       }
@@ -57,6 +61,7 @@ export default function ProfileScreen() {
   const handleLogout = async () => {
     await supabase.auth.signOut();
     setUserEmail(null);
+    setUsername(null);
     setUserId(null);
     nav.navigate("Auth");
   };
@@ -90,6 +95,31 @@ export default function ProfileScreen() {
           <Text style={styles.value}>{userEmail || "Not signed in"}</Text>
         </View>
         <View style={styles.card}>
+          <Text style={styles.label}>Profile visibility</Text>
+          <Text style={styles.muted}>Who can see your outfits when viewing your profile from the leaderboard</Text>
+          <View style={styles.visibilityRow}>
+            {(["public", "friends_only", "private"] as const).map((v) => (
+              <Pressable
+                key={v}
+                style={[styles.visibilityChip, profileVisibility === v && styles.visibilityChipActive]}
+                onPress={() => {
+                  setProfileVisibility(v);
+                  const base = process.env.EXPO_PUBLIC_API_BASE || "http://127.0.0.1:8000";
+                  fetch(`${base}/v1/profile/sync`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ user_id: userId, profile_visibility: v }),
+                  }).catch((e) => console.warn("visibility sync failed", e));
+                }}
+              >
+                <Text style={[styles.visibilityChipText, profileVisibility === v && styles.visibilityChipTextActive]}>
+                  {v === "public" ? "Public" : v === "friends_only" ? "Friends only" : "Private"}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+        </View>
+        <View style={styles.card}>
           <Text style={styles.label}>Style Preferences</Text>
           <Text style={styles.value}>{stylePreferences.join(", ") || "None"}</Text>
           <Text style={styles.label}>Inspirations</Text>
@@ -112,6 +142,7 @@ export default function ProfileScreen() {
           <Text style={styles.linkText}>Back</Text>
         </Pressable>
 
+        <RankingsCard userId={userId} />
         <View style={styles.card}>
           <Text style={styles.label}>Your Style DNA</Text>
           <Text style={styles.value}>{dna?.label || "Building..."}</Text>
@@ -230,4 +261,14 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   tagText: { color: "#A5B4FC", fontWeight: "700", fontSize: 12 },
+  visibilityRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 8 },
+  visibilityChip: {
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 999,
+    backgroundColor: "#1F2937",
+  },
+  visibilityChipActive: { backgroundColor: "#22C55E" },
+  visibilityChipText: { color: "#9CA3AF", fontSize: 13, fontWeight: "600" },
+  visibilityChipTextActive: { color: "#022C22", fontWeight: "700" },
 });

@@ -81,9 +81,6 @@ export default function ResetPasswordScreen() {
         >
           <Text style={styles.buttonText}>{loading ? "Updating..." : "Update password"}</Text>
         </Pressable>
-        <Pressable style={styles.link} onPress={() => nav.navigate("Auth")}>
-          <Text style={styles.linkText}>Back to sign in</Text>
-        </Pressable>
       </View>
     </SafeAreaView>
   );
@@ -110,6 +107,4 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   buttonText: { color: "#022C22", fontWeight: "800", fontSize: 15 },
-  link: { alignItems: "center", paddingVertical: 8 },
-  linkText: { color: "#A5B4FC", fontWeight: "700" },
 });

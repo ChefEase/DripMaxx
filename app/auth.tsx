@@ -9,7 +9,6 @@ import {
   Alert,
 } from "react-native";
 import { supabase } from "./lib/supabase";
-import * as Linking from "expo-linking";
 import { useStore } from "./store";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -19,11 +18,10 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 export default function AuthScreen() {
   const nav = useNavigation<Nav>();
-  const { setUserId, setUserEmail, setDisplayName } = useStore();
+  const { setUserId, setUserEmail, setUsername, setDisplayName } = useStore();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
-  const [resetting, setResetting] = useState(false);
 
   // ✅ Test Supabase session on mount
   useEffect(() => {
@@ -40,7 +38,7 @@ export default function AuthScreen() {
     testSupabase();
   }, []);
 
-  const doAuth = async (mode: "signIn" | "signUp") => {
+  const doSignIn = async () => {
     if (!email || !password) {
       Alert.alert("Missing info", "Enter email and password.");
       return;
@@ -49,25 +47,12 @@ export default function AuthScreen() {
     setLoading(true);
   
     try {
-      console.log("Attempting", mode, email);
-  
-      let data, error;
-  
-      if (mode === "signIn") {
-        const res = await supabase.auth.signInWithPassword({
-          email,
-          password,
-        });
-        data = res.data;
-        error = res.error;
-      } else {
-        const res = await supabase.auth.signUp({
-          email,
-          password,
-        });
-        data = res.data;
-        error = res.error;
-      }
+      console.log("Attempting sign in", email);
+
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
   
       console.log("Supabase response:", data, error);
   
@@ -75,13 +60,27 @@ export default function AuthScreen() {
   
       const userId = data.user?.id;
       if (!userId) throw new Error("No user returned");
-  
+      const usernameFromMeta = String(data.user?.user_metadata?.username || "").trim().toLowerCase();
+      const fallbackName = email?.split("@")[0] || "user";
+      const resolvedUsername = usernameFromMeta || fallbackName;
+
       setUserId(userId);
       setUserEmail(email);
-      const defaultName = email?.split("@")[0] || "You";
-      setDisplayName(defaultName);
+      setUsername(resolvedUsername);
+      setDisplayName(resolvedUsername);
+      // sync to backend users table
+      try {
+        const base = process.env.EXPO_PUBLIC_API_BASE?.trim() || "http://127.0.0.1:8000";
+        await fetch(`${base}/v1/profile/sync`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ user_id: userId, username: resolvedUsername, email, display_name: resolvedUsername }),
+        });
+      } catch (e) {
+        console.warn("profile sync on login failed", e);
+      }
       nav.navigate("ValueProposition", { celebrate: true });
-  
+
     } catch (err: any) {
       console.error("Auth error:", err);
       Alert.alert("Auth error", err.message || "Try again.");
@@ -91,23 +90,7 @@ export default function AuthScreen() {
   };
 
   const handleReset = async () => {
-    if (!email) {
-      Alert.alert("Enter email", "We need your email to send a reset link.");
-      return;
-    }
-    try {
-      setResetting(true);
-      const redirect = Linking.createURL("reset-password");
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: redirect,
-      });
-      if (error) throw error;
-      Alert.alert("Check your email", "We sent a password reset link.");
-    } catch (err: any) {
-      Alert.alert("Reset error", err.message || "Try again.");
-    } finally {
-      setResetting(false);
-    }
+    nav.navigate("ForgotPassword");
   };
 
   return (
@@ -133,7 +116,7 @@ export default function AuthScreen() {
         />
         <Pressable
           style={[styles.button, loading && { opacity: 0.7 }]}
-          onPress={() => doAuth("signIn")}
+          onPress={doSignIn}
           disabled={loading}
         >
           <Text style={styles.buttonText}>
@@ -142,19 +125,15 @@ export default function AuthScreen() {
         </Pressable>
         <Pressable
           style={styles.linkButton}
-          onPress={() => doAuth("signUp")}
-          disabled={loading}
+          onPress={() => nav.navigate("SignUp")}
         >
           <Text style={styles.linkText}>Create account</Text>
         </Pressable>
-        <Pressable style={styles.linkButton} onPress={handleReset} disabled={resetting}>
-          <Text style={styles.linkText}>{resetting ? "Sending..." : "Forgot password?"}</Text>
+        <Pressable style={styles.linkButton} onPress={() => nav.navigate("ForgotPassword")}>
+          <Text style={styles.linkText}>Forgot password?</Text>
         </Pressable>
         <Pressable style={styles.linkButton} onPress={() => nav.navigate("ResetPassword")}>
           <Text style={styles.linkText}>Have a reset link? Update password</Text>
-        </Pressable>
-        <Pressable style={styles.linkButton} onPress={() => nav.goBack()}>
-          <Text style={styles.linkText}>Back</Text>
         </Pressable>
       </View>
     </SafeAreaView>

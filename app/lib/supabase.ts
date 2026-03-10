@@ -3,9 +3,8 @@ import { createClient } from '@supabase/supabase-js';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Hardcoded values for testing
-const SUPABASE_URL = 'https://mijricrsdyqstanhndmm.supabase.co'
-const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1panJpY3JzZHlxc3RhbmhuZG1tIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzI4OTIzNDUsImV4cCI6MjA4ODQ2ODM0NX0.t12OFPhHDkfrBsMXY9VJhJ8sxYXpqkLzuIPs_1dIU_o'
-
+const SUPABASE_URL =  process.env.EXPO_PUBLIC_SUPABASE_URL;
+const SUPABASE_KEY =  process.env.EXPO_PUBLIC_SUPABASE_ANON_KEY;
 const storage = {
   getItem: async (key: string) => await AsyncStorage.getItem(key),
   setItem: async (key: string, value: string) => await AsyncStorage.setItem(key, value),

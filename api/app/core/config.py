@@ -21,6 +21,15 @@ class Settings(BaseSettings):
     default="chefease/fashionvlmodel:7f22da0c6e72f395e33b12c0467c9d9d158cbed71ca391e84c8704ef656c2609"
   )
   database_url: str = Field(default="postgresql+asyncpg://postgres:postgres@localhost:5432/postgres")
+  supabase_url: str | None = Field(default=None)
+  supabase_service_key: str | None = Field(default=None)
+  supabase_bucket: str = Field(default="outfits")
+
+  stripe_secret_key: str | None = Field(default=None)
+  stripe_webhook_secret: str | None = Field(default=None)
+  stripe_monthly_price_id: str | None = Field(default=None)
+  stripe_success_url: str = Field(default="https://example.com/success")
+  stripe_cancel_url: str = Field(default="https://example.com/cancel")
 
 
 @lru_cache(maxsize=1)

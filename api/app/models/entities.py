@@ -52,6 +52,7 @@ class User(Base):
 
   id = Column(UUID_STR, primary_key=True, default=_uuid)
   auth_id = Column(Text, unique=True)
+  username = Column(Text, unique=True, index=True)
   email = Column(Text, unique=True)
   display_name = Column(Text)
   avatar_url = Column(Text)
@@ -69,6 +70,10 @@ class UserProfile(Base):
   gender_style_preference = Column(Enum(GenderStyleEnum, name="gender_style_enum", create_constraint=True))
   country = Column(Text)
   locale = Column(Text)
+  # True = public, False = private/friends_only
+  profile_visibility = Column(Boolean, server_default=text("true"))
+  # Canonical visibility mode: public | friends_only | private
+  profile_visibility_mode = Column(Text, server_default=text("'public'"))
   created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
   updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
 
@@ -108,6 +113,7 @@ class Outfit(Base):
 
   id = Column(UUID_STR, primary_key=True, default=_uuid)
   user_id = Column(UUID_STR, ForeignKey("users.id", ondelete="CASCADE"))
+  style_tags = Column(JSON, default=list)
   source = Column(Text, nullable=False)
   image_url = Column(Text, nullable=False)
   thumb_url = Column(Text)
@@ -198,3 +204,39 @@ class EventLog(Base):
   name = Column(Text, nullable=False)
   payload = Column(JSON)
   created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
+class RankingGroup(Base):
+  """Private group for friend rankings. Users join via shareable code."""
+  __tablename__ = "ranking_groups"
+  __table_args__ = (UniqueConstraint("code", name="uq_ranking_groups_code"),)
+
+  id = Column(UUID_STR, primary_key=True, default=_uuid)
+  name = Column(Text, nullable=False)
+  code = Column(Text, unique=True, nullable=False, index=True)
+  created_by_user_id = Column(UUID_STR, ForeignKey("users.id", ondelete="SET NULL"))
+  created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
+class RankingGroupMember(Base):
+  __tablename__ = "ranking_group_members"
+  __table_args__ = (UniqueConstraint("group_id", "user_id", name="uq_ranking_group_member"),)
+
+  id = Column(UUID_STR, primary_key=True, default=_uuid)
+  group_id = Column(UUID_STR, ForeignKey("ranking_groups.id", ondelete="CASCADE"), nullable=False)
+  user_id = Column(UUID_STR, ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+  joined_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+
+
+class UserSubscription(Base):
+  __tablename__ = "user_subscriptions"
+
+  user_id = Column(UUID_STR, ForeignKey("users.id", ondelete="CASCADE"), primary_key=True)
+  plan = Column(Text, nullable=False, server_default=text("'free'"))  # free|monthly
+  status = Column(Text, nullable=False, server_default=text("'inactive'"))  # inactive|active|trialing|past_due|canceled
+  stripe_customer_id = Column(Text, unique=True)
+  stripe_subscription_id = Column(Text, unique=True)
+  current_period_start = Column(DateTime(timezone=True))
+  current_period_end = Column(DateTime(timezone=True))
+  created_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())
+  updated_at = Column(DateTime(timezone=True), nullable=False, server_default=func.now())

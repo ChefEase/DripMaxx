@@ -1,48 +1,82 @@
 import React from "react";
-import { View, Text, StyleSheet, SafeAreaView, Pressable } from "react-native";
+import { View, Text, StyleSheet, SafeAreaView, Pressable, ActivityIndicator, Linking, Alert } from "react-native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useNavigation } from "@react-navigation/native";
 import type { RootStackParamList } from "../App";
+import { useStore } from "./store";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 export default function PaywallScreen() {
   const nav = useNavigation<Nav>();
+  const { userId, userEmail } = useStore();
+  const [loading, setLoading] = React.useState(false);
+  const [status, setStatus] = React.useState<null | { remaining: number; limit_type: string; plan: string; used: number; limit: number }>(null);
+  const API_BASE = process.env.EXPO_PUBLIC_API_BASE?.trim() || "http://127.0.0.1:8000";
 
-  const handleBuy = () => {
-    // No backend yet; allow bypass
-    nav.navigate("Scan");
-  };
+  React.useEffect(() => {
+    if (!userId) return;
+    fetch(`${API_BASE}/v1/billing/status?user_id=${encodeURIComponent(userId)}`)
+      .then((r) => (r.ok ? r.json() : null))
+      .then((d) => setStatus(d))
+      .catch(() => {});
+  }, [userId, API_BASE]);
 
-  const handleMaybeLater = () => {
-    nav.navigate("Scan");
+  const handleBuy = async () => {
+    if (!userId) {
+      Alert.alert("Sign in required", "Please sign in before subscribing.");
+      nav.navigate("Auth");
+      return;
+    }
+    setLoading(true);
+    try {
+      const resp = await fetch(`${API_BASE}/v1/billing/checkout-session`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: userId, email: userEmail }),
+      });
+      if (!resp.ok) {
+        const text = await resp.text();
+        throw new Error(`Checkout failed: ${text}`);
+      }
+      const data = await resp.json();
+      await Linking.openURL(data.checkout_url);
+    } catch (e: any) {
+      Alert.alert("Payment setup failed", e?.message || "Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
         <View>
-          <Text style={styles.kicker}>Unlock Full Access</Text>
-          <Text style={styles.title}>7-day free trial</Text>
-          <Text style={styles.subtitle}>
-            See your full Drip Scores, AI suggestions, and history. Cancel anytime.
-          </Text>
+          <Text style={styles.kicker}>Upgrade Plan</Text>
+          <Text style={styles.title}>DripMaxx Monthly</Text>
+          <Text style={styles.subtitle}>Free users get 3 scans/day. Paid plan unlocks unlimited scans.</Text>
         </View>
 
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>What you get</Text>
-          <Text style={styles.bullet}>• Unlimited scans with AI scoring</Text>
-          <Text style={styles.bullet}>• 15 tailored suggestions per outfit</Text>
-          <Text style={styles.bullet}>• Save & revisit your outfits</Text>
-          <Text style={styles.bullet}>• Early access to Style DNA</Text>
-          <Text style={styles.note}>Card required • Cancel anytime</Text>
+          <Text style={styles.cardTitle}>Plan details</Text>
+          <Text style={styles.bullet}>- $12.99 per month</Text>
+          <Text style={styles.bullet}>- Unlimited scans*</Text>
+          <Text style={styles.bullet}>- AI score breakdown + suggestions</Text>
+          <Text style={styles.bullet}>- Save and compare outfits</Text>
+          <Text style={styles.note}>Card required. Cancel anytime.</Text>
+          <Text style={styles.note}>*Fair use cap applies (190 scans/month).</Text>
+          {status ? (
+            <Text style={styles.note}>
+              Current usage: {status.used}/{status.limit} ({status.limit_type}, {status.plan})
+            </Text>
+          ) : null}
         </View>
 
-        <Pressable style={styles.primary} onPress={handleBuy}>
-          <Text style={styles.primaryText}>Start free trial</Text>
+        <Pressable style={[styles.primary, loading && { opacity: 0.7 }]} onPress={handleBuy} disabled={loading}>
+          {loading ? <ActivityIndicator color="#022C22" /> : <Text style={styles.primaryText}>Subscribe for $12.99/month</Text>}
         </Pressable>
-        <Pressable style={styles.secondary} onPress={handleMaybeLater}>
-          <Text style={styles.secondaryText}>Maybe later</Text>
+        <Pressable style={styles.secondary} onPress={() => nav.navigate("Scan")}>
+          <Text style={styles.secondaryText}>Back to Scan</Text>
         </Pressable>
       </View>
     </SafeAreaView>

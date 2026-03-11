@@ -9,6 +9,7 @@ import {
   Alert,
   ScrollView,
   Modal,
+  Platform,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -125,11 +126,18 @@ export default function ScanStubScreen() {
     setIsScoring(true);
     try {
       const form = new FormData();
-      form.append("image", {
-        uri: imageUri,
-        name: "upload.jpg",
-        type: "image/jpeg",
-      } as any);
+      if (Platform.OS === "web") {
+        const resp = await fetch(imageUri);
+        const blob = await resp.blob();
+        const file = new File([blob], "upload.jpg", { type: blob.type || "image/jpeg" });
+        form.append("image", file as any);
+      } else {
+        form.append("image", {
+          uri: imageUri,
+          name: "upload.jpg",
+          type: "image/jpeg",
+        } as any);
+      }
       form.append(
         "user_context",
         JSON.stringify({

@@ -18,6 +18,7 @@ export default function SignUpScreen() {
 
   const handleSignUp = async () => {
     const normalizedUsername = username.trim().toLowerCase();
+    const normalizedEmail = email.trim().toLowerCase();
     if (!normalizedUsername || !email || !password) {
       Alert.alert("Missing info", "Enter username, email and password.");
       return;
@@ -29,16 +30,28 @@ export default function SignUpScreen() {
     setLoading(true);
     try {
       const { data, error } = await supabase.auth.signUp({
-        email,
+        email: normalizedEmail,
         password,
         options: { data: { username: normalizedUsername } },
       });
-      if (error) throw error;
+      if (error) {
+        const message = String(error.message || "").toLowerCase();
+        if (message.includes("already registered") || message.includes("already been registered")) {
+          Alert.alert("Account exists", "Account has already been created, sign in.");
+          return;
+        }
+        throw error;
+      }
+      const identities = Array.isArray(data.user?.identities) ? data.user.identities : [];
+      if (data.user && identities.length === 0) {
+        Alert.alert("Account exists", "Account has already been created, sign in.");
+        return;
+      }
       const userId = data.user?.id;
       if (!userId) throw new Error("No user returned");
       const defaultName = normalizedUsername;
       setUserId(userId);
-      setUserEmail(email);
+      setUserEmail(normalizedEmail);
       setUsername(normalizedUsername);
       setDisplayName(defaultName);
       // sync to backend users table so style_dna/history can attach
@@ -47,7 +60,7 @@ export default function SignUpScreen() {
         await fetch(`${base}/v1/profile/sync`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ user_id: userId, username: normalizedUsername, email, display_name: defaultName }),
+          body: JSON.stringify({ user_id: userId, username: normalizedUsername, email: normalizedEmail, display_name: defaultName }),
         });
       } catch (e) {
         console.warn("profile sync on sign-up failed", e);

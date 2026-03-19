@@ -29,6 +29,7 @@ export default function ProfileScreen() {
   const [history, setHistory] = useState<any[]>([]);
   const [dna, setDna] = useState<{ label: string; description: string; tags: string[] } | null>(null);
   const [profileVisibility, setProfileVisibility] = useState<"public" | "friends_only" | "private">("public");
+  const [billingStatus, setBillingStatus] = useState<null | { plan: string; used: number; remaining: number; limit_type: string }>(null);
 
   useEffect(() => {
     const fetchHistory = async () => {
@@ -53,6 +54,16 @@ export default function ProfileScreen() {
         }
       } catch (err) {
         console.warn("dna fetch failed", err);
+      }
+      try {
+        const base = process.env.EXPO_PUBLIC_API_BASE || "http://127.0.0.1:8000";
+        const res = await fetch(`${base}/v1/billing/status?user_id=${userId}`);
+        if (res.ok) {
+          const data = await res.json();
+          setBillingStatus(data);
+        }
+      } catch (err) {
+        console.warn("billing status fetch failed", err);
       }
     };
     fetchHistory();
@@ -93,6 +104,20 @@ export default function ProfileScreen() {
           <Text style={styles.value}>{userId || "Not signed in"}</Text>
           <Text style={styles.label}>Email</Text>
           <Text style={styles.value}>{userEmail || "Not signed in"}</Text>
+        </View>
+        <View style={styles.card}>
+          <Text style={styles.label}>Plan</Text>
+          <Text style={styles.value}>{billingStatus?.plan === "monthly" ? "Premium" : "Free"}</Text>
+          <Text style={styles.muted}>
+            {billingStatus?.plan === "monthly"
+              ? "Unlimited scans are enabled on this account."
+              : "Free plan: 3 scans in your first 24 hours, then 1 scan every rolling 24 hours."}
+          </Text>
+          <Pressable style={styles.upgradeButton} onPress={() => nav.navigate("Paywall")}>
+            <Text style={styles.upgradeButtonText}>
+              {billingStatus?.plan === "monthly" ? "Manage Premium" : "Upgrade to Premium"}
+            </Text>
+          </Pressable>
         </View>
         <View style={styles.card}>
           <Text style={styles.label}>Profile visibility</Text>
@@ -185,6 +210,14 @@ export default function ProfileScreen() {
             </View>
           )}
         </View>
+        <View style={styles.footerLinks}>
+          <Pressable style={styles.link} onPress={() => nav.navigate("Legal", { doc: "terms" })}>
+            <Text style={styles.linkText}>Terms of Service</Text>
+          </Pressable>
+          <Pressable style={styles.link} onPress={() => nav.navigate("Legal", { doc: "privacy" })}>
+            <Text style={styles.linkText}>Privacy Policy</Text>
+          </Pressable>
+        </View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -223,6 +256,14 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   primaryText: { color: "#022C22", fontWeight: "800", fontSize: 15 },
+  upgradeButton: {
+    marginTop: 10,
+    backgroundColor: "#22C55E",
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: "center",
+  },
+  upgradeButtonText: { color: "#022C22", fontWeight: "800", fontSize: 14 },
   secondary: {
     borderWidth: 1,
     borderColor: "#374151",
@@ -271,4 +312,5 @@ const styles = StyleSheet.create({
   visibilityChipActive: { backgroundColor: "#22C55E" },
   visibilityChipText: { color: "#9CA3AF", fontSize: 13, fontWeight: "600" },
   visibilityChipTextActive: { color: "#022C22", fontWeight: "700" },
+  footerLinks: { paddingBottom: 6 },
 });

@@ -31,6 +31,11 @@ const SCOPE_LABELS: Record<string, string> = {
   country: "Country",
 };
 
+const scopeLabel = (scope: string) => {
+  if (scope.startsWith("style:")) return scope.replace("style:", "");
+  return SCOPE_LABELS[scope] ?? scope;
+};
+
 interface RankingsCardProps {
   userId: string | null;
   compact?: boolean;
@@ -122,7 +127,7 @@ export default function RankingsCard({ userId, compact = false, refreshTrigger, 
             </Text>
             {data?.rankings?.filter((r) => r.rank != null).slice(0, 2).map((r) => (
               <Text key={r.scope} style={styles.rankBadge}>
-                #{r.rank} {SCOPE_LABELS[r.scope] ?? r.scope}
+                #{r.rank} {scopeLabel(r.scope)}
               </Text>
             ))}
           </View>
@@ -147,7 +152,7 @@ export default function RankingsCard({ userId, compact = false, refreshTrigger, 
           <View style={styles.rankGrid}>
             {data?.rankings?.map((r) => (
               <View key={r.scope} style={styles.rankRow}>
-                <Text style={styles.scopeLabel}>{SCOPE_LABELS[r.scope] ?? r.scope}</Text>
+                <Text style={styles.scopeLabel}>{scopeLabel(r.scope)}</Text>
                 {r.rank != null ? (
                   <Text style={styles.rankValue}>#{r.rank}</Text>
                 ) : (

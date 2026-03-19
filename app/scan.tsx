@@ -36,9 +36,10 @@ export default function ScanStubScreen() {
     country,
   } = useStore();
   const [imageUri, setImageUri] = useState<string | null>(null);
-  const [previewOpen, setPreviewOpen] = useState(false);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isScoring, setIsScoring] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [bestOutfit, setBestOutfit] = useState<null | { imageUrl: string | null; dripScore: number | null }>(null);
   const [result, setResult] = useState<
     | null
     | {
@@ -125,6 +126,24 @@ export default function ScanStubScreen() {
     }
     setIsScoring(true);
     try {
+      let bestBeforeScan: null | { imageUrl: string | null; dripScore: number | null } = null;
+      if (userId) {
+        try {
+          const historyResp = await fetch(`${API_BASE}/v1/profile/history?user_id=${encodeURIComponent(userId)}`);
+          if (historyResp.ok) {
+            const historyData = await historyResp.json();
+            if (historyData?.best_outfit) {
+              bestBeforeScan = {
+                imageUrl: historyData.best_outfit.image_url || null,
+                dripScore: historyData.best_outfit.drip_score ?? null,
+              };
+            }
+          }
+        } catch (e) {
+          console.warn("best outfit fetch failed", e);
+        }
+      }
+
       const form = new FormData();
       if (Platform.OS === "web") {
         const resp = await fetch(imageUri);
@@ -161,8 +180,8 @@ export default function ScanStubScreen() {
       if (!resp.ok) {
         const text = await resp.text();
         if (resp.status === 402) {
-          // Paywall temporarily disabled for testing.
-          throw new Error("Scan limit reached for this account.");
+          navigation.navigate("Paywall");
+          return;
         }
         throw new Error(`API ${resp.status}: ${text}`);
       }
@@ -206,6 +225,7 @@ export default function ScanStubScreen() {
         suggestions: data.suggestions,
         warnings: data.warnings || [],
       });
+      setBestOutfit(bestBeforeScan);
       trackEvent(
         "score_viewed",
         { drip_score: data.drip_score, suggestion_count: data.suggestions?.length || 0 },
@@ -221,6 +241,7 @@ export default function ScanStubScreen() {
 
   const handleRescan = () => {
     setImageUri(null);
+    setBestOutfit(null);
     setResult(null);
     setSaved(false);
   };
@@ -295,44 +316,78 @@ export default function ScanStubScreen() {
                 <ActivityIndicator size="large" color="#22C55E" />
               </View>
             )}
-            <View style={styles.resultTopRow}>
-              <View style={styles.resultHeader}>
-                <Text style={styles.resultLabel}>Drip Score</Text>
-                <Text style={styles.resultValue}>{result.dripScore}/10</Text>
+            <View style={styles.resultBody}>
+              <View style={styles.resultTopRow}>
+                <View style={styles.resultHeader}>
+                  <Text style={styles.resultLabel}>Drip Score</Text>
+                  <Text style={styles.resultValue}>{result.dripScore}/10</Text>
+                </View>
+                {imageUri ? (
+                  <Pressable
+                    style={styles.thumbnailBox}
+                    onPress={() => setPreviewUrl(imageUri)}
+                  >
+                    <Image source={{ uri: imageUri }} style={styles.thumbnailImage} />
+                    <Text style={styles.thumbnailHint}>Tap to expand</Text>
+                  </Pressable>
+                ) : null}
               </View>
-              {imageUri ? (
-                <Pressable
-                  style={styles.thumbnailBox}
-                  onPress={() => setPreviewOpen(true)}
-                >
-                  <Image source={{ uri: imageUri }} style={styles.thumbnailImage} />
-                  <Text style={styles.thumbnailHint}>Tap to expand</Text>
-                </Pressable>
+              <View style={styles.breakdown}>
+                {result.categories.map((c) => (
+                  <View key={c.label} style={styles.breakdownRow}>
+                    <Text style={styles.breakdownLabel}>{c.label}</Text>
+                    <Text style={styles.breakdownValue}>{c.value}</Text>
+                  </View>
+                ))}
+              </View>
+              <View style={styles.suggestions}>
+                {result.suggestions.map((tip, idx) => (
+                  <View key={`${tip.title}-${idx}`} style={styles.suggestionCard}>
+                    <Text style={styles.suggestionTag}>{tip.type}</Text>
+                    <Text style={styles.suggestionTitle}>{tip.title}</Text>
+                    <Text style={styles.suggestionText}>{tip.description}</Text>
+                  </View>
+                ))}
+              </View>
+              <View style={styles.warningBox}>
+                {result.warnings.map((w) => (
+                  <Text key={w} style={styles.warningText}>
+                    • {w}
+                  </Text>
+                ))}
+              </View>
+              {bestOutfit?.imageUrl ? (
+                <View style={styles.compareCard}>
+                  <Text style={styles.compareTitle}>Current vs Best Outfit</Text>
+                  <Text style={styles.compareSubtitle}>
+                    Compare this scan against your best previous rated outfit.
+                  </Text>
+                  <View style={styles.compareRow}>
+                    <View style={styles.compareColumn}>
+                      <Text style={styles.compareLabel}>Current</Text>
+                      <Pressable
+                        onPress={() => imageUri && setPreviewUrl(imageUri)}
+                        style={styles.compareImageWrap}
+                      >
+                        <Image source={{ uri: imageUri || undefined }} style={styles.compareImage} />
+                      </Pressable>
+                      <Text style={styles.compareScore}>{result.dripScore.toFixed(1)}/10</Text>
+                    </View>
+                    <View style={styles.compareColumn}>
+                      <Text style={styles.compareLabel}>Best</Text>
+                      <Pressable
+                        onPress={() => setPreviewUrl(bestOutfit.imageUrl)}
+                        style={styles.compareImageWrap}
+                      >
+                        <Image source={{ uri: bestOutfit.imageUrl }} style={styles.compareImage} />
+                      </Pressable>
+                      <Text style={styles.compareScore}>
+                        {bestOutfit.dripScore != null ? `${bestOutfit.dripScore.toFixed(1)}/10` : "--"}
+                      </Text>
+                    </View>
+                  </View>
+                </View>
               ) : null}
-            </View>
-            <View style={styles.breakdown}>
-              {result.categories.map((c) => (
-                <View key={c.label} style={styles.breakdownRow}>
-                  <Text style={styles.breakdownLabel}>{c.label}</Text>
-                  <Text style={styles.breakdownValue}>{c.value}</Text>
-                </View>
-              ))}
-            </View>
-            <View style={styles.suggestions}>
-              {result.suggestions.map((tip, idx) => (
-                <View key={`${tip.title}-${idx}`} style={styles.suggestionCard}>
-                  <Text style={styles.suggestionTag}>{tip.type}</Text>
-                  <Text style={styles.suggestionTitle}>{tip.title}</Text>
-                  <Text style={styles.suggestionText}>{tip.description}</Text>
-                </View>
-              ))}
-            </View>
-            <View style={styles.warningBox}>
-              {result.warnings.map((w) => (
-                <Text key={w} style={styles.warningText}>
-                  • {w}
-                </Text>
-              ))}
             </View>
             <RankingsCard
               userId={userId}
@@ -369,11 +424,11 @@ export default function ScanStubScreen() {
         </View>
       </ScrollView>
 
-      <Modal transparent visible={previewOpen} animationType="fade">
-        <Pressable style={styles.previewOverlay} onPress={() => setPreviewOpen(false)}>
+      <Modal transparent visible={!!previewUrl} animationType="fade">
+        <Pressable style={styles.previewOverlay} onPress={() => setPreviewUrl(null)}>
           <View style={styles.previewModal}>
-            {imageUri ? (
-              <Image source={{ uri: imageUri }} style={styles.previewModalImage} />
+            {previewUrl ? (
+              <Image source={{ uri: previewUrl }} style={styles.previewModalImage} />
             ) : null}
           </View>
         </Pressable>
@@ -396,7 +451,7 @@ const styles = StyleSheet.create({
   stepLabel: {
     fontSize: 13,
     color: "#9CA3AF",
-    marginBottom: -10,
+    marginBottom: 6,
   },
   title: {
     fontSize: 24,
@@ -491,6 +546,9 @@ const styles = StyleSheet.create({
     backgroundColor: "#0B1224",
     gap: 12,
     position: "relative",
+  },
+  resultBody: {
+    gap: 12,
   },
   loadingOverlay: {
     position: "absolute",
@@ -603,6 +661,54 @@ const styles = StyleSheet.create({
     color: "#FCD34D",
     fontSize: 13,
     lineHeight: 18,
+  },
+  compareCard: {
+    borderWidth: 1,
+    borderColor: "#1F2937",
+    borderRadius: 12,
+    padding: 12,
+    backgroundColor: "#0F172A",
+    gap: 10,
+  },
+  compareTitle: {
+    color: "#E5E7EB",
+    fontSize: 14,
+    fontWeight: "700",
+  },
+  compareSubtitle: {
+    color: "#9CA3AF",
+    fontSize: 13,
+  },
+  compareRow: {
+    flexDirection: "row",
+    gap: 12,
+  },
+  compareColumn: {
+    flex: 1,
+    gap: 8,
+  },
+  compareLabel: {
+    color: "#94A3B8",
+    fontSize: 12,
+    fontWeight: "700",
+    textTransform: "uppercase",
+  },
+  compareImageWrap: {
+    borderRadius: 12,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "#1F2937",
+    backgroundColor: "#111827",
+  },
+  compareImage: {
+    width: "100%",
+    aspectRatio: 3 / 4,
+    backgroundColor: "#111827",
+  },
+  compareScore: {
+    color: "#E5E7EB",
+    fontSize: 13,
+    fontWeight: "700",
   },
   resultActions: {
     flexDirection: "row",

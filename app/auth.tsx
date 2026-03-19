@@ -135,6 +135,14 @@ export default function AuthScreen() {
         <Pressable style={styles.linkButton} onPress={() => nav.navigate("ResetPassword")}>
           <Text style={styles.linkText}>Have a reset link? Update password</Text>
         </Pressable>
+        <View style={styles.legalRow}>
+          <Pressable style={styles.legalLink} onPress={() => nav.navigate("Legal", { doc: "terms" })}>
+            <Text style={styles.legalText}>Terms of Service</Text>
+          </Pressable>
+          <Pressable style={styles.legalLink} onPress={() => nav.navigate("Legal", { doc: "privacy" })}>
+            <Text style={styles.legalText}>Privacy Policy</Text>
+          </Pressable>
+        </View>
       </View>
     </SafeAreaView>
   );
@@ -167,4 +175,7 @@ const styles = StyleSheet.create({
   buttonText: { color: "#022C22", fontWeight: "800", fontSize: 15 },
   linkButton: { alignItems: "center", paddingVertical: 8 },
   linkText: { color: "#A5B4FC", fontWeight: "700" },
+  legalRow: { marginTop: 8, flexDirection: "row", justifyContent: "center", gap: 18 },
+  legalLink: { paddingVertical: 8 },
+  legalText: { color: "#94A3B8", fontSize: 12, fontWeight: "600" },
 });

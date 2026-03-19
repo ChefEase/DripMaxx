@@ -187,7 +187,9 @@ export default function LeaderboardScreen() {
         ) : error ? (
           <Text style={styles.error}>{error}</Text>
         ) : entries.length === 0 ? (
-          <Text style={styles.muted}>No rankings yet. Be the first! (10+ ratings needed)</Text>
+          <Text style={styles.muted}>
+            No public rows are available for this scope right now. If your position card shows a rank, you may be outside the visible list or the leaderboard data needs a refresh.
+          </Text>
         ) : (
           entries.map((e) => (
             <Pressable

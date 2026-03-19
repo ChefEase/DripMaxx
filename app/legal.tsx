@@ -55,7 +55,7 @@ const TERMS_SECTIONS = [
   {
     title: "Contact",
     body:
-      "For legal or privacy questions, use the support contact listed in the app store listing or within the app support channel when available.",
+      "For legal, billing, or privacy questions about DripMaxx, contact mangaficustomercare@gmail.com.",
   },
 ];
 
@@ -93,7 +93,7 @@ const PRIVACY_SECTIONS = [
   {
     title: "Your Choices",
     body:
-      "You can update certain profile data, control whether you upload photos, and cancel premium subscriptions through the app store tied to your device. You may also request account-related support through the contact channel listed in the app store or app support flow.",
+      "You can update certain profile data, control whether you upload photos, and cancel premium subscriptions through the app store tied to your device. You may also request account-related support by contacting mangaficustomercare@gmail.com.",
   },
   {
     title: "Security",
@@ -113,7 +113,7 @@ const PRIVACY_SECTIONS = [
   {
     title: "Contact",
     body:
-      "For privacy questions or requests, use the support contact listed in the app store listing or the in-app support channel when available.",
+      "For privacy questions, requests, or support related to DripMaxx, contact mangaficustomercare@gmail.com.",
   },
 ];
 

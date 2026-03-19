@@ -16,6 +16,10 @@
 
     "experiments": {
       "baseUrl": "/DripMaxx/"
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static"
     }
   }
 }

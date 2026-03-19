@@ -12,6 +12,10 @@
     ],
     "plugins": [
       "expo-localization"
-    ]
+    ],
+
+    "experiments": {
+      "baseUrl": "/DripMaxx/"
+    }
   }
 }

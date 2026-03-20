@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 import { View, Text, Pressable, StyleSheet, SafeAreaView, Alert, ScrollView } from "react-native";
-import { supabase } from "./lib/supabase";
+import { supabase } from "../lib/supabase";
 import RankingsCard from "./components/RankingsCard";
 import { useStore } from "../store";
 import { useNavigation } from "@react-navigation/native";

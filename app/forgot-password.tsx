@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { SafeAreaView, View, Text, TextInput, Pressable, StyleSheet, Alert } from "react-native";
-import { supabase } from "./lib/supabase";
+import { supabase } from "../lib/supabase";
 import * as Linking from "expo-linking";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";

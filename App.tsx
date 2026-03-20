@@ -10,7 +10,7 @@ import StyleInspirationScreen from "./app/style-inspiration";
 import BodyFitScreen from "./app/body-fit";
 import CameraPermissionScreen from "./app/camera-permission";
 import ScanStubScreen from "./app/scan";
-import { StoreProvider } from "./app/store";
+import { StoreProvider } from "./store";
 import AuthScreen from "./app/auth";
 import ProfileScreen from "./app/profile";
 import PaywallScreen from "./app/paywall";

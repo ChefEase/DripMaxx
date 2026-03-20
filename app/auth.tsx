@@ -8,8 +8,8 @@ import {
   SafeAreaView,
   Alert,
 } from "react-native";
-import { supabase } from "./lib/supabase";
-import { useStore } from "./store";
+import { supabase } from "../lib/supabase";
+import { useStore } from "../store";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../App";

@@ -12,7 +12,7 @@ import {
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../App";
-import { useStore } from "./store";
+import { useStore } from "../store";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -273,6 +273,7 @@ const styles = StyleSheet.create({
   },
   groupHeader: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   titleSm: { color: "#F9FAFB", fontSize: 16, fontWeight: "700" },
+  link: { color: "#A5B4FC", fontSize: 14, fontWeight: "700" },
   groupRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   code: { color: "#9CA3AF", fontSize: 13 },
   groupNameLink: { color: "#86EFAC", fontSize: 15, fontWeight: "700", textDecorationLine: "underline" },

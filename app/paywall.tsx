@@ -3,7 +3,7 @@ import { View, Text, StyleSheet, SafeAreaView, Pressable, Alert } from "react-na
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useNavigation } from "@react-navigation/native";
 import type { RootStackParamList } from "../App";
-import { useStore } from "./store";
+import { useStore } from "../store";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 

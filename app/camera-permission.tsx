@@ -10,8 +10,8 @@ import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../App";
 import * as ImagePicker from "expo-image-picker";
-import { trackEvent } from "./lib/analytics";
-import { useStore } from "./store";
+import { trackEvent } from "../lib/analytics";
+import { useStore } from "../store";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 

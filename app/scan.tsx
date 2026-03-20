@@ -15,10 +15,10 @@ import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../App";
 import * as ImagePicker from "expo-image-picker";
-import { useStore } from "./store";
+import { useStore } from "../store";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import RankingsCard from "./components/RankingsCard";
-import { trackEvent } from "./lib/analytics";
+import { trackEvent } from "../lib/analytics";
 import { ActivityIndicator } from "react-native";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;

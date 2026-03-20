@@ -270,6 +270,7 @@ export default function ScanStubScreen() {
             <Text style={styles.guidelineItem}>• Stand centered with full body in frame.</Text>
             <Text style={styles.guidelineItem}>• Keep a simple, non-busy background.</Text>
             <Text style={styles.guidelineItem}>• Leave some space above head and below feet.</Text>
+            <Text style={styles.guidelineItem}>• Keep the app open while your outfit is being rated.</Text>
           </View>
         </View>
 
@@ -277,6 +278,9 @@ export default function ScanStubScreen() {
           <View style={styles.previewCard}>
             <Text style={styles.previewLabel}>Preview</Text>
             <Image source={{ uri: imageUri }} style={styles.previewImage} />
+            <Text style={styles.scoringNote}>
+              Keep the app open while we score your outfit. Backgrounding the app can interrupt the scan.
+            </Text>
             <View style={styles.previewActions}>
               <Pressable style={styles.secondaryButton} onPress={handleStartScan}>
                 <Text style={styles.secondaryButtonText}>Replace</Text>
@@ -511,6 +515,11 @@ const styles = StyleSheet.create({
   previewActions: {
     flexDirection: "row",
     gap: 10,
+  },
+  scoringNote: {
+    color: "#FCD34D",
+    fontSize: 13,
+    lineHeight: 18,
   },
   primaryButton: {
     flex: 1,
@@ -768,3 +777,4 @@ const styles = StyleSheet.create({
     backgroundColor: "#111827",
   },
 });
+

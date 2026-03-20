@@ -24,7 +24,7 @@ import UserProfileViewScreen from "./app/user-profile-view";
 import GroupLeaderboardScreen from "./app/group-leaderboard";
 import LegalScreen from "./app/legal";
 import 'react-native-url-polyfill/auto';
-import { supabase } from "./app/lib/supabase";
+import { supabase } from "./lib/supabase";
 
 export type RootStackParamList = {
   ValueProposition: { celebrate?: boolean } | undefined;

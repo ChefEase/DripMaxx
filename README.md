@@ -1,24 +1,78 @@
-# Expo Router Example
+# DripMaxx
 
-Use [`expo-router`](https://docs.expo.dev/router/introduction/) to build native navigation using files in the `app/` directory.
+Expo React Native app for outfit scoring and style feedback.
 
-## Launch your own
+## Prerequisites
 
-[![Launch with Expo](https://github.com/expo/examples/blob/master/.gh-assets/launch.svg?raw=true)](https://launch.expo.dev/?github=https://github.com/expo/examples/tree/master/with-router)
+- Node.js 20
+- Java 17 for Android builds
+- Android Studio with:
+  - Android SDK
+  - Android SDK Platform
+  - Android SDK Build-Tools
+  - Android SDK Platform-Tools
+  - At least one emulator image, or a connected Android device
 
-## 🚀 How to use
+## Android Setup on Windows
 
-```sh
-npx create-expo-app -e with-router
+Install Android Studio and confirm the SDK is installed. The default SDK path is usually:
+
+```powershell
+C:\Users\User\AppData\Local\Android\Sdk
 ```
 
-## Deploy
+Set these user environment variables:
 
-Deploy on all platforms with Expo Application Services (EAS).
+```powershell
+[Environment]::SetEnvironmentVariable('ANDROID_HOME', 'C:\Users\User\AppData\Local\Android\Sdk', 'User')
+[Environment]::SetEnvironmentVariable('ANDROID_SDK_ROOT', 'C:\Users\User\AppData\Local\Android\Sdk', 'User')
+```
 
-- Deploy the website: `npx eas-cli deploy` — [Learn more](https://docs.expo.dev/eas/hosting/get-started/)
-- Deploy on iOS and Android using: `npx eas-cli build` — [Learn more](https://expo.dev/eas)
+Add platform tools and command-line tools to your user `Path`:
 
-## 📝 Notes
+```powershell
+$sdk = 'C:\Users\User\AppData\Local\Android\Sdk'
+$path = [Environment]::GetEnvironmentVariable('Path', 'User')
+$parts = @(
+  "$sdk\platform-tools",
+  "$sdk\emulator",
+  "$sdk\cmdline-tools\latest\bin"
+)
+foreach ($part in $parts) {
+  if ($path -notlike "*$part*") {
+    $path = "$path;$part"
+  }
+}
+[Environment]::SetEnvironmentVariable('Path', $path, 'User')
+```
 
-- [Expo Router: Docs](https://docs.expo.dev/router/introduction/)
+After reopening PowerShell, verify:
+
+```powershell
+adb version
+```
+
+Optional: if Gradle still cannot find the SDK, create `android/local.properties`:
+
+```properties
+sdk.dir=C:\\Users\\User\\AppData\\Local\\Android\\Sdk
+```
+
+## Install and Run
+
+```powershell
+npm install
+npx expo prebuild
+npx expo run:android
+```
+
+## Current Known Issue
+
+If you see:
+
+```text
+Failed to resolve the Android SDK path
+Error: 'adb' is not recognized
+```
+
+your machine is missing a configured Android SDK, or `platform-tools` is not on `Path`.

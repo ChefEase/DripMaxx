@@ -23,6 +23,29 @@ import { ActivityIndicator } from "react-native";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
+const ANALYSIS_STEPS = [
+  {
+    label: "Uploading fit",
+    detail: "Sending your photo into the rating pipeline.",
+    progress: 0.18,
+  },
+  {
+    label: "Reading colors and silhouette",
+    detail: "Checking color balance, shape, and overall structure.",
+    progress: 0.42,
+  },
+  {
+    label: "Scoring the outfit",
+    detail: "Calculating your drip score across core categories.",
+    progress: 0.68,
+  },
+  {
+    label: "Building improvements",
+    detail: "Generating targeted suggestions to level the fit up.",
+    progress: 0.9,
+  },
+];
+
 export default function ScanStubScreen() {
   const navigation = useNavigation<Nav>();
   const {
@@ -38,6 +61,8 @@ export default function ScanStubScreen() {
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [isScoring, setIsScoring] = useState(false);
+  const [analysisStep, setAnalysisStep] = useState(0);
+  const [analysisProgress, setAnalysisProgress] = useState(0);
   const [saved, setSaved] = useState(false);
   const [bestOutfit, setBestOutfit] = useState<null | { imageUrl: string | null; dripScore: number | null }>(null);
   const [result, setResult] = useState<
@@ -58,6 +83,38 @@ export default function ScanStubScreen() {
       console.log("[ScanStubScreen] unmounted");
     };
   }, []);
+
+  useEffect(() => {
+    if (!isScoring) {
+      setAnalysisStep(0);
+      setAnalysisProgress(0);
+      return;
+    }
+
+    setAnalysisStep(0);
+    setAnalysisProgress(0.08);
+
+    const startedAt = Date.now();
+    const interval = setInterval(() => {
+      const elapsed = Date.now() - startedAt;
+      const nextProgress = Math.min(0.92, 0.08 + elapsed / 9000);
+
+      setAnalysisProgress((current) =>
+        nextProgress > current ? nextProgress : current
+      );
+
+      let nextStep = 0;
+      for (let i = ANALYSIS_STEPS.length - 1; i >= 0; i -= 1) {
+        if (nextProgress >= ANALYSIS_STEPS[i].progress) {
+          nextStep = i;
+          break;
+        }
+      }
+      setAnalysisStep(nextStep);
+    }, 180);
+
+    return () => clearInterval(interval);
+  }, [isScoring]);
 
   const handleStartScan = () => {
     console.log("[ScanStubScreen] Start Scan pressed");
@@ -125,6 +182,8 @@ export default function ScanStubScreen() {
       return;
     }
     setIsScoring(true);
+    setAnalysisProgress(0.1);
+    setAnalysisStep(0);
     try {
       let bestBeforeScan: null | { imageUrl: string | null; dripScore: number | null } = null;
       if (userId) {
@@ -187,6 +246,8 @@ export default function ScanStubScreen() {
       }
 
       const data = await resp.json();
+      setAnalysisStep(ANALYSIS_STEPS.length - 1);
+      setAnalysisProgress(0.97);
       // Sync profile to backend
       try {
         const profileResp = await fetch(`${API_BASE}/v1/profile/sync`, {
@@ -225,6 +286,7 @@ export default function ScanStubScreen() {
         suggestions: data.suggestions,
         warnings: data.warnings || [],
       });
+      setAnalysisProgress(1);
       setBestOutfit(bestBeforeScan);
       trackEvent(
         "score_viewed",
@@ -281,6 +343,63 @@ export default function ScanStubScreen() {
             <Text style={styles.scoringNote}>
               Keep the app open while we score your outfit. Backgrounding the app can interrupt the scan.
             </Text>
+            {isScoring ? (
+              <View style={styles.progressCard}>
+                <View style={styles.progressHeader}>
+                  <View>
+                    <Text style={styles.progressEyebrow}>Analysis in progress</Text>
+                    <Text style={styles.progressTitle}>
+                      {ANALYSIS_STEPS[analysisStep]?.label}
+                    </Text>
+                  </View>
+                  <Text style={styles.progressPercent}>
+                    {Math.round(analysisProgress * 100)}%
+                  </Text>
+                </View>
+                <View style={styles.progressTrack}>
+                  <View
+                    style={[
+                      styles.progressFill,
+                      { width: `${Math.max(8, Math.round(analysisProgress * 100))}%` },
+                    ]}
+                  />
+                </View>
+                <Text style={styles.progressDetail}>
+                  {ANALYSIS_STEPS[analysisStep]?.detail}
+                </Text>
+                <View style={styles.stepList}>
+                  {ANALYSIS_STEPS.map((step, index) => {
+                    const completed = analysisProgress >= step.progress;
+                    const active = index === analysisStep;
+
+                    return (
+                      <View key={step.label} style={styles.stepRow}>
+                        <View
+                          style={[
+                            styles.stepDot,
+                            completed && styles.stepDotComplete,
+                            active && styles.stepDotActive,
+                          ]}
+                        >
+                          {completed ? <Text style={styles.stepDotText}>OK</Text> : null}
+                        </View>
+                        <View style={styles.stepCopy}>
+                          <Text
+                            style={[
+                              styles.stepLabelText,
+                              completed && styles.stepLabelTextComplete,
+                            ]}
+                          >
+                            {step.label}
+                          </Text>
+                          <Text style={styles.stepDetailText}>{step.detail}</Text>
+                        </View>
+                      </View>
+                    );
+                  })}
+                </View>
+              </View>
+            ) : null}
             <View style={styles.previewActions}>
               <Pressable style={styles.secondaryButton} onPress={handleStartScan}>
                 <Text style={styles.secondaryButtonText}>Replace</Text>
@@ -318,6 +437,9 @@ export default function ScanStubScreen() {
             {isScoring && (
               <View style={styles.loadingOverlay}>
                 <ActivityIndicator size="large" color="#22C55E" />
+                <Text style={styles.loadingOverlayText}>
+                  Finalizing your drip score...
+                </Text>
               </View>
             )}
             <View style={styles.resultBody}>
@@ -516,6 +638,103 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     gap: 10,
   },
+  progressCard: {
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#1F2937",
+    backgroundColor: "#07111F",
+    padding: 14,
+    gap: 12,
+  },
+  progressHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "flex-start",
+    gap: 12,
+  },
+  progressEyebrow: {
+    color: "#86EFAC",
+    fontSize: 12,
+    fontWeight: "700",
+    textTransform: "uppercase",
+    letterSpacing: 0.6,
+  },
+  progressTitle: {
+    color: "#F9FAFB",
+    fontSize: 16,
+    fontWeight: "700",
+    marginTop: 4,
+  },
+  progressPercent: {
+    color: "#BBF7D0",
+    fontSize: 18,
+    fontWeight: "800",
+  },
+  progressTrack: {
+    height: 10,
+    borderRadius: 999,
+    backgroundColor: "#111827",
+    overflow: "hidden",
+  },
+  progressFill: {
+    height: "100%",
+    borderRadius: 999,
+    backgroundColor: "#22C55E",
+  },
+  progressDetail: {
+    color: "#CBD5E1",
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  stepList: {
+    gap: 10,
+  },
+  stepRow: {
+    flexDirection: "row",
+    gap: 10,
+    alignItems: "flex-start",
+  },
+  stepDot: {
+    width: 22,
+    height: 22,
+    borderRadius: 999,
+    borderWidth: 1,
+    borderColor: "#334155",
+    backgroundColor: "#0F172A",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 1,
+  },
+  stepDotActive: {
+    borderColor: "#22C55E",
+    backgroundColor: "#14532D",
+  },
+  stepDotComplete: {
+    borderColor: "#22C55E",
+    backgroundColor: "#22C55E",
+  },
+  stepDotText: {
+    color: "#052E16",
+    fontSize: 11,
+    fontWeight: "900",
+  },
+  stepCopy: {
+    flex: 1,
+    gap: 2,
+  },
+  stepLabelText: {
+    color: "#E5E7EB",
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  stepLabelTextComplete: {
+    color: "#BBF7D0",
+  },
+  stepDetailText: {
+    color: "#94A3B8",
+    fontSize: 12,
+    lineHeight: 17,
+  },
   scoringNote: {
     color: "#FCD34D",
     fontSize: 13,
@@ -570,6 +789,12 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     borderRadius: 16,
     zIndex: 2,
+    gap: 10,
+  },
+  loadingOverlayText: {
+    color: "#E5E7EB",
+    fontSize: 14,
+    fontWeight: "600",
   },
   resultHeader: {
     flexDirection: "column",
@@ -777,4 +1002,3 @@ const styles = StyleSheet.create({
     backgroundColor: "#111827",
   },
 });
-

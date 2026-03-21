@@ -30,13 +30,13 @@ export default function PaywallScreen() {
           <Text style={styles.kicker}>Upgrade Plan</Text>
           <Text style={styles.title}>DripMaxx Monthly</Text>
           <Text style={styles.subtitle}>
-            Free users get 3 scans in their first 24 hours, then 1 scan every 24 hours.
+            Free users get 5 scans to start, then 1 free scan every 3 days.
           </Text>
         </View>
 
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Plan details</Text>
-          <Text style={styles.bullet}>- $12.99 per month</Text>
+          <Text style={styles.bullet}>- $3.99 per month</Text>
           <Text style={styles.bullet}>- Unlimited scans</Text>
           <Text style={styles.bullet}>- AI score breakdown + suggestions</Text>
           <Text style={styles.bullet}>- Save and compare outfits</Text>

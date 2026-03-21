@@ -111,7 +111,7 @@ export default function ProfileScreen() {
           <Text style={styles.muted}>
             {billingStatus?.plan === "monthly"
               ? "Unlimited scans are enabled on this account."
-              : "Free plan: 3 scans in your first 24 hours, then 1 scan every rolling 24 hours."}
+              : "Free plan: 5 scans to start, then 1 free scan every 3 days."}
           </Text>
           <Pressable style={styles.upgradeButton} onPress={() => nav.navigate("Paywall")}>
             <Text style={styles.upgradeButtonText}>

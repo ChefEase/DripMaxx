@@ -13,12 +13,14 @@
     "plugins": [
       "expo-localization"
     ],
-
     "experiments": {
       "baseUrl": "/DripMaxx/"
     },
     "web": {
       "output": "static"
+    },
+    "android": {
+      "package": "com.anonymous.DripMaxx"
     }
   }
 }

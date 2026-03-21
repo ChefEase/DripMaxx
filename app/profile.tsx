@@ -77,6 +77,46 @@ export default function ProfileScreen() {
     nav.navigate("Auth");
   };
 
+  const handleDeleteAccount = () => {
+    if (!userId) {
+      Alert.alert("Not signed in", "Sign in to delete your account.");
+      return;
+    }
+    Alert.alert(
+      "Delete account",
+      "This permanently deletes your DripMaxx account and scan history. This cannot be undone.",
+      [
+        { text: "Cancel", style: "cancel" },
+        {
+          text: "Delete account",
+          style: "destructive",
+          onPress: async () => {
+            try {
+              const base = process.env.EXPO_PUBLIC_API_BASE || "http://127.0.0.1:8000";
+              const res = await fetch(`${base}/v1/profile/delete-account`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ user_id: userId }),
+              });
+              if (!res.ok) {
+                const text = await res.text();
+                throw new Error(text || "Delete failed");
+              }
+              await supabase.auth.signOut();
+              setUserEmail(null);
+              setUsername(null);
+              setUserId(null);
+              Alert.alert("Account deleted", "Your account has been deleted.");
+              nav.navigate("Auth");
+            } catch (err: any) {
+              Alert.alert("Delete failed", err?.message || "Try again.");
+            }
+          },
+        },
+      ]
+    );
+  };
+
   const handleBack = () => nav.goBack();
 
   return (
@@ -162,6 +202,9 @@ export default function ProfileScreen() {
         </Pressable>
         <Pressable style={styles.secondary} onPress={handleLogout}>
           <Text style={styles.secondaryText}>Log out</Text>
+        </Pressable>
+        <Pressable style={styles.dangerButton} onPress={handleDeleteAccount}>
+          <Text style={styles.dangerButtonText}>Delete Account</Text>
         </Pressable>
         <Pressable style={styles.link} onPress={handleBack}>
           <Text style={styles.linkText}>Back</Text>
@@ -272,6 +315,15 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   secondaryText: { color: "#E5E7EB", fontWeight: "700" },
+  dangerButton: {
+    borderWidth: 1,
+    borderColor: "#7F1D1D",
+    backgroundColor: "#2F1212",
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: "center",
+  },
+  dangerButtonText: { color: "#FCA5A5", fontWeight: "800" },
   link: { alignItems: "center", paddingVertical: 6 },
   linkText: { color: "#A5B4FC", fontWeight: "700" },
   historyRow: {

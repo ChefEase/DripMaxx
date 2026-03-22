@@ -17,7 +17,7 @@
       "baseUrl": "/DripMaxx/"
     },
     "web": {
-      "output": "single"
+      "output": "static"
     },
     "android": {
       "package": "com.anonymous.DripMaxx"

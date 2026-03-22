@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, Pressable, StyleSheet, SafeAreaView, Alert, ScrollView } from "react-native";
+import { View, Text, Pressable, StyleSheet, SafeAreaView, Alert, ScrollView, Platform } from "react-native";
 import { supabase } from "../lib/supabase";
 import RankingsCard from "./components/RankingsCard";
 import { useStore } from "../store";
@@ -82,6 +82,45 @@ export default function ProfileScreen() {
       Alert.alert("Not signed in", "Sign in to delete your account.");
       return;
     }
+    const runDelete = async () => {
+      try {
+        const base = process.env.EXPO_PUBLIC_API_BASE || "http://127.0.0.1:8000";
+        const res = await fetch(`${base}/v1/profile/delete-account`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ user_id: userId }),
+        });
+        if (!res.ok) {
+          const text = await res.text();
+          throw new Error(text || "Delete failed");
+        }
+        await supabase.auth.signOut();
+        setUserEmail(null);
+        setUsername(null);
+        setUserId(null);
+        if (Platform.OS === "web" && typeof window !== "undefined") {
+          window.alert("Your account has been deleted.");
+        } else {
+          Alert.alert("Account deleted", "Your account has been deleted.");
+        }
+        nav.navigate("Auth");
+      } catch (err: any) {
+        if (Platform.OS === "web" && typeof window !== "undefined") {
+          window.alert(err?.message || "Delete failed. Try again.");
+        } else {
+          Alert.alert("Delete failed", err?.message || "Try again.");
+        }
+      }
+    };
+
+    if (Platform.OS === "web" && typeof window !== "undefined") {
+      const confirmed = window.confirm("Are you sure you want to delete your account?");
+      if (confirmed) {
+        void runDelete();
+      }
+      return;
+    }
+
     Alert.alert(
       "Delete account",
       "Are you sure you want to delete your account?",
@@ -90,27 +129,8 @@ export default function ProfileScreen() {
         {
           text: "Yes",
           style: "destructive",
-          onPress: async () => {
-            try {
-              const base = process.env.EXPO_PUBLIC_API_BASE || "http://127.0.0.1:8000";
-              const res = await fetch(`${base}/v1/profile/delete-account`, {
-                method: "POST",
-                headers: { "Content-Type": "application/json" },
-                body: JSON.stringify({ user_id: userId }),
-              });
-              if (!res.ok) {
-                const text = await res.text();
-                throw new Error(text || "Delete failed");
-              }
-              await supabase.auth.signOut();
-              setUserEmail(null);
-              setUsername(null);
-              setUserId(null);
-              Alert.alert("Account deleted", "Your account has been deleted.");
-              nav.navigate("Auth");
-            } catch (err: any) {
-              Alert.alert("Delete failed", err?.message || "Try again.");
-            }
+          onPress: () => {
+            void runDelete();
           },
         },
       ]

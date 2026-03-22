@@ -84,11 +84,11 @@ export default function ProfileScreen() {
     }
     Alert.alert(
       "Delete account",
-      "This permanently deletes your DripMaxx account and scan history. This cannot be undone.",
+      "Are you sure you want to delete your account?",
       [
-        { text: "Cancel", style: "cancel" },
+        { text: "No", style: "cancel" },
         {
-          text: "Delete account",
+          text: "Yes",
           style: "destructive",
           onPress: async () => {
             try {

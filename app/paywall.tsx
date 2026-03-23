@@ -140,7 +140,7 @@ function NativePaywall() {
 
   useEffect(() => {
     if (!connected) return;
-    fetchProducts({ skus: [PRODUCT_ID], type: "in-app" }).catch((error: any) => {
+    fetchProducts({ skus: [PRODUCT_ID], type: "subs" }).catch((error: any) => {
       console.warn("fetchProducts failed", error);
     });
   }, [connected, fetchProducts]);
@@ -149,6 +149,17 @@ function NativePaywall() {
     () => products.find((product: any) => product.id === PRODUCT_ID) || null,
     [products]
   );
+  const androidSubscriptionOffer = useMemo(
+    () =>
+      Platform.OS === "android"
+        ? monthlyProduct?.subscriptionOffers?.find(
+            (offer: any) => offer?.offerTokenAndroid && offer?.basePlanIdAndroid === "dripmaxx-premium-monthly-1"
+          ) ||
+          monthlyProduct?.subscriptionOffers?.find((offer: any) => offer?.offerTokenAndroid) ||
+          null
+        : null,
+    [monthlyProduct]
+  );
 
   const handleBuy = async () => {
     if (!userId) {
@@ -156,13 +167,23 @@ function NativePaywall() {
       nav.navigate("Auth");
       return;
     }
+    if (Platform.OS === "android" && !androidSubscriptionOffer?.offerTokenAndroid) {
+      Alert.alert("Store not ready", "Your subscription offer is still loading. Try again in a moment.");
+      return;
+    }
     setPurchaseBusy(true);
     try {
       await requestPurchase({
         request: {
           apple: { sku: PRODUCT_ID },
-          google: { skus: [PRODUCT_ID] },
+          google: {
+            skus: [PRODUCT_ID],
+            subscriptionOffers: androidSubscriptionOffer?.offerTokenAndroid
+              ? [{ sku: PRODUCT_ID, offerToken: androidSubscriptionOffer.offerTokenAndroid }]
+              : undefined,
+          },
         },
+        type: "subs",
       });
     } catch (error: any) {
       setPurchaseBusy(false);
@@ -175,7 +196,13 @@ function NativePaywall() {
       priceLabel={monthlyProduct?.displayPrice || "$3.99"}
       metaText={
         connected
-          ? `Store connected${monthlyProduct ? "" : " - product still loading"}`
+          ? `Store connected${
+              monthlyProduct
+                ? Platform.OS === "android" && !androidSubscriptionOffer?.offerTokenAndroid
+                  ? " - waiting for base plan offer"
+                  : ""
+                : " - product still loading"
+            }`
           : "Connecting to the store..."
       }
       onBuy={handleBuy}

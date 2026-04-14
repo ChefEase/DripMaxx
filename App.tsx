@@ -24,6 +24,7 @@ import UserProfileViewScreen from "./app/user-profile-view";
 import GroupLeaderboardScreen from "./app/group-leaderboard";
 import LegalScreen from "./app/legal";
 import 'react-native-url-polyfill/auto';
+import { logWarn } from "./lib/logger";
 import { supabase } from "./lib/supabase";
 
 export type RootStackParamList = {
@@ -50,8 +51,9 @@ export type RootStackParamList = {
 const Stack = createNativeStackNavigator<RootStackParamList>();
 
 export default function App() {
+  const appUrlPrefix = Linking.createURL("/", { isTripleSlashed: true });
   const linking = {
-    prefixes: [Linking.createURL("/")],
+    prefixes: [appUrlPrefix, "acme://", "acme:///"],
     config: {
       screens: {
         ResetPassword: "reset-password",
@@ -64,7 +66,6 @@ export default function App() {
   };
 
   useEffect(() => {
-    console.log("[App] mounted on", Platform.OS);
     LogBox.ignoreLogs([
       "SafeAreaView has been deprecated", // reduce noise in dev
     ]);
@@ -78,9 +79,8 @@ export default function App() {
       if (access_token && refresh_token) {
         try {
           await supabase.auth.setSession({ access_token, refresh_token });
-          console.log("[Linking] session restored from reset link");
         } catch (e) {
-          console.warn("[Linking] setSession failed", e);
+          logWarn("[Linking] setSession failed", e);
         }
       }
     };
@@ -91,19 +91,13 @@ export default function App() {
     Linking.getInitialURL().then((url) => handleDeepLink(url));
 
     return () => {
-      console.log("[App] unmounted");
       listener.remove();
     };
   }, []);
 
   return (
     <StoreProvider>
-      <NavigationContainer
-        linking={linking}
-        onReady={() => {
-          console.log("[NavigationContainer] ready");
-        }}
-      >
+      <NavigationContainer linking={linking}>
         <Stack.Navigator
           id="root-stack"
           screenOptions={{

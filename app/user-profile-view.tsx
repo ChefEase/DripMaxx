@@ -12,7 +12,10 @@ import {
 } from "react-native";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+
 import type { RootStackParamList } from "../App";
+import { apiFetch } from "../lib/api";
+import { logWarn } from "../lib/logger";
 import { useStore } from "../store";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -54,11 +57,14 @@ export default function UserProfileViewScreen() {
       nav.goBack();
       return;
     }
+
     let cancelled = false;
     setLoading(true);
-    const base = process.env.EXPO_PUBLIC_API_BASE || "http://127.0.0.1:8000";
     const viewerQuery = viewerUserId ? `?viewer_user_id=${encodeURIComponent(viewerUserId)}` : "";
-    fetch(`${base}/v1/users/${encodeURIComponent(userId)}/public-profile${viewerQuery}`)
+
+    apiFetch(`/v1/users/${encodeURIComponent(userId)}/public-profile${viewerQuery}`, {
+      auth: "optional",
+    })
       .then((r) => {
         if (!r.ok) throw new Error("User not found");
         return r.json();
@@ -66,19 +72,21 @@ export default function UserProfileViewScreen() {
       .then((d) => {
         if (!cancelled) {
           setData(d);
-          console.log("[UserProfileView] loaded", d);
         }
       })
       .catch((e) => {
         if (!cancelled) {
           setError(e?.message || "Failed to load");
-          console.warn("[UserProfileView] fetch failed", e);
+          logWarn("[UserProfileView] fetch failed", e);
         }
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
-    return () => { cancelled = true; };
+
+    return () => {
+      cancelled = true;
+    };
   }, [userId, viewerUserId, nav]);
 
   if (!userId) return null;
@@ -96,7 +104,7 @@ export default function UserProfileViewScreen() {
     return (
       <SafeAreaView style={styles.safeArea}>
         <Pressable onPress={() => nav.goBack()} style={styles.backBtn}>
-          <Text style={styles.backText}>← Back</Text>
+          <Text style={styles.backText}>Back</Text>
         </Pressable>
         <Text style={styles.error}>{error || "User not found"}</Text>
       </SafeAreaView>
@@ -109,7 +117,7 @@ export default function UserProfileViewScreen() {
     <SafeAreaView style={styles.safeArea}>
       <ScrollView style={styles.scroll} contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Pressable onPress={() => nav.goBack()} style={styles.backBtn}>
-          <Text style={styles.backText}>← Back</Text>
+          <Text style={styles.backText}>Back</Text>
         </Pressable>
         <Text style={styles.title}>Profile</Text>
         <View style={styles.card}>
@@ -144,10 +152,10 @@ export default function UserProfileViewScreen() {
         </View>
         {showOutfits && data.top_outfits.length > 0 ? (
           <View style={styles.card}>
-            <Text style={styles.label}>🔥 Best Looks</Text>
+            <Text style={styles.label}>Best Looks</Text>
             {data.top_outfits.map((o, idx) => (
               <View key={o.id} style={styles.outfitRow}>
-                <Text style={styles.outfitRank}>{idx + 1}️⃣</Text>
+                <Text style={styles.outfitRank}>{idx + 1}</Text>
                 {o.image_url && !o.image_url.startsWith("uploaded://") ? (
                   <Pressable onPress={() => setPreviewUrl(o.image_url)} style={styles.thumbPressable}>
                     <Image source={{ uri: o.image_url }} style={styles.thumb} />
@@ -159,9 +167,7 @@ export default function UserProfileViewScreen() {
                 )}
                 <View style={styles.outfitInfo}>
                   <Text style={styles.outfitScore}>{o.drip_score?.toFixed(1) ?? "--"} rating</Text>
-                  {o.scanned_at && (
-                    <Text style={styles.muted}>{o.scanned_at.slice(0, 10)}</Text>
-                  )}
+                  {o.scanned_at && <Text style={styles.muted}>{o.scanned_at.slice(0, 10)}</Text>}
                 </View>
               </View>
             ))}
@@ -176,9 +182,7 @@ export default function UserProfileViewScreen() {
       <Modal transparent visible={!!previewUrl} animationType="fade">
         <Pressable style={styles.previewOverlay} onPress={() => setPreviewUrl(null)}>
           <View style={styles.previewModal}>
-            {previewUrl ? (
-              <Image source={{ uri: previewUrl }} style={styles.previewImage} />
-            ) : null}
+            {previewUrl ? <Image source={{ uri: previewUrl }} style={styles.previewImage} /> : null}
           </View>
         </Pressable>
       </Modal>

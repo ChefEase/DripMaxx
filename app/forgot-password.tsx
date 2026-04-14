@@ -20,7 +20,7 @@ export default function ForgotPasswordScreen() {
     }
     setLoading(true);
     try {
-      const redirect = Linking.createURL("reset-password");
+      const redirect = Linking.createURL("reset-password", { isTripleSlashed: true });
       const { error } = await supabase.auth.resetPasswordForEmail(email, { redirectTo: redirect });
       if (error) throw error;
       Alert.alert("Check your email", "We sent a password reset link.", [

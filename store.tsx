@@ -36,8 +36,6 @@ type StoreContextValue = StoreState & {
 
 const StoreContext = createContext<StoreContextValue | undefined>(undefined);
 
-const genId = () => `user_${Math.random().toString(36).slice(2, 10)}_${Date.now()}`;
-
 export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
   children,
 }) => {
@@ -72,13 +70,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
         const usernameVal = entries.find((e) => e[0] === "dripmaxx:username")?.[1];
         const nameVal = entries.find((e) => e[0] === "dripmaxx:displayName")?.[1];
         const avatarVal = entries.find((e) => e[0] === "dripmaxx:avatarUrl")?.[1];
-        if (idVal) {
-          setUserId(idVal);
-        } else {
-          const next = genId();
-          setUserId(next);
-          AsyncStorage.setItem("dripmaxx:userId", next).catch(() => {});
-        }
+        if (idVal) setUserId(idVal);
         if (emailVal) setUserEmail(emailVal);
         if (usernameVal) setUsername(usernameVal);
         if (nameVal) setDisplayName(nameVal);
@@ -100,30 +92,40 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
   useEffect(() => {
     if (userId) {
       AsyncStorage.setItem("dripmaxx:userId", userId).catch(() => {});
+    } else {
+      AsyncStorage.removeItem("dripmaxx:userId").catch(() => {});
     }
   }, [userId]);
 
   useEffect(() => {
     if (userEmail) {
       AsyncStorage.setItem("dripmaxx:userEmail", userEmail).catch(() => {});
+    } else {
+      AsyncStorage.removeItem("dripmaxx:userEmail").catch(() => {});
     }
   }, [userEmail]);
 
   useEffect(() => {
     if (username) {
       AsyncStorage.setItem("dripmaxx:username", username).catch(() => {});
+    } else {
+      AsyncStorage.removeItem("dripmaxx:username").catch(() => {});
     }
   }, [username]);
 
   useEffect(() => {
     if (displayName) {
       AsyncStorage.setItem("dripmaxx:displayName", displayName).catch(() => {});
+    } else {
+      AsyncStorage.removeItem("dripmaxx:displayName").catch(() => {});
     }
   }, [displayName]);
 
   useEffect(() => {
     if (avatarUrl) {
       AsyncStorage.setItem("dripmaxx:avatarUrl", avatarUrl).catch(() => {});
+    } else {
+      AsyncStorage.removeItem("dripmaxx:avatarUrl").catch(() => {});
     }
   }, [avatarUrl]);
 

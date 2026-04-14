@@ -4,6 +4,8 @@ import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 import type { RootStackParamList } from "../App";
+import { apiFetch, apiJsonHeaders } from "../lib/api";
+import { logWarn } from "../lib/logger";
 import { useStore } from "../store";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -83,7 +85,6 @@ function WebPaywall() {
 function NativePaywall() {
   const nav = useNavigation<Nav>();
   const { userId } = useStore();
-  const base = process.env.EXPO_PUBLIC_API_BASE?.trim() || "http://127.0.0.1:8000";
   const [purchaseBusy, setPurchaseBusy] = useState(false);
   const expoIap = require("expo-iap");
   const { useIAP } = expoIap;
@@ -100,9 +101,9 @@ function NativePaywall() {
         if (!userId) {
           throw new Error("Sign in required before purchase verification.");
         }
-        const verifyResp = await fetch(`${base}/v1/billing/verify-purchase`, {
+        const verifyResp = await apiFetch("/v1/billing/verify-purchase", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: apiJsonHeaders(),
           body: JSON.stringify({
             user_id: userId,
             platform: Platform.OS,
@@ -141,7 +142,7 @@ function NativePaywall() {
   useEffect(() => {
     if (!connected) return;
     fetchProducts({ skus: [PRODUCT_ID], type: "subs" }).catch((error: any) => {
-      console.warn("fetchProducts failed", error);
+      logWarn("fetchProducts failed", error);
     });
   }, [connected, fetchProducts]);
 

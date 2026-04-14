@@ -1,10 +1,14 @@
 import React, { useState } from "react";
 import { SafeAreaView, View, Text, TextInput, Pressable, StyleSheet, Alert } from "react-native";
-import { supabase } from "../lib/supabase";
-import { useStore } from "../store";
+import * as Linking from "expo-linking";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+
 import type { RootStackParamList } from "../App";
+import { apiFetch, apiJsonHeaders } from "../lib/api";
+import { logWarn } from "../lib/logger";
+import { supabase } from "../lib/supabase";
+import { useStore } from "../store";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -19,21 +23,29 @@ export default function SignUpScreen() {
   const handleSignUp = async () => {
     const normalizedUsername = username.trim().toLowerCase();
     const normalizedEmail = email.trim().toLowerCase();
-    if (!normalizedUsername || !email || !password) {
+
+    if (!normalizedUsername || !normalizedEmail || !password) {
       Alert.alert("Missing info", "Enter username, email and password.");
       return;
     }
+
     if (!/^[a-z0-9_]{3,20}$/.test(normalizedUsername)) {
       Alert.alert("Invalid username", "Use 3-20 chars: lowercase letters, numbers, underscore.");
       return;
     }
+
     setLoading(true);
     try {
+      const emailRedirectTo = Linking.createURL("home", { isTripleSlashed: true });
       const { data, error } = await supabase.auth.signUp({
         email: normalizedEmail,
         password,
-        options: { data: { username: normalizedUsername } },
+        options: {
+          data: { username: normalizedUsername },
+          emailRedirectTo,
+        },
       });
+
       if (error) {
         const message = String(error.message || "").toLowerCase();
         if (message.includes("already registered") || message.includes("already been registered")) {
@@ -42,29 +54,36 @@ export default function SignUpScreen() {
         }
         throw error;
       }
+
       const identities = Array.isArray(data.user?.identities) ? data.user.identities : [];
       if (data.user && identities.length === 0) {
         Alert.alert("Account exists", "Account has already been created, sign in.");
         return;
       }
+
       const userId = data.user?.id;
       if (!userId) throw new Error("No user returned");
-      const defaultName = normalizedUsername;
+
       setUserId(userId);
       setUserEmail(normalizedEmail);
       setUsername(normalizedUsername);
-      setDisplayName(defaultName);
-      // sync to backend users table so style_dna/history can attach
+      setDisplayName(normalizedUsername);
+
       try {
-        const base = process.env.EXPO_PUBLIC_API_BASE?.trim() || "http://127.0.0.1:8000";
-        await fetch(`${base}/v1/profile/sync`, {
+        await apiFetch("/v1/profile/sync", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ user_id: userId, username: normalizedUsername, email: normalizedEmail, display_name: defaultName }),
+          headers: apiJsonHeaders(),
+          body: JSON.stringify({
+            user_id: userId,
+            username: normalizedUsername,
+            email: normalizedEmail,
+            display_name: normalizedUsername,
+          }),
         });
       } catch (e) {
-        console.warn("profile sync on sign-up failed", e);
+        logWarn("profile sync on sign-up failed", e);
       }
+
       Alert.alert("Account created", "Check your email to confirm.", [
         { text: "OK", onPress: () => nav.navigate("ValueProposition", { celebrate: true }) },
       ]);

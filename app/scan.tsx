@@ -18,7 +18,9 @@ import * as ImagePicker from "expo-image-picker";
 import { useStore } from "../store";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import RankingsCard from "./components/RankingsCard";
+import { apiFetch, apiJsonHeaders } from "../lib/api";
 import { trackEvent } from "../lib/analytics";
+import { logWarn } from "../lib/logger";
 import { ActivityIndicator } from "react-native";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -74,16 +76,6 @@ export default function ScanStubScreen() {
         warnings: string[];
       }
   >(null);
-  const API_BASE =
-    process.env.EXPO_PUBLIC_API_BASE?.trim() || "http://127.0.0.1:8000";
-
-  useEffect(() => {
-    console.log("[ScanStubScreen] mounted");
-    return () => {
-      console.log("[ScanStubScreen] unmounted");
-    };
-  }, []);
-
   useEffect(() => {
     if (!isScoring) {
       setAnalysisStep(0);
@@ -117,7 +109,6 @@ export default function ScanStubScreen() {
   }, [isScoring]);
 
   const handleStartScan = () => {
-    console.log("[ScanStubScreen] Start Scan pressed");
     trackEvent("scan_started", {}, userId);
     Alert.alert(
       "Pick an option",
@@ -131,7 +122,6 @@ export default function ScanStubScreen() {
   };
 
   const handleBackToStart = () => {
-    console.log("[ScanStubScreen] Back to Start pressed");
     navigation.navigate("ValueProposition");
   };
 
@@ -188,7 +178,7 @@ export default function ScanStubScreen() {
       let bestBeforeScan: null | { imageUrl: string | null; dripScore: number | null } = null;
       if (userId) {
         try {
-          const historyResp = await fetch(`${API_BASE}/v1/profile/history?user_id=${encodeURIComponent(userId)}`);
+          const historyResp = await apiFetch(`/v1/profile/history?user_id=${encodeURIComponent(userId)}`);
           if (historyResp.ok) {
             const historyData = await historyResp.json();
             if (historyData?.best_outfit) {
@@ -199,7 +189,7 @@ export default function ScanStubScreen() {
             }
           }
         } catch (e) {
-          console.warn("best outfit fetch failed", e);
+          logWarn("best outfit fetch failed", e);
         }
       }
 
@@ -228,8 +218,9 @@ export default function ScanStubScreen() {
         })
       );
 
-      const resp = await fetch(`${API_BASE}/v1/outfits/score`, {
+      const resp = await apiFetch("/v1/outfits/score", {
         method: "POST",
+        auth: "optional",
         headers: {
           Accept: "application/json",
         },
@@ -250,9 +241,9 @@ export default function ScanStubScreen() {
       setAnalysisProgress(0.97);
       // Sync profile to backend
       try {
-        const profileResp = await fetch(`${API_BASE}/v1/profile/sync`, {
+        const profileResp = await apiFetch("/v1/profile/sync", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: apiJsonHeaders(),
           body: JSON.stringify({
             user_id: userId,
             style_preferences: stylePreferences,
@@ -271,7 +262,7 @@ export default function ScanStubScreen() {
           }
         }
       } catch (e) {
-        console.warn("profile sync failed", e);
+        logWarn("profile sync failed", e);
       }
       const categories = [
         { label: "Color Match", value: data.breakdown.color_match },
@@ -294,7 +285,6 @@ export default function ScanStubScreen() {
         userId
       );
     } catch (err: any) {
-      console.error("score failed", err);
       Alert.alert("Scoring failed", err?.message || "Try again in a moment.");
     } finally {
       setIsScoring(false);

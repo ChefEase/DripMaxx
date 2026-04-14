@@ -2,7 +2,9 @@ import React, { useEffect, useState } from "react";
 import { SafeAreaView, View, Text, StyleSheet, ScrollView, ActivityIndicator, Pressable } from "react-native";
 import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+
 import type { RootStackParamList } from "../App";
+import { apiFetch } from "../lib/api";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 type GroupRoute = RouteProp<RootStackParamList, "GroupLeaderboard">;
@@ -29,8 +31,8 @@ export default function GroupLeaderboardScreen() {
     let cancelled = false;
     setLoading(true);
     setError(null);
-    const base = process.env.EXPO_PUBLIC_API_BASE || "http://127.0.0.1:8000";
-    fetch(`${base}/v1/rankings/groups/${encodeURIComponent(groupId)}/details`)
+
+    apiFetch(`/v1/rankings/groups/${encodeURIComponent(groupId)}/details`)
       .then((r) => {
         if (!r.ok) throw new Error(`Group ${r.status}`);
         return r.json();
@@ -50,6 +52,7 @@ export default function GroupLeaderboardScreen() {
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
+
     return () => {
       cancelled = true;
     };
@@ -111,4 +114,3 @@ const styles = StyleSheet.create({
   muted: { color: "#6B7280", fontSize: 13 },
   error: { color: "#F87171", fontSize: 14 },
 });
-

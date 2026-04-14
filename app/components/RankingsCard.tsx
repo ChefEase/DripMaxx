@@ -2,7 +2,10 @@ import React, { useEffect, useState } from "react";
 import { View, Text, StyleSheet, ActivityIndicator, Pressable } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
-import type { RootStackParamList } from "../App";
+
+import type { RootStackParamList } from "../../App";
+import { apiFetch } from "../../lib/api";
+import { logWarn } from "../../lib/logger";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -55,11 +58,12 @@ export default function RankingsCard({ userId, compact = false, refreshTrigger, 
       setLoading(false);
       return;
     }
+
     let cancelled = false;
     setLoading(true);
     setError(null);
-    const base = process.env.EXPO_PUBLIC_API_BASE || "http://127.0.0.1:8000";
-    fetch(`${base}/v1/rankings/me?user_id=${encodeURIComponent(userId)}`)
+
+    apiFetch(`/v1/rankings/me?user_id=${encodeURIComponent(userId)}`)
       .then((r) => {
         if (!r.ok) throw new Error(`Rankings ${r.status}`);
         return r.json();
@@ -67,18 +71,18 @@ export default function RankingsCard({ userId, compact = false, refreshTrigger, 
       .then((d) => {
         if (!cancelled) {
           setData(d);
-          console.log("[RankingsCard] loaded", d);
         }
       })
       .catch((e) => {
         if (!cancelled) {
           setError(e?.message || "Failed to load rankings");
-          console.warn("[RankingsCard] fetch failed", e);
+          logWarn("[RankingsCard] fetch failed", e);
         }
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
+
     return () => {
       cancelled = true;
     };
@@ -109,7 +113,6 @@ export default function RankingsCard({ userId, compact = false, refreshTrigger, 
     );
   }
 
-  // Always show card once loaded so new users see the CTA
   const isEligible = data?.eligible_for_leaderboard ?? false;
 
   if (compact) {
@@ -117,14 +120,10 @@ export default function RankingsCard({ userId, compact = false, refreshTrigger, 
       <Pressable style={styles.card} onPress={handlePress}>
         <Text style={styles.label}>Your rankings</Text>
         {!isEligible ? (
-          <Text style={styles.muted}>
-            You must rate 10 outfits to be ranked.
-          </Text>
+          <Text style={styles.muted}>You must rate 10 outfits to be ranked.</Text>
         ) : (
           <View style={styles.row}>
-            <Text style={styles.avgScore}>
-              Avg {data?.avg_drip_score?.toFixed(1) ?? "--"}/10
-            </Text>
+            <Text style={styles.avgScore}>Avg {data?.avg_drip_score?.toFixed(1) ?? "--"}/10</Text>
             {data?.rankings?.filter((r) => r.rank != null).slice(0, 2).map((r) => (
               <Text key={r.scope} style={styles.rankBadge}>
                 #{r.rank} {scopeLabel(r.scope)}
@@ -140,9 +139,7 @@ export default function RankingsCard({ userId, compact = false, refreshTrigger, 
     <Pressable style={styles.card} onPress={handlePress}>
       <Text style={styles.title}>Your rankings</Text>
       {!isEligible ? (
-        <Text style={styles.muted}>
-          You must rate 10 outfits to be ranked.
-        </Text>
+        <Text style={styles.muted}>You must rate 10 outfits to be ranked.</Text>
       ) : (
         <>
           <View style={styles.avgRow}>
@@ -153,17 +150,13 @@ export default function RankingsCard({ userId, compact = false, refreshTrigger, 
             {data?.rankings?.map((r) => (
               <View key={r.scope} style={styles.rankRow}>
                 <Text style={styles.scopeLabel}>{scopeLabel(r.scope)}</Text>
-                {r.rank != null ? (
-                  <Text style={styles.rankValue}>#{r.rank}</Text>
-                ) : (
-                  <Text style={styles.muted}>--</Text>
-                )}
+                {r.rank != null ? <Text style={styles.rankValue}>#{r.rank}</Text> : <Text style={styles.muted}>--</Text>}
               </View>
             ))}
           </View>
         </>
       )}
-      <Text style={styles.link}>View leaderboard →</Text>
+      <Text style={styles.link}>View leaderboard</Text>
     </Pressable>
   );
 }

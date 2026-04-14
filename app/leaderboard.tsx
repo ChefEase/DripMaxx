@@ -11,7 +11,10 @@ import {
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+
 import type { RootStackParamList } from "../App";
+import { apiFetch, getApiBase } from "../lib/api";
+import { logWarn } from "../lib/logger";
 import { useStore } from "../store";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -50,11 +53,15 @@ export default function LeaderboardScreen() {
     let cancelled = false;
     setLoading(true);
     setError(null);
-    const base = process.env.EXPO_PUBLIC_API_BASE || "http://127.0.0.1:8000";
-    const [actualScope, styleParam] = scope.startsWith("style:") ? ["style", scope.replace("style:", "")] : [scope, null];
-    let url = `${base}/v1/rankings/leaderboard?scope=${actualScope}&limit=30`;
+
+    const [actualScope, styleParam] = scope.startsWith("style:")
+      ? ["style", scope.replace("style:", "")]
+      : [scope, null];
+
+    let url = `${getApiBase()}/v1/rankings/leaderboard?scope=${actualScope}&limit=30`;
     if (actualScope === "country" && country) url += `&country=${encodeURIComponent(country)}`;
     if (actualScope === "style" && styleParam) url += `&style=${encodeURIComponent(styleParam)}`;
+
     fetch(url)
       .then((r) => {
         if (!r.ok) throw new Error(`Leaderboard ${r.status}`);
@@ -63,20 +70,22 @@ export default function LeaderboardScreen() {
       .then((d) => {
         if (!cancelled) {
           setEntries(d.entries || []);
-          console.log("[Leaderboard] loaded scope=%s count=%d", scope, d.entries?.length ?? 0);
         }
       })
       .catch((e) => {
         if (!cancelled) {
           setError(e?.message || "Failed to load");
           setEntries([]);
-          console.warn("[Leaderboard] fetch failed", e);
+          logWarn("[Leaderboard] fetch failed", e);
         }
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
       });
-    return () => { cancelled = true; };
+
+    return () => {
+      cancelled = true;
+    };
   }, [scope, country]);
 
   useEffect(() => {
@@ -84,32 +93,33 @@ export default function LeaderboardScreen() {
       setGroups([]);
       return;
     }
+
     let cancelled = false;
     setGroupLoading(true);
-    const base = process.env.EXPO_PUBLIC_API_BASE || "http://127.0.0.1:8000";
-    fetch(`${base}/v1/rankings/groups?user_id=${encodeURIComponent(userId)}`)
+
+    apiFetch(`/v1/rankings/groups?user_id=${encodeURIComponent(userId)}`)
       .then((r) => (r.ok ? r.json() : []))
       .then((d) => {
         if (!cancelled) setGroups(d || []);
       })
-      .catch((e) => console.warn("[Leaderboard] groups fetch failed", e))
+      .catch((e) => logWarn("[Leaderboard] groups fetch failed", e))
       .finally(() => {
         if (!cancelled) setGroupLoading(false);
       });
+
     return () => {
       cancelled = true;
     };
   }, [userId]);
 
   const handleDeleteGroup = async (groupId: string) => {
-    const base = process.env.EXPO_PUBLIC_API_BASE || "http://127.0.0.1:8000";
     try {
-      await fetch(`${base}/v1/rankings/groups/${groupId}?user_id=${encodeURIComponent(userId || "")}`, {
+      await apiFetch(`/v1/rankings/groups/${groupId}?user_id=${encodeURIComponent(userId || "")}`, {
         method: "DELETE",
       });
       setGroups((prev) => prev.filter((g) => g.id !== groupId));
     } catch (e) {
-      console.warn("delete group failed", e);
+      logWarn("delete group failed", e);
     }
   };
 
@@ -117,7 +127,7 @@ export default function LeaderboardScreen() {
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
         <Pressable onPress={() => nav.goBack()} style={styles.backBtn}>
-          <Text style={styles.backText}>← Back</Text>
+          <Text style={styles.backText}>Back</Text>
         </Pressable>
         <Text style={styles.title}>Leaderboard</Text>
       </View>
@@ -166,9 +176,7 @@ export default function LeaderboardScreen() {
                 </View>
                 <Pressable
                   style={styles.smallBtn}
-                  onPress={() =>
-                    Share.share({ message: `Join my DripMaxx group "${g.name}"! Code: ${g.code}` })
-                  }
+                  onPress={() => Share.share({ message: `Join my DripMaxx group "${g.name}"! Code: ${g.code}` })}
                 >
                   <Text style={styles.smallBtnText}>Share</Text>
                 </Pressable>
@@ -207,11 +215,8 @@ export default function LeaderboardScreen() {
           ))
         )}
       </ScrollView>
-      <Pressable
-        style={styles.footer}
-        onPress={() => nav.navigate("RankingGroups")}
-      >
-        <Text style={styles.footerText}>Create or join private groups →</Text>
+      <Pressable style={styles.footer} onPress={() => nav.navigate("RankingGroups")}>
+        <Text style={styles.footerText}>Create or join private groups</Text>
       </Pressable>
     </SafeAreaView>
   );

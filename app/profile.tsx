@@ -1,11 +1,15 @@
 import React, { useEffect, useState } from "react";
 import { View, Text, Pressable, StyleSheet, SafeAreaView, Alert, ScrollView, Platform } from "react-native";
-import { supabase } from "../lib/supabase";
-import RankingsCard from "./components/RankingsCard";
-import { useStore } from "../store";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+
 import type { RootStackParamList } from "../App";
+import { apiFetch, apiJsonHeaders } from "../lib/api";
+import { logWarn } from "../lib/logger";
+import { supabase } from "../lib/supabase";
+import { useStore } from "../store";
+import RankingsCard from "./components/RankingsCard";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -15,7 +19,6 @@ export default function ProfileScreen() {
     userId,
     userEmail,
     displayName,
-    avatarUrl,
     stylePreferences,
     styleInspirations,
     userHeight,
@@ -32,48 +35,61 @@ export default function ProfileScreen() {
   const [billingStatus, setBillingStatus] = useState<null | { plan: string; used: number; remaining: number; limit_type: string }>(null);
 
   useEffect(() => {
-    const fetchHistory = async () => {
+    const fetchProfileData = async () => {
       if (!userId) return;
+
       try {
-        const base = process.env.EXPO_PUBLIC_API_BASE || "http://127.0.0.1:8000";
-        const res = await fetch(`${base}/v1/profile/history?user_id=${userId}`);
-        if (!res.ok) return;
-        const data = await res.json();
-        setRecent(data.recent_outfits || []);
-        setHistory(data.history || []);
-        if (data.profile_visibility) setProfileVisibility(data.profile_visibility);
+        const historyRes = await apiFetch(`/v1/profile/history?user_id=${encodeURIComponent(userId)}`);
+        if (historyRes.ok) {
+          const data = await historyRes.json();
+          setRecent(data.recent_outfits || []);
+          setHistory(data.history || []);
+          if (data.profile_visibility) setProfileVisibility(data.profile_visibility);
+        }
       } catch (err) {
-        console.warn("history fetch failed", err);
+        logWarn("history fetch failed", err);
       }
+
       try {
-        const base = process.env.EXPO_PUBLIC_API_BASE || "http://127.0.0.1:8000";
-        const res = await fetch(`${base}/v1/profile/style_dna?user_id=${userId}`);
-        if (res.ok) {
-          const data = await res.json();
+        const dnaRes = await apiFetch(`/v1/profile/style_dna?user_id=${encodeURIComponent(userId)}`);
+        if (dnaRes.ok) {
+          const data = await dnaRes.json();
           setDna(data);
         }
       } catch (err) {
-        console.warn("dna fetch failed", err);
+        logWarn("dna fetch failed", err);
       }
+
       try {
-        const base = process.env.EXPO_PUBLIC_API_BASE || "http://127.0.0.1:8000";
-        const res = await fetch(`${base}/v1/billing/status?user_id=${userId}`);
-        if (res.ok) {
-          const data = await res.json();
+        const billingRes = await apiFetch(`/v1/billing/status?user_id=${encodeURIComponent(userId)}`);
+        if (billingRes.ok) {
+          const data = await billingRes.json();
           setBillingStatus(data);
         }
       } catch (err) {
-        console.warn("billing status fetch failed", err);
+        logWarn("billing status fetch failed", err);
       }
     };
-    fetchHistory();
+
+    void fetchProfileData();
   }, [userId]);
 
-  const handleLogout = async () => {
-    await supabase.auth.signOut();
+  const clearLocalUserState = async () => {
+    await AsyncStorage.multiRemove([
+      "dripmaxx:userId",
+      "dripmaxx:userEmail",
+      "dripmaxx:username",
+      "dripmaxx:displayName",
+      "dripmaxx:avatarUrl",
+    ]).catch(() => {});
     setUserEmail(null);
     setUsername(null);
     setUserId(null);
+  };
+
+  const handleLogout = async () => {
+    await supabase.auth.signOut();
+    await clearLocalUserState();
     nav.navigate("Auth");
   };
 
@@ -82,22 +98,22 @@ export default function ProfileScreen() {
       Alert.alert("Not signed in", "Sign in to delete your account.");
       return;
     }
+
     const runDelete = async () => {
       try {
-        const base = process.env.EXPO_PUBLIC_API_BASE || "http://127.0.0.1:8000";
-        const res = await fetch(`${base}/v1/profile/delete-account`, {
+        const res = await apiFetch("/v1/profile/delete-account", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: apiJsonHeaders(),
           body: JSON.stringify({ user_id: userId }),
         });
         if (!res.ok) {
           const text = await res.text();
           throw new Error(text || "Delete failed");
         }
+
         await supabase.auth.signOut();
-        setUserEmail(null);
-        setUsername(null);
-        setUserId(null);
+        await clearLocalUserState();
+
         if (Platform.OS === "web" && typeof window !== "undefined") {
           window.alert("Your account has been deleted.");
         } else {
@@ -121,20 +137,16 @@ export default function ProfileScreen() {
       return;
     }
 
-    Alert.alert(
-      "Delete account",
-      "Are you sure you want to delete your account?",
-      [
-        { text: "No", style: "cancel" },
-        {
-          text: "Yes",
-          style: "destructive",
-          onPress: () => {
-            void runDelete();
-          },
+    Alert.alert("Delete account", "Are you sure you want to delete your account?", [
+      { text: "No", style: "cancel" },
+      {
+        text: "Yes",
+        style: "destructive",
+        onPress: () => {
+          void runDelete();
         },
-      ]
-    );
+      },
+    ]);
   };
 
   const handleBack = () => nav.goBack();
@@ -189,12 +201,11 @@ export default function ProfileScreen() {
                 style={[styles.visibilityChip, profileVisibility === v && styles.visibilityChipActive]}
                 onPress={() => {
                   setProfileVisibility(v);
-                  const base = process.env.EXPO_PUBLIC_API_BASE || "http://127.0.0.1:8000";
-                  fetch(`${base}/v1/profile/sync`, {
+                  apiFetch("/v1/profile/sync", {
                     method: "POST",
-                    headers: { "Content-Type": "application/json" },
+                    headers: apiJsonHeaders(),
                     body: JSON.stringify({ user_id: userId, profile_visibility: v }),
-                  }).catch((e) => console.warn("visibility sync failed", e));
+                  }).catch((e) => logWarn("visibility sync failed", e));
                 }}
               >
                 <Text style={[styles.visibilityChipText, profileVisibility === v && styles.visibilityChipTextActive]}>
@@ -266,9 +277,7 @@ export default function ProfileScreen() {
             <View style={styles.chartRow}>
               {history.map((p, idx) => {
                 const height = p.drip_score ? (p.drip_score / 10) * 60 : 4;
-                return (
-                  <View key={idx} style={[styles.bar, { height }]} />
-                );
+                return <View key={idx} style={[styles.bar, { height }]} />;
               })}
             </View>
           )}

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react"; // <-- add useEffect
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -8,11 +8,14 @@ import {
   SafeAreaView,
   Alert,
 } from "react-native";
-import { supabase } from "../lib/supabase";
-import { useStore } from "../store";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+
 import type { RootStackParamList } from "../App";
+import { apiFetch, apiJsonHeaders } from "../lib/api";
+import { logWarn } from "../lib/logger";
+import { supabase } from "../lib/supabase";
+import { useStore } from "../store";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -23,74 +26,58 @@ export default function AuthScreen() {
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // ✅ Test Supabase session on mount
-  useEffect(() => {
-    const testSupabase = async () => {
-      try {
-        const { data, error } = await supabase.auth.getSession();
-        console.log("Supabase session test:", data, error);
-        if (error) console.warn("Supabase test error:", error.message);
-      } catch (err) {
-        console.error("Supabase test failed:", err);
-      }
-    };
-
-    testSupabase();
-  }, []);
-
   const doSignIn = async () => {
     if (!email || !password) {
       Alert.alert("Missing info", "Enter email and password.");
       return;
     }
-  
-    setLoading(true);
-  
-    try {
-      console.log("Attempting sign in", email);
 
+    setLoading(true);
+
+    try {
+      const normalizedEmail = email.trim().toLowerCase();
       const { data, error } = await supabase.auth.signInWithPassword({
-        email,
+        email: normalizedEmail,
         password,
       });
-  
-      console.log("Supabase response:", data, error);
-  
+
       if (error) throw error;
-  
+
       const userId = data.user?.id;
       if (!userId) throw new Error("No user returned");
-      const usernameFromMeta = String(data.user?.user_metadata?.username || "").trim().toLowerCase();
-      const fallbackName = email?.split("@")[0] || "user";
+
+      const usernameFromMeta = String(data.user?.user_metadata?.username || "")
+        .trim()
+        .toLowerCase();
+      const fallbackName = normalizedEmail.split("@")[0] || "user";
       const resolvedUsername = usernameFromMeta || fallbackName;
 
       setUserId(userId);
-      setUserEmail(email);
+      setUserEmail(normalizedEmail);
       setUsername(resolvedUsername);
       setDisplayName(resolvedUsername);
-      // sync to backend users table
+
       try {
-        const base = process.env.EXPO_PUBLIC_API_BASE?.trim() || "http://127.0.0.1:8000";
-        await fetch(`${base}/v1/profile/sync`, {
+        await apiFetch("/v1/profile/sync", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ user_id: userId, username: resolvedUsername, email, display_name: resolvedUsername }),
+          headers: apiJsonHeaders(),
+          body: JSON.stringify({
+            user_id: userId,
+            username: resolvedUsername,
+            email: normalizedEmail,
+            display_name: resolvedUsername,
+          }),
         });
       } catch (e) {
-        console.warn("profile sync on login failed", e);
+        logWarn("profile sync on login failed", e);
       }
-      nav.navigate("ValueProposition", { celebrate: true });
 
+      nav.navigate("ValueProposition", { celebrate: true });
     } catch (err: any) {
-      console.error("Auth error:", err);
       Alert.alert("Auth error", err.message || "Try again.");
     } finally {
       setLoading(false);
     }
-  };
-
-  const handleReset = async () => {
-    nav.navigate("ForgotPassword");
   };
 
   return (
@@ -123,10 +110,7 @@ export default function AuthScreen() {
             {loading ? "Working..." : "Sign In"}
           </Text>
         </Pressable>
-        <Pressable
-          style={styles.linkButton}
-          onPress={() => nav.navigate("SignUp")}
-        >
+        <Pressable style={styles.linkButton} onPress={() => nav.navigate("SignUp")}>
           <Text style={styles.linkText}>Create account</Text>
         </Pressable>
         <Pressable style={styles.linkButton} onPress={() => nav.navigate("ForgotPassword")}>

@@ -9,12 +9,14 @@ import {
   TextInput,
   Alert,
   Share,
-  Platform,
   Modal,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+
 import type { RootStackParamList } from "../App";
+import { apiFetch, apiJsonHeaders } from "../lib/api";
+import { logWarn } from "../lib/logger";
 import { useStore } from "../store";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -34,20 +36,18 @@ export default function RankingGroupsScreen() {
       Alert.alert("Error", "Enter a group name.");
       return;
     }
+
     setCreating(true);
     try {
-      const base = process.env.EXPO_PUBLIC_API_BASE || "http://127.0.0.1:8000";
-      const res = await fetch(`${base}/v1/rankings/groups`, {
+      const res = await apiFetch("/v1/rankings/groups", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: apiJsonHeaders(),
         body: JSON.stringify({ name: groupName.trim(), user_id: userId }),
       });
       if (!res.ok) throw new Error(`Create failed ${res.status}`);
       const data = await res.json();
-      console.log("[RankingGroups] created", data);
       setCreatedGroup({ name: data.name, code: data.code });
     } catch (e: any) {
-      console.error("[RankingGroups] create failed", e);
       Alert.alert("Failed", e?.message || "Could not create group");
     } finally {
       setCreating(false);
@@ -59,12 +59,12 @@ export default function RankingGroupsScreen() {
       Alert.alert("Error", "Enter the group code.");
       return;
     }
+
     setJoining(true);
     try {
-      const base = process.env.EXPO_PUBLIC_API_BASE || "http://127.0.0.1:8000";
-      const res = await fetch(`${base}/v1/rankings/groups/join`, {
+      const res = await apiFetch("/v1/rankings/groups/join", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: apiJsonHeaders(),
         body: JSON.stringify({ code: joinCode.trim().toUpperCase(), user_id: userId }),
       });
       if (!res.ok) {
@@ -72,11 +72,9 @@ export default function RankingGroupsScreen() {
         throw new Error(err?.detail || `Join failed ${res.status}`);
       }
       const data = await res.json();
-      console.log("[RankingGroups] joined", data);
       Alert.alert("Joined!", `You're in ${data.name}`);
       nav.navigate("Leaderboard");
     } catch (e: any) {
-      console.error("[RankingGroups] join failed", e);
       Alert.alert("Failed", e?.message || "Invalid or expired code");
     } finally {
       setJoining(false);
@@ -87,7 +85,7 @@ export default function RankingGroupsScreen() {
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.header}>
         <Pressable onPress={() => nav.goBack()} style={styles.backBtn}>
-          <Text style={styles.backText}>← Back</Text>
+          <Text style={styles.backText}>Back</Text>
         </Pressable>
         <Text style={styles.title}>Private Groups</Text>
       </View>
@@ -168,7 +166,7 @@ export default function RankingGroupsScreen() {
                       title: "Join DripMaxx group",
                     });
                   } catch (e) {
-                    console.warn("share failed", e);
+                    logWarn("share failed", e);
                   }
                 }}
               >

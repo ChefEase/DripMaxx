@@ -10,6 +10,7 @@ import StyleInspirationScreen from "./app/style-inspiration";
 import BodyFitScreen from "./app/body-fit";
 import CameraPermissionScreen from "./app/camera-permission";
 import ScanStubScreen from "./app/scan";
+import ScanExampleScreen from "./app/scan-example";
 import { StoreProvider } from "./store";
 import AuthScreen from "./app/auth";
 import ProfileScreen from "./app/profile";
@@ -34,6 +35,7 @@ export type RootStackParamList = {
   BodyFit: undefined;
   CameraPermission: undefined;
   Scan: undefined;
+  ScanExample: undefined;
   Auth: undefined;
   SignUp: undefined;
   ForgotPassword: undefined;
@@ -130,6 +132,7 @@ export default function App() {
           />
           <Stack.Screen name="Paywall" component={PaywallScreen} />
           <Stack.Screen name="Scan" component={ScanStubScreen} />
+          <Stack.Screen name="ScanExample" component={ScanExampleScreen} />
           <Stack.Screen name="Profile" component={ProfileScreen} />
           <Stack.Screen name="Leaderboard" component={LeaderboardScreen} />
           <Stack.Screen name="RankingGroups" component={RankingGroupsScreen} />

@@ -274,11 +274,22 @@ export default function ProfileScreen() {
           {history.length === 0 ? (
             <Text style={styles.muted}>No history yet.</Text>
           ) : (
-            <View style={styles.chartRow}>
-              {history.map((p, idx) => {
-                const height = p.drip_score ? (p.drip_score / 10) * 60 : 4;
-                return <View key={idx} style={[styles.bar, { height }]} />;
-              })}
+            <View style={styles.chartViewport}>
+              <ScrollView
+                horizontal
+                showsHorizontalScrollIndicator={history.length > 10}
+                contentContainerStyle={styles.chartRow}
+              >
+                {history.map((p, idx) => {
+                  const height = p.drip_score ? (p.drip_score / 10) * 60 : 4;
+                  return (
+                    <View key={idx} style={styles.barColumn}>
+                      <View style={[styles.bar, { height }]} />
+                      <Text style={styles.barLabel}>{p.scanned_at?.slice(5, 10) || `#${idx + 1}`}</Text>
+                    </View>
+                  );
+                })}
+              </ScrollView>
             </View>
           )}
         </View>
@@ -368,10 +379,25 @@ const styles = StyleSheet.create({
     gap: 6,
     paddingVertical: 10,
   },
+  chartViewport: {
+    marginTop: 4,
+    borderRadius: 10,
+    overflow: "hidden",
+  },
+  barColumn: {
+    alignItems: "center",
+    justifyContent: "flex-end",
+    gap: 6,
+    width: 32,
+  },
   bar: {
-    width: 10,
+    width: 12,
     backgroundColor: "#22C55E",
     borderRadius: 6,
+  },
+  barLabel: {
+    color: "#6B7280",
+    fontSize: 10,
   },
   tagRow: { flexDirection: "row", flexWrap: "wrap", gap: 6, marginTop: 8 },
   tag: {

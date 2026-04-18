@@ -44,7 +44,7 @@ export default function ValuePropositionScreen() {
 
   const handleSeeExample = () => {
     console.log("[ValuePropositionScreen] See Example pressed");
-    navigation.navigate("Scan");
+    navigation.navigate("ScanExample");
   };
 
   return (
@@ -92,7 +92,7 @@ export default function ValuePropositionScreen() {
         </View>
 
         <Text style={styles.helperText}>
-          First outfit rating within ~60 seconds of opening the app.
+          Get Started is where real outfit scans begin.
         </Text>
       </View>
     </SafeAreaView>
@@ -189,4 +189,3 @@ const styles = StyleSheet.create({
   rocket: { fontSize: 24 },
   rocketText: { color: "#E5E7EB", fontWeight: "700", fontSize: 14 },
 });
-

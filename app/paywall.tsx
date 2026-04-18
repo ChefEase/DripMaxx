@@ -86,6 +86,7 @@ function NativePaywall() {
   const nav = useNavigation<Nav>();
   const { userId } = useStore();
   const [purchaseBusy, setPurchaseBusy] = useState(false);
+  const [storeWaitTimedOut, setStoreWaitTimedOut] = useState(false);
   const expoIap = require("expo-iap");
   const { useIAP } = expoIap;
 
@@ -146,6 +147,17 @@ function NativePaywall() {
     });
   }, [connected, fetchProducts]);
 
+  useEffect(() => {
+    if (connected) {
+      setStoreWaitTimedOut(false);
+      return;
+    }
+    const timer = setTimeout(() => {
+      setStoreWaitTimedOut(true);
+    }, 8000);
+    return () => clearTimeout(timer);
+  }, [connected]);
+
   const monthlyProduct = useMemo(
     () => products.find((product: any) => product.id === PRODUCT_ID) || null,
     [products]
@@ -168,8 +180,18 @@ function NativePaywall() {
       nav.navigate("Auth");
       return;
     }
+    if (!connected) {
+      Alert.alert(
+        "Store unavailable",
+        "Google Play Billing is not connected. Test on a physical Android device signed into Play, using a Play-distributed build and a licensed tester account."
+      );
+      return;
+    }
     if (Platform.OS === "android" && !androidSubscriptionOffer?.offerTokenAndroid) {
-      Alert.alert("Store not ready", "Your subscription offer is still loading. Try again in a moment.");
+      Alert.alert(
+        "Store not ready",
+        "The subscription product loaded without an active offer. Check that your Play Console base plan is active and available to your tester track."
+      );
       return;
     }
     setPurchaseBusy(true);
@@ -197,14 +219,14 @@ function NativePaywall() {
       priceLabel={monthlyProduct?.displayPrice || "$3.99"}
       metaText={
         connected
-          ? `Store connected${
-              monthlyProduct
-                ? Platform.OS === "android" && !androidSubscriptionOffer?.offerTokenAndroid
-                  ? " - waiting for base plan offer"
-                  : ""
-                : " - product still loading"
-            }`
-          : "Connecting to the store..."
+          ? monthlyProduct
+            ? Platform.OS === "android" && !androidSubscriptionOffer?.offerTokenAndroid
+              ? `Store connected, but ${PRODUCT_ID} has no active Play offer yet.`
+              : `Store connected for ${PRODUCT_ID}.`
+            : `Store connected, but ${PRODUCT_ID} was not returned by Google Play yet.`
+          : storeWaitTimedOut
+            ? "Still not connected to Google Play. Local installs, Expo Go, emulators, unsigned builds, or non-tester accounts usually cannot use billing."
+            : "Connecting to Google Play billing..."
       }
       onBuy={handleBuy}
       purchaseBusy={purchaseBusy}

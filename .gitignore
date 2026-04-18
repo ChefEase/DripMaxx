@@ -47,3 +47,5 @@ yarn-error.*
 
 app-example
 api/
+api/.secrets/
+**/service-account.json

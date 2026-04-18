@@ -47,6 +47,3 @@ yarn-error.*
 
 app-example
 api/
-
-*.json
-api/keys/

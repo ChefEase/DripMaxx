@@ -1,0 +1,20 @@
+{
+  "java.import.exclusions": [
+    "**/android/**",
+    "**/node_modules/**",
+    "**/.expo/**",
+    "**/android/build/**"
+  ],
+  "files.exclude": {
+    "**/.expo": true,
+    "**/android/.gradle": true,
+    "**/android/app/build": true,
+    "**/node_modules": true
+  },
+  "search.exclude": {
+    "**/.expo": true,
+    "**/android/.gradle": true,
+    "**/android/app/build": true,
+    "**/node_modules": true
+  }
+}

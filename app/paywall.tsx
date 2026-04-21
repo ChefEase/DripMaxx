@@ -150,13 +150,36 @@ function NativePaywall() {
   useEffect(() => {
     if (connected) {
       setStoreWaitTimedOut(false);
+      logWarn("[Paywall] store connected", { platform: Platform.OS, productId: PRODUCT_ID });
       return;
     }
     const timer = setTimeout(() => {
       setStoreWaitTimedOut(true);
+      logWarn("[Paywall] store connection timeout", {
+        platform: Platform.OS,
+        productId: PRODUCT_ID,
+      });
     }, 8000);
     return () => clearTimeout(timer);
   }, [connected]);
+
+  useEffect(() => {
+    if (!connected || monthlyProduct) return;
+    logWarn("[Paywall] product missing from store", {
+      platform: Platform.OS,
+      productId: PRODUCT_ID,
+      connected,
+      productCount: products.length,
+    });
+  }, [connected, monthlyProduct, products.length]);
+
+  useEffect(() => {
+    if (Platform.OS !== "android" || !monthlyProduct || androidSubscriptionOffer?.offerTokenAndroid) return;
+    logWarn("[Paywall] android subscription offer missing", {
+      productId: PRODUCT_ID,
+      subscriptionOffers: monthlyProduct?.subscriptionOffers?.length || 0,
+    });
+  }, [androidSubscriptionOffer?.offerTokenAndroid, monthlyProduct]);
 
   const monthlyProduct = useMemo(
     () => products.find((product: any) => product.id === PRODUCT_ID) || null,

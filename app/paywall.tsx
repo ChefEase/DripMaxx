@@ -18,11 +18,13 @@ const PRODUCT_ID =
 function PaywallShell({
   priceLabel,
   metaText,
+  diagnostics,
   onBuy,
   purchaseBusy,
 }: {
   priceLabel: string;
   metaText: string;
+  diagnostics?: string[];
   onBuy: () => void;
   purchaseBusy: boolean;
 }) {
@@ -46,6 +48,13 @@ function PaywallShell({
           <Text style={styles.bullet}>- AI score breakdown + suggestions</Text>
           <Text style={styles.bullet}>- Save and compare outfits</Text>
           <Text style={styles.meta}>{metaText}</Text>
+          {diagnostics?.length ? (
+            <View style={styles.diagnosticsBox}>
+              {diagnostics.map((line) => (
+                <Text key={line} style={styles.diagnosticsText}>{line}</Text>
+              ))}
+            </View>
+          ) : null}
         </View>
 
         <Pressable
@@ -76,6 +85,7 @@ function WebPaywall() {
     <PaywallShell
       priceLabel="$3.99"
       metaText="Use a development build on iPhone or Android to test purchases."
+      diagnostics={["platform=web", "billing is not available in the web build"]}
       onBuy={handleBuy}
       purchaseBusy={false}
     />
@@ -87,8 +97,15 @@ function NativePaywall() {
   const { userId } = useStore();
   const [purchaseBusy, setPurchaseBusy] = useState(false);
   const [storeWaitTimedOut, setStoreWaitTimedOut] = useState(false);
+  const [lastStoreError, setLastStoreError] = useState<string | null>(null);
   const expoIap = require("expo-iap");
   const { useIAP } = expoIap;
+
+  const summarizeError = (error: any) => {
+    const code = error?.code || error?.responseCode || error?.debugMessage || null;
+    const message = error?.message || String(error || "unknown");
+    return code ? `${code}: ${message}` : message;
+  };
 
   const {
     connected,
@@ -99,6 +116,7 @@ function NativePaywall() {
   } = useIAP({
     onPurchaseSuccess: async (purchase: any) => {
       try {
+        setLastStoreError(null);
         if (!userId) {
           throw new Error("Sign in required before purchase verification.");
         }
@@ -129,6 +147,8 @@ function NativePaywall() {
         Alert.alert("Premium unlocked", "Your subscription is active on this account.");
         nav.navigate("Profile");
       } catch (error: any) {
+        logWarn("[Paywall] purchase verification failed", error);
+        setLastStoreError(`verification_failed: ${summarizeError(error)}`);
         Alert.alert("Purchase verification failed", error?.message || "Try again.");
       } finally {
         setPurchaseBusy(false);
@@ -136,14 +156,18 @@ function NativePaywall() {
     },
     onPurchaseError: (error: any) => {
       setPurchaseBusy(false);
+      logWarn("[Paywall] purchase error", error);
+      setLastStoreError(`purchase_error: ${summarizeError(error)}`);
       Alert.alert("Purchase failed", error?.message || "The purchase did not complete.");
     },
   });
 
   useEffect(() => {
     if (!connected) return;
+    setLastStoreError(null);
     fetchProducts({ skus: [PRODUCT_ID], type: "subs" }).catch((error: any) => {
       logWarn("fetchProducts failed", error);
+      setLastStoreError(`fetch_products_failed: ${summarizeError(error)}`);
     });
   }, [connected, fetchProducts]);
 
@@ -159,6 +183,7 @@ function NativePaywall() {
         platform: Platform.OS,
         productId: PRODUCT_ID,
       });
+      setLastStoreError("store_connection_timeout");
     }, 8000);
     return () => clearTimeout(timer);
   }, [connected]);
@@ -197,13 +222,37 @@ function NativePaywall() {
     [monthlyProduct]
   );
 
+  const diagnostics = useMemo(() => {
+    const lines = [
+      `platform=${Platform.OS}`,
+      `connected=${String(connected)}`,
+      `userId=${userId ? "present" : "missing"}`,
+      `productId=${PRODUCT_ID}`,
+      `productsReturned=${products.length}`,
+      `productLoaded=${String(Boolean(monthlyProduct))}`,
+    ];
+
+    if (Platform.OS === "android") {
+      lines.push(`offerLoaded=${String(Boolean(androidSubscriptionOffer?.offerTokenAndroid))}`);
+      lines.push(`offersReturned=${monthlyProduct?.subscriptionOffers?.length || 0}`);
+    }
+
+    if (lastStoreError) {
+      lines.push(`lastError=${lastStoreError}`);
+    }
+
+    return lines;
+  }, [androidSubscriptionOffer?.offerTokenAndroid, connected, lastStoreError, monthlyProduct, products.length, userId]);
+
   const handleBuy = async () => {
     if (!userId) {
+      setLastStoreError("missing_user_session");
       Alert.alert("Sign in required", "Please sign in before upgrading.");
       nav.navigate("Auth");
       return;
     }
     if (!connected) {
+      setLastStoreError("billing_not_connected");
       Alert.alert(
         "Store unavailable",
         "Google Play Billing is not connected. Test on a physical Android device signed into Play, using a Play-distributed build and a licensed tester account."
@@ -211,6 +260,7 @@ function NativePaywall() {
       return;
     }
     if (Platform.OS === "android" && !androidSubscriptionOffer?.offerTokenAndroid) {
+      setLastStoreError("subscription_offer_missing");
       Alert.alert(
         "Store not ready",
         "The subscription product loaded without an active offer. Check that your Play Console base plan is active and available to your tester track."
@@ -219,6 +269,7 @@ function NativePaywall() {
     }
     setPurchaseBusy(true);
     try {
+      setLastStoreError(null);
       await requestPurchase({
         request: {
           apple: { sku: PRODUCT_ID },
@@ -233,6 +284,8 @@ function NativePaywall() {
       });
     } catch (error: any) {
       setPurchaseBusy(false);
+      logWarn("[Paywall] requestPurchase failed", error);
+      setLastStoreError(`request_purchase_failed: ${summarizeError(error)}`);
       Alert.alert("Purchase failed", error?.message || "The store did not start the purchase.");
     }
   };
@@ -251,6 +304,7 @@ function NativePaywall() {
             ? "Still not connected to Google Play. Local installs, Expo Go, emulators, unsigned builds, or non-tester accounts usually cannot use billing."
             : "Connecting to Google Play billing..."
       }
+      diagnostics={diagnostics}
       onBuy={handleBuy}
       purchaseBusy={purchaseBusy}
     />
@@ -281,6 +335,19 @@ const styles = StyleSheet.create({
   cardTitle: { color: "#E5E7EB", fontSize: 15, fontWeight: "800" },
   bullet: { color: "#E5E7EB", fontSize: 14 },
   meta: { color: "#9CA3AF", fontSize: 12, marginTop: 6 },
+  diagnosticsBox: {
+    marginTop: 8,
+    borderWidth: 1,
+    borderColor: "#1F2937",
+    borderRadius: 12,
+    backgroundColor: "#07111F",
+    padding: 10,
+    gap: 4,
+  },
+  diagnosticsText: {
+    color: "#94A3B8",
+    fontSize: 11,
+  },
   primary: {
     backgroundColor: "#22C55E",
     paddingVertical: 14,

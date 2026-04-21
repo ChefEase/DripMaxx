@@ -1,4 +1,5 @@
 import { supabase } from "./supabase";
+import { logWarn } from "./logger";
 
 type AuthMode = "required" | "optional" | "none";
 
@@ -29,11 +30,13 @@ const getAccessToken = async (auth: AuthMode) => {
 
   const { data, error } = await supabase.auth.getSession();
   if (error) {
+    logWarn("[api] getSession failed", error);
     throw error;
   }
 
   const accessToken = data.session?.access_token ?? null;
   if (auth === "required" && !accessToken) {
+    logWarn("[api] missing access token for authenticated request");
     throw new Error("You must be signed in to continue.");
   }
 

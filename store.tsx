@@ -1,6 +1,8 @@
 import React, { createContext, useContext, useMemo, useState, useEffect } from "react";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { getDeviceCountry } from "./lib/deviceLocale";
+import { apiFetch, apiJsonHeaders } from "./lib/api";
+import { getDeviceCountry, getDeviceLocale } from "./lib/deviceLocale";
+import { logWarn } from "./lib/logger";
 
 type StoreState = {
   stylePreferences: string[];
@@ -54,6 +56,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
   const [displayName, setDisplayName] = useState<string | null>(null);
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [country, setCountry] = useState<string | null>(null);
+  const [locale, setLocale] = useState<string | null>(null);
 
   useEffect(() => {
     AsyncStorage.multiGet([
@@ -76,15 +79,15 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
         if (nameVal) setDisplayName(nameVal);
         if (avatarVal) setAvatarUrl(avatarVal);
         const countryVal = entries.find((e) => e[0] === "dripmaxx:country")?.[1];
-        if (countryVal) {
-          setCountry(countryVal);
-        } else {
-          const deviceCountry = getDeviceCountry();
-          if (deviceCountry) {
-            setCountry(deviceCountry);
-            AsyncStorage.setItem("dripmaxx:country", deviceCountry).catch(() => {});
-          }
+        const deviceCountry = getDeviceCountry();
+        const resolvedCountry = deviceCountry || countryVal || null;
+        const detectedLocale = getDeviceLocale();
+
+        if (resolvedCountry) {
+          setCountry(resolvedCountry);
+          AsyncStorage.setItem("dripmaxx:country", resolvedCountry).catch(() => {});
         }
+        if (detectedLocale) setLocale(detectedLocale);
       }
     );
   }, []);
@@ -135,6 +138,20 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
     }
   }, [country]);
 
+  useEffect(() => {
+    if (!userId || !country) return;
+
+    apiFetch("/v1/profile/sync", {
+      method: "POST",
+      headers: apiJsonHeaders(),
+      body: JSON.stringify({
+        user_id: userId,
+        country,
+        locale,
+      }),
+    }).catch((e) => logWarn("[Store] locale sync failed", e));
+  }, [country, locale, userId]);
+
   const value = useMemo(
     () => ({
       stylePreferences,
@@ -150,6 +167,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
       displayName,
       avatarUrl,
       country,
+      locale,
       setStylePreferences,
       setCustomStyle,
       setFavoriteCelebrityStyle,
@@ -178,6 +196,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
       displayName,
       avatarUrl,
       country,
+      locale,
     ]
   );
 

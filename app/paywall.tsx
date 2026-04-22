@@ -94,7 +94,7 @@ function WebPaywall() {
 
 function NativePaywall() {
   const nav = useNavigation<Nav>();
-  const { userId } = useStore();
+  const { userId, username, displayName } = useStore();
   const [purchaseBusy, setPurchaseBusy] = useState(false);
   const [storeWaitTimedOut, setStoreWaitTimedOut] = useState(false);
   const [lastStoreError, setLastStoreError] = useState<string | null>(null);
@@ -107,12 +107,23 @@ function NativePaywall() {
     return code ? `${code}: ${message}` : message;
   };
 
+  const obfuscate = (value: string | null | undefined) => {
+    if (!value) return null;
+    let hash = 0;
+    for (let i = 0; i < value.length; i += 1) {
+      hash = (hash * 31 + value.charCodeAt(i)) >>> 0;
+    }
+    return `dmx_${hash.toString(16)}`;
+  };
+
   const {
     connected,
     products,
     fetchProducts,
     requestPurchase,
     finishTransaction,
+    availablePurchases,
+    getAvailablePurchases,
   } = useIAP({
     onPurchaseSuccess: async (purchase: any) => {
       try {
@@ -173,7 +184,11 @@ function NativePaywall() {
       logWarn("fetchProducts failed", error);
       setLastStoreError(`fetch_products_failed: ${summarizeError(error)}`);
     });
-  }, [connected, fetchProducts]);
+    getAvailablePurchases().catch((error: any) => {
+      logWarn("[Paywall] getAvailablePurchases failed", error);
+      setLastStoreError(`available_purchases_failed: ${summarizeError(error)}`);
+    });
+  }, [connected, fetchProducts, getAvailablePurchases]);
 
   useEffect(() => {
     if (connected) {
@@ -234,6 +249,7 @@ function NativePaywall() {
       `productId=${PRODUCT_ID}`,
       `productsReturned=${products.length}`,
       `productLoaded=${String(Boolean(monthlyProduct))}`,
+      `availablePurchases=${availablePurchases.length}`,
     ];
 
     if (Platform.OS === "android") {
@@ -246,7 +262,7 @@ function NativePaywall() {
     }
 
     return lines;
-  }, [androidSubscriptionOffer?.offerTokenAndroid, connected, lastStoreError, monthlyProduct, products.length, userId]);
+  }, [androidSubscriptionOffer?.offerTokenAndroid, availablePurchases.length, connected, lastStoreError, monthlyProduct, products.length, userId]);
 
   const handleBuy = async () => {
     if (!userId) {
@@ -279,6 +295,8 @@ function NativePaywall() {
           apple: { sku: PRODUCT_ID },
           google: {
             skus: [PRODUCT_ID],
+            obfuscatedAccountId: obfuscate(userId),
+            obfuscatedProfileId: obfuscate(username || displayName || userId),
             subscriptionOffers: androidSubscriptionOffer?.offerTokenAndroid
               ? [{ sku: PRODUCT_ID, offerToken: androidSubscriptionOffer.offerTokenAndroid }]
               : undefined,

@@ -98,8 +98,9 @@ function NativePaywall() {
   const [purchaseBusy, setPurchaseBusy] = useState(false);
   const [storeWaitTimedOut, setStoreWaitTimedOut] = useState(false);
   const [lastStoreError, setLastStoreError] = useState<string | null>(null);
+  const [directInitStatus, setDirectInitStatus] = useState<string>("idle");
   const expoIap = require("expo-iap");
-  const { useIAP } = expoIap;
+  const { useIAP, initConnection, endConnection } = expoIap;
 
   const summarizeError = (error: any) => {
     const code = error?.code || error?.responseCode || error?.debugMessage || null;
@@ -245,6 +246,7 @@ function NativePaywall() {
     const lines = [
       `platform=${Platform.OS}`,
       `connected=${String(connected)}`,
+      `directInit=${directInitStatus}`,
       `userId=${userId ? "present" : "missing"}`,
       `productId=${PRODUCT_ID}`,
       `productsReturned=${products.length}`,
@@ -262,7 +264,45 @@ function NativePaywall() {
     }
 
     return lines;
-  }, [androidSubscriptionOffer?.offerTokenAndroid, availablePurchases.length, connected, lastStoreError, monthlyProduct, products.length, userId]);
+  }, [androidSubscriptionOffer?.offerTokenAndroid, availablePurchases.length, connected, directInitStatus, lastStoreError, monthlyProduct, products.length, userId]);
+
+  useEffect(() => {
+    let cancelled = false;
+
+    const probeConnection = async () => {
+      try {
+        setDirectInitStatus("probing");
+        const result = await initConnection();
+        if (cancelled) return;
+        const nextStatus = `result=${String(result)}`;
+        setDirectInitStatus(nextStatus);
+        logWarn("[Paywall] direct initConnection result", {
+          platform: Platform.OS,
+          productId: PRODUCT_ID,
+          result,
+        });
+      } catch (error: any) {
+        if (cancelled) return;
+        const nextStatus = `error=${summarizeError(error)}`;
+        setDirectInitStatus(nextStatus);
+        setLastStoreError(`direct_init_failed: ${summarizeError(error)}`);
+        logWarn("[Paywall] direct initConnection failed", error);
+      }
+    };
+
+    void probeConnection();
+
+    return () => {
+      cancelled = true;
+      endConnection()
+        .then((result: boolean) => {
+          logWarn("[Paywall] direct endConnection result", { result });
+        })
+        .catch((error: any) => {
+          logWarn("[Paywall] direct endConnection failed", error);
+        });
+    };
+  }, [endConnection, initConnection]);
 
   const handleBuy = async () => {
     if (!userId) {

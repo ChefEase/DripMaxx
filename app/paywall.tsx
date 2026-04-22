@@ -160,6 +160,10 @@ function NativePaywall() {
       setLastStoreError(`purchase_error: ${summarizeError(error)}`);
       Alert.alert("Purchase failed", error?.message || "The purchase did not complete.");
     },
+    onError: (error: any) => {
+      logWarn("[Paywall] iap general error", error);
+      setLastStoreError(`iap_error: ${summarizeError(error)}`);
+    },
   });
 
   useEffect(() => {

@@ -168,6 +168,18 @@ export default function ProfileScreen() {
   };
 
   const handleBack = () => nav.goBack();
+  const trendCards =
+    scoreCards.length > 0
+      ? scoreCards
+      : recent
+          .filter((item) => item?.image_url || item?.drip_score != null)
+          .map((item) => ({
+            outfit_id: item.id,
+            image_url: item.image_url,
+            scanned_at: item.scanned_at,
+            drip_score: item.drip_score,
+            breakdown: null,
+          }));
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -320,16 +332,16 @@ export default function ProfileScreen() {
           <Text style={styles.trendSubtitle}>
             Swipe through your scans, compare score cards, and see what actually moved each rating.
           </Text>
-          {scoreCards.length === 0 ? (
-            <Text style={styles.muted}>No history yet.</Text>
+          {trendCards.length === 0 ? (
+            <Text style={styles.muted}>No scored outfit photos yet. Scan an outfit to build your score cards.</Text>
           ) : (
             <View style={styles.scoreCardViewport}>
               <ScrollView
                 horizontal
-                showsHorizontalScrollIndicator={scoreCards.length > 1}
+                showsHorizontalScrollIndicator={trendCards.length > 1}
                 contentContainerStyle={styles.scoreCardRow}
               >
-                {scoreCards.map((item, idx) => {
+                {trendCards.map((item, idx) => {
                   const breakdown = item.breakdown || {};
                   const metrics = [
                     { label: "Color", value: breakdown.color_match },
@@ -357,7 +369,7 @@ export default function ProfileScreen() {
                       <View style={styles.scoreTrendBody}>
                         <View style={styles.scoreTrendHeader}>
                           <View>
-                            <Text style={styles.scoreTrendTitle}>Score card #{scoreCards.length - idx}</Text>
+                            <Text style={styles.scoreTrendTitle}>Score card #{trendCards.length - idx}</Text>
                             <Text style={styles.scoreTrendDate}>{item.scanned_at?.slice(0, 10) || "Recent scan"}</Text>
                           </View>
                           <Text style={styles.scoreTrendTier}>
@@ -372,29 +384,35 @@ export default function ProfileScreen() {
                             ]}
                           />
                         </View>
-                        <View style={styles.scoreTrendMetrics}>
-                          {metrics.map((metric) => (
-                            <View key={metric.label} style={styles.scoreTrendMetricRow}>
-                              <Text style={styles.scoreTrendMetricLabel}>{metric.label}</Text>
-                              <View style={styles.scoreTrendMetricTrack}>
-                                <View
-                                  style={[
-                                    styles.scoreTrendMetricFill,
-                                    {
-                                      width: `${Math.max(
-                                        4,
-                                        Math.min(100, Math.round(Number(metric.value) * 10))
-                                      )}%`,
-                                    },
-                                  ]}
-                                />
+                        {metrics.length > 0 ? (
+                          <View style={styles.scoreTrendMetrics}>
+                            {metrics.map((metric) => (
+                              <View key={metric.label} style={styles.scoreTrendMetricRow}>
+                                <Text style={styles.scoreTrendMetricLabel}>{metric.label}</Text>
+                                <View style={styles.scoreTrendMetricTrack}>
+                                  <View
+                                    style={[
+                                      styles.scoreTrendMetricFill,
+                                      {
+                                        width: `${Math.max(
+                                          4,
+                                          Math.min(100, Math.round(Number(metric.value) * 10))
+                                        )}%`,
+                                      },
+                                    ]}
+                                  />
+                                </View>
+                                <Text style={styles.scoreTrendMetricValue}>
+                                  {Number(metric.value).toFixed(1)}
+                                </Text>
                               </View>
-                              <Text style={styles.scoreTrendMetricValue}>
-                                {Number(metric.value).toFixed(1)}
-                              </Text>
-                            </View>
-                          ))}
-                        </View>
+                            ))}
+                          </View>
+                        ) : (
+                          <Text style={styles.scoreTrendFallbackText}>
+                            Full breakdown appears after the backend score-card update is live.
+                          </Text>
+                        )}
                       </View>
                     </View>
                   );
@@ -402,19 +420,6 @@ export default function ProfileScreen() {
               </ScrollView>
             </View>
           )}
-          {history.length > 0 ? (
-            <View style={styles.miniTrendStrip}>
-              {history.slice(-12).map((p, idx) => (
-                <View
-                  key={`${p.recorded_at || idx}`}
-                  style={[
-                    styles.miniTrendDot,
-                    { height: Math.max(8, Math.round((Number(p.drip_score || 0) / 10) * 38)) },
-                  ]}
-                />
-              ))}
-            </View>
-          ) : null}
         </View>
         <View style={styles.footerLinks}>
           <Pressable style={styles.link} onPress={() => nav.navigate("Legal", { doc: "terms" })}>
@@ -641,19 +646,11 @@ const styles = StyleSheet.create({
     textAlign: "right",
     fontWeight: "900",
   },
-  miniTrendStrip: {
-    marginTop: 6,
-    flexDirection: "row",
-    alignItems: "flex-end",
-    gap: 5,
-    height: 42,
-    paddingHorizontal: 4,
-  },
-  miniTrendDot: {
-    flex: 1,
-    borderRadius: 999,
-    backgroundColor: "#22C55E",
-    opacity: 0.85,
+  scoreTrendFallbackText: {
+    color: "#CBD5E1",
+    fontSize: 12,
+    lineHeight: 17,
+    fontWeight: "700",
   },
   barColumn: {
     alignItems: "center",

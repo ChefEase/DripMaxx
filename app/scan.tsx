@@ -21,6 +21,12 @@ import RankingsCard from "./components/RankingsCard";
 import { apiFetch, apiJsonHeaders } from "../lib/api";
 import { trackEvent } from "../lib/analytics";
 import { logWarn } from "../lib/logger";
+import { ActiveChallengePayload, fetchActiveChallenge } from "../lib/challenges";
+import { RewardsSummary, fetchRewardsSummary } from "../lib/rewards";
+import {
+  normalizeBodyTypeValue,
+  normalizeGenderStyleValue,
+} from "../lib/profileEnums";
 import { ActivityIndicator } from "react-native";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -66,16 +72,31 @@ export default function ScanStubScreen() {
   const [analysisStep, setAnalysisStep] = useState(0);
   const [analysisProgress, setAnalysisProgress] = useState(0);
   const [saved, setSaved] = useState(false);
+  const [activeChallenge, setActiveChallenge] = useState<ActiveChallengePayload | null>(null);
+  const [challengeConsent, setChallengeConsent] = useState(false);
+  const [challengeSubmitted, setChallengeSubmitted] = useState(false);
+  const [isSubmittingChallenge, setIsSubmittingChallenge] = useState(false);
+  const [rewards, setRewards] = useState<RewardsSummary | null>(null);
   const [bestOutfit, setBestOutfit] = useState<null | { imageUrl: string | null; dripScore: number | null }>(null);
   const [result, setResult] = useState<
     | null
     | {
         dripScore: number;
+        outfitId: string | null;
+        xpAwarded: number;
         categories: { label: string; value: number }[];
         suggestions: { title: string; type: string; description: string }[];
         warnings: string[];
       }
   >(null);
+  useEffect(() => {
+    fetchActiveChallenge().then(setActiveChallenge);
+  }, []);
+
+  useEffect(() => {
+    fetchRewardsSummary(userId).then(setRewards);
+  }, [userId]);
+
   useEffect(() => {
     if (!isScoring) {
       setAnalysisStep(0);
@@ -142,6 +163,8 @@ export default function ScanStubScreen() {
         setImageUri(uri);
         setResult(null);
         setSaved(false);
+        setChallengeSubmitted(false);
+        setChallengeConsent(false);
       }
     }
   };
@@ -162,6 +185,8 @@ export default function ScanStubScreen() {
         setImageUri(uri);
         setResult(null);
         setSaved(false);
+        setChallengeSubmitted(false);
+        setChallengeConsent(false);
       }
     }
   };
@@ -212,8 +237,9 @@ export default function ScanStubScreen() {
           style_preferences: stylePreferences.length ? stylePreferences : ["unspecified"],
           style_inspirations: styleInspirations.length ? styleInspirations : [],
           user_height: userHeight || "n/a",
-          user_body_type: userBodyType || "n/a",
-          gender_style_preference: genderStylePreference || "n/a",
+          user_body_type: normalizeBodyTypeValue(userBodyType) || userBodyType || "n/a",
+          gender_style_preference:
+            normalizeGenderStyleValue(genderStylePreference) || genderStylePreference || "n/a",
           user_id: userId || null,
         })
       );
@@ -233,6 +259,9 @@ export default function ScanStubScreen() {
           navigation.navigate("Paywall");
           return;
         }
+        if (resp.status === 401) {
+          throw new Error("Please confirm your email");
+        }
         throw new Error(`API ${resp.status}: ${text}`);
       }
 
@@ -249,8 +278,8 @@ export default function ScanStubScreen() {
             style_preferences: stylePreferences,
             style_inspirations: styleInspirations,
             user_height: userHeight || null,
-            user_body_type: userBodyType,
-            gender_style_preference: genderStylePreference,
+            user_body_type: normalizeBodyTypeValue(userBodyType),
+            gender_style_preference: normalizeGenderStyleValue(genderStylePreference),
             country: country || null,
           }),
         });
@@ -273,12 +302,15 @@ export default function ScanStubScreen() {
       ];
       setResult({
         dripScore: data.drip_score,
+        outfitId: data.outfit_id || null,
+        xpAwarded: data.xp_awarded || 0,
         categories,
         suggestions: data.suggestions,
         warnings: data.warnings || [],
       });
       setAnalysisProgress(1);
       setBestOutfit(bestBeforeScan);
+      fetchRewardsSummary(userId).then(setRewards);
       trackEvent(
         "score_viewed",
         { drip_score: data.drip_score, suggestion_count: data.suggestions?.length || 0 },
@@ -302,6 +334,43 @@ export default function ScanStubScreen() {
     setSaved(true);
     trackEvent("outfit_saved", { dripScore: result?.dripScore }, userId);
     Alert.alert("Saved locally", "This outfit was saved for this session.");
+  };
+
+  const handleSubmitChallenge = async () => {
+    if (!activeChallenge?.challenge || !result?.outfitId) {
+      Alert.alert("No active challenge", "There is no active challenge for this outfit yet.");
+      return;
+    }
+    if (!challengeConsent) {
+      Alert.alert(
+        "Consent required",
+        "Agree that your submitted outfit and username may be displayed if selected."
+      );
+      return;
+    }
+    setIsSubmittingChallenge(true);
+    try {
+      const resp = await apiFetch("/v1/challenges/active/submissions", {
+        method: "POST",
+        headers: apiJsonHeaders(),
+        body: JSON.stringify({
+          outfit_id: result.outfitId,
+          display_consent: challengeConsent,
+        }),
+      });
+      if (!resp.ok) {
+        const text = await resp.text();
+        throw new Error(`API ${resp.status}: ${text}`);
+      }
+      setChallengeSubmitted(true);
+      fetchRewardsSummary(userId).then(setRewards);
+      trackEvent("challenge_submitted", { challenge_id: activeChallenge.challenge.id }, userId);
+      Alert.alert("Submitted", "Your outfit was submitted to today's challenge.");
+    } catch (err: any) {
+      Alert.alert("Challenge submission failed", err?.message || "Try again in a moment.");
+    } finally {
+      setIsSubmittingChallenge(false);
+    }
   };
 
   return (
@@ -437,6 +506,7 @@ export default function ScanStubScreen() {
                 <View style={styles.resultHeader}>
                   <Text style={styles.resultLabel}>Drip Score</Text>
                   <Text style={styles.resultValue}>{result.dripScore}/10</Text>
+                  <Text style={styles.xpEarnedText}>+{result.xpAwarded} XP earned</Text>
                 </View>
                 {imageUri ? (
                   <Pressable
@@ -456,6 +526,30 @@ export default function ScanStubScreen() {
                   </View>
                 ))}
               </View>
+              {rewards ? (
+                <View style={styles.rewardsCard}>
+                  <View style={styles.rewardsTopRow}>
+                    <Text style={styles.rewardsLabel}>Reward Progress</Text>
+                    <Text style={styles.rewardsValue}>{rewards.xp} XP</Text>
+                  </View>
+                  <View style={styles.rewardsTrack}>
+                    <View
+                      style={[
+                        styles.rewardsFill,
+                        {
+                          width: `${Math.min(
+                            100,
+                            Math.round((rewards.xp / Math.max(rewards.xp_per_scan_reward, 1)) * 100)
+                          )}%`,
+                        },
+                      ]}
+                    />
+                  </View>
+                  <Text style={styles.rewardsMeta}>
+                    {rewards.xp_until_next_reward} XP to 10 free scans | {rewards.scan_credits} scan credits
+                  </Text>
+                </View>
+              ) : null}
               <View style={styles.suggestions}>
                 {result.suggestions.map((tip, idx) => (
                   <View key={`${tip.title}-${idx}`} style={styles.suggestionCard}>
@@ -472,6 +566,46 @@ export default function ScanStubScreen() {
                   </Text>
                 ))}
               </View>
+              {activeChallenge?.challenge && result.outfitId ? (
+                <View style={styles.challengeSubmitCard}>
+                  <Text style={styles.challengeSubmitEyebrow}>Today's Challenge</Text>
+                  <Text style={styles.challengeSubmitTitle}>{activeChallenge.challenge.title}</Text>
+                  <Text style={styles.challengeSubmitReward}>
+                    Enter for {activeChallenge.challenge.reward_scans} scans +{" "}
+                    {activeChallenge.challenge.reward_xp} XP
+                  </Text>
+                  <Pressable
+                    style={styles.consentRow}
+                    onPress={() => setChallengeConsent((current) => !current)}
+                  >
+                    <View style={[styles.checkbox, challengeConsent && styles.checkboxChecked]}>
+                      {challengeConsent ? <Text style={styles.checkboxText}>OK</Text> : null}
+                    </View>
+                    <Text style={styles.consentText}>
+                      I agree my submitted outfit and username may be displayed if selected.
+                    </Text>
+                  </Pressable>
+                  <Pressable
+                    style={[
+                      styles.challengeSubmitButton,
+                      (challengeSubmitted || isSubmittingChallenge) && styles.challengeSubmitButtonDisabled,
+                    ]}
+                    onPress={handleSubmitChallenge}
+                    disabled={challengeSubmitted || isSubmittingChallenge}
+                  >
+                    <Text style={styles.challengeSubmitButtonText}>
+                      {challengeSubmitted
+                        ? "Submitted"
+                        : isSubmittingChallenge
+                          ? "Submitting..."
+                          : "Submit to Today's Challenge"}
+                    </Text>
+                  </Pressable>
+                  <Pressable style={styles.challengeVoteLink} onPress={() => navigation.navigate("Challenge")}>
+                    <Text style={styles.challengeVoteLinkText}>View entries and vote</Text>
+                  </Pressable>
+                </View>
+              ) : null}
               {bestOutfit?.imageUrl ? (
                 <View style={styles.compareCard}>
                   <Text style={styles.compareTitle}>Current vs Best Outfit</Text>
@@ -807,6 +941,12 @@ const styles = StyleSheet.create({
     fontSize: 24,
     fontWeight: "800",
   },
+  xpEarnedText: {
+    color: "#BBF7D0",
+    fontSize: 13,
+    fontWeight: "800",
+    marginTop: 4,
+  },
   thumbnailBox: {
     borderWidth: 1,
     borderColor: "#1F2937",
@@ -830,6 +970,46 @@ const styles = StyleSheet.create({
   },
   breakdown: {
     gap: 6,
+  },
+  rewardsCard: {
+    borderWidth: 1,
+    borderColor: "#1F2937",
+    borderRadius: 12,
+    padding: 12,
+    backgroundColor: "#07111F",
+    gap: 8,
+  },
+  rewardsTopRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+  },
+  rewardsLabel: {
+    color: "#9CA3AF",
+    fontSize: 12,
+    fontWeight: "800",
+    textTransform: "uppercase",
+  },
+  rewardsValue: {
+    color: "#BBF7D0",
+    fontSize: 14,
+    fontWeight: "900",
+  },
+  rewardsTrack: {
+    height: 8,
+    borderRadius: 999,
+    backgroundColor: "#111827",
+    overflow: "hidden",
+  },
+  rewardsFill: {
+    height: "100%",
+    borderRadius: 999,
+    backgroundColor: "#22C55E",
+  },
+  rewardsMeta: {
+    color: "#CBD5E1",
+    fontSize: 12,
+    fontWeight: "600",
   },
   breakdownRow: {
     flexDirection: "row",
@@ -885,6 +1065,83 @@ const styles = StyleSheet.create({
     color: "#FCD34D",
     fontSize: 13,
     lineHeight: 18,
+  },
+  challengeSubmitCard: {
+    borderWidth: 1,
+    borderColor: "#1F2937",
+    borderRadius: 12,
+    padding: 12,
+    backgroundColor: "#07111F",
+    gap: 8,
+  },
+  challengeSubmitEyebrow: {
+    color: "#22C55E",
+    fontSize: 12,
+    fontWeight: "800",
+    textTransform: "uppercase",
+  },
+  challengeSubmitTitle: {
+    color: "#F9FAFB",
+    fontSize: 16,
+    fontWeight: "800",
+  },
+  challengeSubmitReward: {
+    color: "#CBD5E1",
+    fontSize: 13,
+    fontWeight: "700",
+  },
+  consentRow: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    gap: 10,
+  },
+  checkbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "#4B5563",
+    alignItems: "center",
+    justifyContent: "center",
+    marginTop: 1,
+  },
+  checkboxChecked: {
+    backgroundColor: "#22C55E",
+    borderColor: "#22C55E",
+  },
+  checkboxText: {
+    color: "#052E16",
+    fontSize: 10,
+    fontWeight: "900",
+  },
+  consentText: {
+    flex: 1,
+    color: "#CBD5E1",
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  challengeSubmitButton: {
+    backgroundColor: "#22C55E",
+    paddingVertical: 12,
+    borderRadius: 12,
+    alignItems: "center",
+  },
+  challengeSubmitButtonDisabled: {
+    opacity: 0.65,
+  },
+  challengeSubmitButtonText: {
+    color: "#022C22",
+    fontSize: 14,
+    fontWeight: "800",
+  },
+  challengeVoteLink: {
+    alignItems: "center",
+    paddingVertical: 4,
+  },
+  challengeVoteLinkText: {
+    color: "#A5B4FC",
+    fontSize: 13,
+    fontWeight: "800",
   },
   compareCard: {
     borderWidth: 1,

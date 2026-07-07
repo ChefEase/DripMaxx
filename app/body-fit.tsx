@@ -12,6 +12,7 @@ import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../App";
 import { useStore } from "../store";
+import { BODY_TYPE_OPTIONS, GENDER_STYLE_OPTIONS } from "../lib/profileEnums";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -39,7 +40,7 @@ export default function BodyFitScreen() {
   }, []);
 
   const handleNext = () => {
-    console.log("[BodyFitScreen] Next pressed");
+    console.log("[BodyFitScreen] Next pressed", { height, bodyType, genderStyle });
     setUserHeight(height);
     setUserBodyType(bodyType);
     setGenderStylePreference(genderStyle);
@@ -91,13 +92,12 @@ export default function BodyFitScreen() {
           <View style={styles.field}>
             <Text style={styles.label}>Body type</Text>
             <View style={styles.pillWrap}>
-              {["Slim", "Athletic", "Average", "Broad", "Plus Size"].map(
-                (type) => {
-                  const active = bodyType === type;
+              {BODY_TYPE_OPTIONS.map((option) => {
+                  const active = bodyType === option.value;
                   return (
                     <Pressable
-                      key={type}
-                      onPress={() => setBodyType(type)}
+                      key={option.value}
+                      onPress={() => setBodyType(option.value)}
                       style={[pillStyles.pill, active && pillStyles.pillActive]}
                     >
                       <Text
@@ -106,7 +106,7 @@ export default function BodyFitScreen() {
                           active && pillStyles.pillTextActive,
                         ]}
                       >
-                        {type}
+                        {option.label}
                       </Text>
                     </Pressable>
                   );
@@ -118,12 +118,12 @@ export default function BodyFitScreen() {
           <View style={styles.field}>
             <Text style={styles.label}>Gender style lens (optional)</Text>
             <View style={styles.pillWrap}>
-              {["Menswear", "Womenswear", "Neutral"].map((option) => {
-                const active = genderStyle === option;
+              {GENDER_STYLE_OPTIONS.map((option) => {
+                const active = genderStyle === option.value;
                 return (
                   <Pressable
-                    key={option}
-                    onPress={() => setGenderStyle(option)}
+                    key={option.value}
+                    onPress={() => setGenderStyle(option.value)}
                     style={[pillStyles.pill, active && pillStyles.pillActive]}
                   >
                     <Text
@@ -132,7 +132,7 @@ export default function BodyFitScreen() {
                         active && pillStyles.pillTextActive,
                       ]}
                     >
-                      {option}
+                      {option.label}
                     </Text>
                   </Pressable>
                 );

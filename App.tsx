@@ -24,6 +24,7 @@ import RankingGroupsScreen from "./app/ranking-groups";
 import UserProfileViewScreen from "./app/user-profile-view";
 import GroupLeaderboardScreen from "./app/group-leaderboard";
 import LegalScreen from "./app/legal";
+import ChallengeScreen from "./app/challenge";
 import 'react-native-url-polyfill/auto';
 import { logWarn } from "./lib/logger";
 import { supabase } from "./lib/supabase";
@@ -48,6 +49,7 @@ export type RootStackParamList = {
   GroupLeaderboard: { groupId: string; groupName?: string };
   UserProfile: { userId: string };
   Legal: { doc: "terms" | "privacy" };
+  Challenge: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -63,6 +65,7 @@ export default function App() {
         SignUp: "sign-up",
         ForgotPassword: "forgot-password",
         ValueProposition: "home",
+        Challenge: "challenge",
       },
     },
   };
@@ -139,6 +142,7 @@ export default function App() {
           <Stack.Screen name="GroupLeaderboard" component={GroupLeaderboardScreen} />
           <Stack.Screen name="UserProfile" component={UserProfileViewScreen} />
           <Stack.Screen name="Legal" component={LegalScreen} />
+          <Stack.Screen name="Challenge" component={ChallengeScreen} />
         </Stack.Navigator>
       </NavigationContainer>
     </StoreProvider>

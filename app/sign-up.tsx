@@ -64,6 +64,13 @@ export default function SignUpScreen() {
       const userId = data.user?.id;
       if (!userId) throw new Error("No user returned");
 
+      if (!data.session) {
+        Alert.alert("Please confirm your email", "Check your email, then sign in after confirming your account.", [
+          { text: "OK", onPress: () => nav.navigate("Auth") },
+        ]);
+        return;
+      }
+
       setUserId(userId);
       setUserEmail(normalizedEmail);
       setUsername(normalizedUsername);

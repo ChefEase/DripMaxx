@@ -41,7 +41,14 @@ export default function AuthScreen() {
         password,
       });
 
-      if (error) throw error;
+      if (error) {
+        const message = String(error.message || "").toLowerCase();
+        if (message.includes("email not confirmed") || message.includes("confirm")) {
+          Alert.alert("Please confirm your email", "Check your email, then sign in after confirming your account.");
+          return;
+        }
+        throw error;
+      }
 
       const userId = data.user?.id;
       if (!userId) throw new Error("No user returned");

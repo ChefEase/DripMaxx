@@ -9,6 +9,7 @@ import { apiFetch, apiJsonHeaders } from "../lib/api";
 import { logWarn } from "../lib/logger";
 import { supabase } from "../lib/supabase";
 import { useStore } from "../store";
+import { bodyTypeLabel, genderStyleLabel } from "../lib/profileEnums";
 import RankingsCard from "./components/RankingsCard";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -33,6 +34,12 @@ export default function ProfileScreen() {
   const [dna, setDna] = useState<{ label: string; description: string; tags: string[] } | null>(null);
   const [profileVisibility, setProfileVisibility] = useState<"public" | "friends_only" | "private">("public");
   const [billingStatus, setBillingStatus] = useState<null | { plan: string; used: number; remaining: number; limit_type: string }>(null);
+  const [rewards, setRewards] = useState<null | {
+    xp: number;
+    scan_credits: number;
+    xp_per_scan_reward: number;
+    xp_until_next_reward: number;
+  }>(null);
 
   useEffect(() => {
     const fetchProfileData = async () => {
@@ -68,6 +75,15 @@ export default function ProfileScreen() {
         }
       } catch (err) {
         logWarn("billing status fetch failed", err);
+      }
+
+      try {
+        const rewardsRes = await apiFetch(`/v1/rewards/me?user_id=${encodeURIComponent(userId)}`);
+        if (rewardsRes.ok) {
+          setRewards(await rewardsRes.json());
+        }
+      } catch (err) {
+        logWarn("rewards fetch failed", err);
       }
     };
 
@@ -192,6 +208,27 @@ export default function ProfileScreen() {
           </Pressable>
         </View>
         <View style={styles.card}>
+          <Text style={styles.label}>XP & Rewards</Text>
+          <Text style={styles.value}>{rewards?.xp ?? 0} XP</Text>
+          <Text style={styles.muted}>
+            {(rewards?.xp_until_next_reward ?? 500)} XP until 10 free scans
+          </Text>
+          <View style={styles.rewardMeter}>
+            <View
+              style={[
+                styles.rewardMeterFill,
+                {
+                  width: `${Math.min(
+                    100,
+                    Math.round(((rewards?.xp ?? 0) / (rewards?.xp_per_scan_reward || 500)) * 100)
+                  )}%`,
+                },
+              ]}
+            />
+          </View>
+          <Text style={styles.value}>{rewards?.scan_credits ?? 0} earned scan credits</Text>
+        </View>
+        <View style={styles.card}>
           <Text style={styles.label}>Profile visibility</Text>
           <Text style={styles.muted}>Who can see your outfits when viewing your profile from the leaderboard</Text>
           <View style={styles.visibilityRow}>
@@ -223,13 +260,20 @@ export default function ProfileScreen() {
           <Text style={styles.label}>Height</Text>
           <Text style={styles.value}>{userHeight || "n/a"}</Text>
           <Text style={styles.label}>Body Type</Text>
-          <Text style={styles.value}>{userBodyType || "n/a"}</Text>
+          <Text style={styles.value}>{bodyTypeLabel(userBodyType)}</Text>
           <Text style={styles.label}>Gender Style</Text>
-          <Text style={styles.value}>{genderStylePreference || "n/a"}</Text>
+          <Text style={styles.value}>{genderStyleLabel(genderStylePreference)}</Text>
         </View>
 
         <Pressable style={styles.primary} onPress={() => nav.navigate("Scan")}>
           <Text style={styles.primaryText}>Back to Scan</Text>
+        </Pressable>
+        <Pressable style={styles.secondary} onPress={() => nav.navigate("Challenge")}>
+          <Text style={styles.secondaryText}>
+            {(userEmail || "").toLowerCase() === "onyiakamsy74@gmail.com"
+              ? "Challenge Admin & Voting"
+              : "Challenge Voting"}
+          </Text>
         </Pressable>
         <Pressable style={styles.secondary} onPress={handleLogout}>
           <Text style={styles.secondaryText}>Log out</Text>
@@ -420,4 +464,16 @@ const styles = StyleSheet.create({
   visibilityChipText: { color: "#9CA3AF", fontSize: 13, fontWeight: "600" },
   visibilityChipTextActive: { color: "#022C22", fontWeight: "700" },
   footerLinks: { paddingBottom: 6 },
+  rewardMeter: {
+    height: 10,
+    borderRadius: 999,
+    backgroundColor: "#111827",
+    overflow: "hidden",
+    marginVertical: 4,
+  },
+  rewardMeterFill: {
+    height: "100%",
+    borderRadius: 999,
+    backgroundColor: "#22C55E",
+  },
 });

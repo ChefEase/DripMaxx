@@ -54,6 +54,40 @@ const ANALYSIS_STEPS = [
   },
 ];
 
+const scanErrorMessage = (statusCode: number, bodyText: string) => {
+  let detail = bodyText;
+  try {
+    const parsed = JSON.parse(bodyText);
+    detail = typeof parsed?.detail === "string" ? parsed.detail : JSON.stringify(parsed?.detail || parsed);
+  } catch {
+    detail = bodyText;
+  }
+
+  const lowered = detail.toLowerCase();
+  if (lowered.includes("resolution too low")) {
+    return "That photo is too low resolution. Use a clearer full-body photo.";
+  }
+  if (lowered.includes("exactly one person")) {
+    return "Use a full-body photo with only one clearly visible person.";
+  }
+  if (lowered.includes("too far away")) {
+    return "You are too far from the camera. Move closer while keeping your full outfit visible.";
+  }
+  if (lowered.includes("full body")) {
+    return "Make sure your full body is visible from head to shoes.";
+  }
+  if (lowered.includes("unclear")) {
+    return "The photo is too unclear. Try brighter lighting and a steadier shot.";
+  }
+  if (lowered.includes("no outfit")) {
+    return "No clear outfit was detected. Retake the photo with your outfit fully visible.";
+  }
+  if (statusCode === 502 || statusCode === 503) {
+    return "The AI scan service is busy right now. Try again in a moment.";
+  }
+  return detail || "Scan failed. Try another clear full-body photo.";
+};
+
 export default function ScanStubScreen() {
   const navigation = useNavigation<Nav>();
   const {
@@ -72,6 +106,7 @@ export default function ScanStubScreen() {
   const [analysisStep, setAnalysisStep] = useState(0);
   const [analysisProgress, setAnalysisProgress] = useState(0);
   const [saved, setSaved] = useState(false);
+  const [scanError, setScanError] = useState<string | null>(null);
   const [activeChallenge, setActiveChallenge] = useState<ActiveChallengePayload | null>(null);
   const [challengeConsent, setChallengeConsent] = useState(false);
   const [challengeSubmitted, setChallengeSubmitted] = useState(false);
@@ -163,6 +198,7 @@ export default function ScanStubScreen() {
         setImageUri(uri);
         setResult(null);
         setSaved(false);
+        setScanError(null);
         setChallengeSubmitted(false);
         setChallengeConsent(false);
       }
@@ -185,6 +221,7 @@ export default function ScanStubScreen() {
         setImageUri(uri);
         setResult(null);
         setSaved(false);
+        setScanError(null);
         setChallengeSubmitted(false);
         setChallengeConsent(false);
       }
@@ -196,6 +233,7 @@ export default function ScanStubScreen() {
       Alert.alert("Add a photo first", "Pick an outfit photo to score.");
       return;
     }
+    setScanError(null);
     setIsScoring(true);
     setAnalysisProgress(0.1);
     setAnalysisStep(0);
@@ -262,7 +300,7 @@ export default function ScanStubScreen() {
         if (resp.status === 401) {
           throw new Error("Please confirm your email");
         }
-        throw new Error(`API ${resp.status}: ${text}`);
+        throw new Error(scanErrorMessage(resp.status, text));
       }
 
       const data = await resp.json();
@@ -317,7 +355,9 @@ export default function ScanStubScreen() {
         userId
       );
     } catch (err: any) {
-      Alert.alert("Scoring failed", err?.message || "Try again in a moment.");
+      const message = err?.message || "Try again in a moment.";
+      setScanError(message);
+      Alert.alert("Scan failed", message);
     } finally {
       setIsScoring(false);
     }
@@ -399,6 +439,12 @@ export default function ScanStubScreen() {
           <View style={styles.previewCard}>
             <Text style={styles.previewLabel}>Preview</Text>
             <Image source={{ uri: imageUri }} style={styles.previewImage} />
+            {scanError ? (
+              <View style={styles.scanErrorCard}>
+                <Text style={styles.scanErrorTitle}>Scan needs a better photo</Text>
+                <Text style={styles.scanErrorText}>{scanError}</Text>
+              </View>
+            ) : null}
             <Text style={styles.scoringNote}>
               Keep the app open while we score your outfit. Backgrounding the app can interrupt the scan.
             </Text>
@@ -861,6 +907,24 @@ const styles = StyleSheet.create({
   },
   scoringNote: {
     color: "#FCD34D",
+    fontSize: 13,
+    lineHeight: 18,
+  },
+  scanErrorCard: {
+    borderWidth: 1,
+    borderColor: "#F97316",
+    backgroundColor: "#431407",
+    borderRadius: 12,
+    padding: 12,
+    gap: 4,
+  },
+  scanErrorTitle: {
+    color: "#FDBA74",
+    fontSize: 13,
+    fontWeight: "900",
+  },
+  scanErrorText: {
+    color: "#FFEDD5",
     fontSize: 13,
     lineHeight: 18,
   },

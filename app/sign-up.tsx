@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { SafeAreaView, View, Text, TextInput, Pressable, StyleSheet, Alert } from "react-native";
+import { SafeAreaView, View, Text, TextInput, Pressable, StyleSheet, Alert, Platform } from "react-native";
 import * as Linking from "expo-linking";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -7,6 +7,7 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../App";
 import { apiFetch, apiJsonHeaders } from "../lib/api";
 import { logWarn } from "../lib/logger";
+import { startOAuthSignIn, type OAuthProvider } from "../lib/oauth";
 import { supabase } from "../lib/supabase";
 import { useStore } from "../store";
 
@@ -19,6 +20,7 @@ export default function SignUpScreen() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [oauthLoading, setOauthLoading] = useState<OAuthProvider | null>(null);
 
   const handleSignUp = async () => {
     const normalizedUsername = username.trim().toLowerCase();
@@ -101,10 +103,42 @@ export default function SignUpScreen() {
     }
   };
 
+  const handleOAuth = async (provider: OAuthProvider) => {
+    setOauthLoading(provider);
+    try {
+      await startOAuthSignIn(provider);
+    } catch (err: any) {
+      Alert.alert("Sign up failed", err.message || "Try again.");
+    } finally {
+      setOauthLoading(null);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
+      <View style={styles.authGlow} pointerEvents="none" />
       <View style={styles.container}>
-        <Text style={styles.title}>Create your account</Text>
+        <View style={styles.brandPanel}>
+          <Text style={styles.brandKicker}>Join DripMaxx</Text>
+          <Text style={styles.title}>Start leveling up your fits.</Text>
+          <Text style={styles.subtitle}>
+            Create your profile, scan outfits, earn XP, and compete in weekly challenges.
+          </Text>
+          <View style={styles.previewStrip}>
+            <View style={styles.previewTile}>
+              <Text style={styles.previewValue}>AI</Text>
+              <Text style={styles.previewLabel}>Scans</Text>
+            </View>
+            <View style={styles.previewTile}>
+              <Text style={styles.previewValue}>XP</Text>
+              <Text style={styles.previewLabel}>Rewards</Text>
+            </View>
+            <View style={styles.previewTile}>
+              <Text style={styles.previewValue}>Top</Text>
+              <Text style={styles.previewLabel}>Ranks</Text>
+            </View>
+          </View>
+        </View>
         <TextInput
           style={styles.input}
           placeholder="Username (e.g. dripking_21)"
@@ -133,6 +167,33 @@ export default function SignUpScreen() {
         <Pressable style={[styles.button, loading && { opacity: 0.7 }]} onPress={handleSignUp} disabled={loading}>
           <Text style={styles.buttonText}>{loading ? "Working..." : "Create account"}</Text>
         </Pressable>
+        <View style={styles.dividerRow}>
+          <View style={styles.dividerLine} />
+          <Text style={styles.dividerText}>or</Text>
+          <View style={styles.dividerLine} />
+        </View>
+        <Pressable
+          style={[styles.socialButton, oauthLoading === "google" && { opacity: 0.7 }]}
+          onPress={() => handleOAuth("google")}
+          disabled={!!oauthLoading}
+        >
+          <Text style={styles.socialIcon}>G</Text>
+          <Text style={styles.socialText}>
+            {oauthLoading === "google" ? "Opening Google..." : "Continue with Google"}
+          </Text>
+        </Pressable>
+        {Platform.OS === "ios" ? (
+          <Pressable
+            style={[styles.appleButton, oauthLoading === "apple" && { opacity: 0.7 }]}
+            onPress={() => handleOAuth("apple")}
+            disabled={!!oauthLoading}
+          >
+            <Text style={styles.appleIcon}>A</Text>
+            <Text style={styles.appleText}>
+              {oauthLoading === "apple" ? "Opening Apple..." : "Continue with Apple"}
+            </Text>
+          </Pressable>
+        ) : null}
         <Pressable style={styles.linkButton} onPress={() => nav.navigate("Auth")}>
           <Text style={styles.linkText}>Back to sign in</Text>
         </Pressable>
@@ -143,8 +204,47 @@ export default function SignUpScreen() {
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: "#020617" },
+  authGlow: {
+    position: "absolute",
+    top: -90,
+    right: -70,
+    width: 220,
+    height: 220,
+    borderRadius: 110,
+    backgroundColor: "#14532D",
+    opacity: 0.7,
+  },
   container: { flex: 1, padding: 24, gap: 14, justifyContent: "center" },
-  title: { color: "#F9FAFB", fontSize: 22, fontWeight: "800" },
+  brandPanel: {
+    borderWidth: 1,
+    borderColor: "#204B3A",
+    borderRadius: 22,
+    backgroundColor: "#061A14",
+    padding: 18,
+    gap: 12,
+    marginBottom: 4,
+  },
+  brandKicker: {
+    color: "#86EFAC",
+    fontSize: 12,
+    fontWeight: "900",
+    letterSpacing: 1.5,
+    textTransform: "uppercase",
+  },
+  title: { color: "#F9FAFB", fontSize: 28, fontWeight: "900", lineHeight: 33 },
+  subtitle: { color: "#D1FAE5", fontSize: 14, lineHeight: 20, fontWeight: "600" },
+  previewStrip: { flexDirection: "row", gap: 8 },
+  previewTile: {
+    flex: 1,
+    backgroundColor: "#020617",
+    borderWidth: 1,
+    borderColor: "#123027",
+    borderRadius: 14,
+    padding: 10,
+    gap: 3,
+  },
+  previewValue: { color: "#F8FAFC", fontSize: 18, fontWeight: "900" },
+  previewLabel: { color: "#86EFAC", fontSize: 11, fontWeight: "900", textTransform: "uppercase" },
   input: {
     backgroundColor: "#0F172A",
     borderWidth: 1,
@@ -161,6 +261,37 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   buttonText: { color: "#022C22", fontWeight: "800", fontSize: 15 },
+  dividerRow: { flexDirection: "row", alignItems: "center", gap: 10, marginVertical: 2 },
+  dividerLine: { flex: 1, height: 1, backgroundColor: "#1F2937" },
+  dividerText: { color: "#64748B", fontSize: 12, fontWeight: "700" },
+  socialButton: {
+    backgroundColor: "#F8FAFC",
+    borderWidth: 1,
+    borderColor: "#CBD5E1",
+    borderRadius: 12,
+    paddingVertical: 13,
+    paddingHorizontal: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: 10,
+  },
+  socialIcon: { color: "#111827", fontWeight: "900", fontSize: 16 },
+  socialText: { color: "#111827", fontWeight: "800", fontSize: 15 },
+  appleButton: {
+    backgroundColor: "#000000",
+    borderWidth: 1,
+    borderColor: "#374151",
+    borderRadius: 12,
+    paddingVertical: 13,
+    paddingHorizontal: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: 10,
+  },
+  appleIcon: { color: "#FFFFFF", fontWeight: "900", fontSize: 16 },
+  appleText: { color: "#FFFFFF", fontWeight: "800", fontSize: 15 },
   linkButton: { alignItems: "center", paddingVertical: 8 },
   linkText: { color: "#A5B4FC", fontWeight: "700" },
 });

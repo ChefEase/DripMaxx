@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
-import { SafeAreaView, View, Text, StyleSheet, Pressable, Animated } from "react-native";
+import { SafeAreaView, View, Text, StyleSheet, Pressable, Animated, ScrollView } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
+
 import type { RootStackParamList } from "../App";
 import { useStore } from "../store";
 import { ActiveChallengePayload, fetchActiveChallenge } from "../lib/challenges";
@@ -13,18 +14,16 @@ export default function ValuePropositionScreen() {
   const navigation = useNavigation<Nav>();
   const route = useRoute();
   const { displayName, userEmail, userId } = useStore();
-  const [showRocket, setShowRocket] = useState(Boolean((route.params as any)?.celebrate));
+  const [showToast, setShowToast] = useState(Boolean((route.params as any)?.celebrate));
   const [activeChallenge, setActiveChallenge] = useState<ActiveChallengePayload | null>(null);
   const [rewards, setRewards] = useState<RewardsSummary | null>(null);
-  const rocketOpacity = useRef(new Animated.Value(0)).current;
-  const rocketY = useRef(new Animated.Value(10)).current;
+  const toastOpacity = useRef(new Animated.Value(0)).current;
+  const toastY = useRef(new Animated.Value(10)).current;
+  const heroScale = useRef(new Animated.Value(0.96)).current;
+  const pulse = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    console.log("[ValuePropositionScreen] mounted");
     fetchActiveChallenge().then(setActiveChallenge);
-    return () => {
-      console.log("[ValuePropositionScreen] unmounted");
-    };
   }, []);
 
   useEffect(() => {
@@ -32,300 +31,406 @@ export default function ValuePropositionScreen() {
   }, [userId]);
 
   useEffect(() => {
-    if (showRocket) {
-      Animated.parallel([
-        Animated.timing(rocketOpacity, { toValue: 1, duration: 400, useNativeDriver: true }),
-        Animated.timing(rocketY, { toValue: 0, duration: 400, useNativeDriver: true }),
-      ]).start(() => {
-        setTimeout(() => {
-          Animated.timing(rocketOpacity, { toValue: 0, duration: 300, useNativeDriver: true }).start(() =>
-            setShowRocket(false)
-          );
-        }, 1200);
-      });
-    }
-  }, [showRocket, rocketOpacity, rocketY]);
+    Animated.parallel([
+      Animated.spring(heroScale, { toValue: 1, friction: 7, tension: 70, useNativeDriver: true }),
+      Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulse, { toValue: 1, duration: 1800, useNativeDriver: true }),
+          Animated.timing(pulse, { toValue: 0, duration: 1800, useNativeDriver: true }),
+        ])
+      ),
+    ]).start();
+  }, [heroScale, pulse]);
 
-  const handleGetStarted = () => {
-    console.log("[ValuePropositionScreen] Get Started pressed");
-    navigation.navigate("StylePreference");
-  };
+  useEffect(() => {
+    if (!showToast) return;
+    Animated.parallel([
+      Animated.timing(toastOpacity, { toValue: 1, duration: 380, useNativeDriver: true }),
+      Animated.timing(toastY, { toValue: 0, duration: 380, useNativeDriver: true }),
+    ]).start(() => {
+      setTimeout(() => {
+        Animated.timing(toastOpacity, { toValue: 0, duration: 260, useNativeDriver: true }).start(() =>
+          setShowToast(false)
+        );
+      }, 1200);
+    });
+  }, [showToast, toastOpacity, toastY]);
 
-  const handleSeeExample = () => {
-    console.log("[ValuePropositionScreen] See Example pressed");
-    navigation.navigate("ScanExample");
-  };
+  const rewardProgress = rewards
+    ? Math.min(100, Math.round((rewards.xp / Math.max(rewards.xp_per_scan_reward, 1)) * 100))
+    : 0;
+  const pulseOpacity = pulse.interpolate({ inputRange: [0, 1], outputRange: [0.2, 0.55] });
+  const pulseScale = pulse.interpolate({ inputRange: [0, 1], outputRange: [1, 1.06] });
 
   return (
     <SafeAreaView style={styles.safeArea}>
-      <View style={styles.container}>
-        <View>
+      <ScrollView contentContainerStyle={styles.container} showsVerticalScrollIndicator={false}>
+        <View style={styles.backgroundLayer} pointerEvents="none">
+          <Animated.View
+            style={[
+              styles.glowPanel,
+              { opacity: pulseOpacity, transform: [{ scale: pulseScale }] },
+            ]}
+          />
+        </View>
+
+        <View style={styles.topBar}>
           <View style={styles.headerRow}>
             <Pressable style={styles.avatar} onPress={() => navigation.navigate("Profile")}>
               <Text style={styles.avatarText}>
                 {(displayName || userEmail || "U").charAt(0).toUpperCase()}
               </Text>
             </Pressable>
-            <View>
-              <Text style={styles.userName}>{displayName || "Welcome"}</Text>
+            <View style={styles.headerCopy}>
+              <Text style={styles.userName}>{displayName ? `Ready, ${displayName}` : "Ready to level up"}</Text>
               <Text style={styles.userEmail}>{userEmail || "Tap to view profile"}</Text>
             </View>
           </View>
-          {rewards ? (
-            <Pressable style={styles.rewardsCard} onPress={() => navigation.navigate("Profile")}>
-              <View style={styles.rewardsTopRow}>
-                <Text style={styles.rewardsLabel}>XP & Rewards</Text>
-                <Text style={styles.rewardsValue}>{rewards.xp} XP</Text>
-              </View>
-              <View style={styles.rewardsTrack}>
-                <View
-                  style={[
-                    styles.rewardsFill,
-                    {
-                      width: `${Math.min(
-                        100,
-                        Math.round((rewards.xp / Math.max(rewards.xp_per_scan_reward, 1)) * 100)
-                      )}%`,
-                    },
-                  ]}
-                />
-              </View>
-              <Text style={styles.rewardsMeta}>
-                {rewards.xp_until_next_reward} XP to 10 free scans | {rewards.scan_credits} scan credits
-              </Text>
-            </Pressable>
-          ) : null}
-          <Text style={styles.logo}>DripMaxx</Text>
-          <Text style={styles.title}>Rate Your Outfit Instantly With AI</Text>
-          <Text style={styles.subtitle}>
-            Scan your outfit and get a Drip Score, style feedback, and
-            improvement suggestions.
-          </Text>
-          {activeChallenge?.announcement || activeChallenge?.challenge ? (
-            <View style={styles.challengeCard}>
-              <Text style={styles.challengeEyebrow}>Today's Challenge</Text>
-              <Text style={styles.challengeTitle}>
-                {activeChallenge.challenge?.title || activeChallenge.announcement?.title}
-              </Text>
-              {activeChallenge.announcement?.body || activeChallenge.challenge?.description ? (
-                <Text style={styles.challengeBody}>
-                  {activeChallenge.announcement?.body || activeChallenge.challenge?.description}
-                </Text>
-              ) : null}
-              {activeChallenge.challenge ? (
-                <Text style={styles.challengeReward}>
-                  Reward: {activeChallenge.challenge.reward_scans} scans +{" "}
-                  {activeChallenge.challenge.reward_xp} XP
-                </Text>
-              ) : null}
-              <Pressable style={styles.challengeButton} onPress={() => navigation.navigate("Challenge")}>
-                <Text style={styles.challengeButtonText}>View Entries & Vote</Text>
-              </Pressable>
-            </View>
-          ) : null}
-          {showRocket ? (
-            <Animated.View
-              style={[
-                styles.rocketCard,
-                { opacity: rocketOpacity, transform: [{ translateY: rocketY }] },
-              ]}
-            >
-              <Text style={styles.rocket}>🚀</Text>
-              <Text style={styles.rocketText}>You’re in! Let’s launch your first scan.</Text>
-            </Animated.View>
-          ) : null}
+          <Pressable style={styles.profilePill} onPress={() => navigation.navigate("Profile")}>
+            <Text style={styles.profilePillText}>Profile</Text>
+          </Pressable>
         </View>
+
+        <Animated.View style={[styles.heroCard, { transform: [{ scale: heroScale }] }]}>
+          <Text style={styles.logo}>DripMaxx</Text>
+          <Text style={styles.title}>Your outfit rating room.</Text>
+          <Text style={styles.subtitle}>
+            Scan once. Get a score, strengths, fixes, XP, and your next style move.
+          </Text>
+          <View style={styles.heroPreview}>
+            <View style={styles.heroScoreRing}>
+              <Text style={styles.heroScore}>92</Text>
+              <Text style={styles.heroScoreLabel}>Target</Text>
+            </View>
+            <View style={styles.heroMetricList}>
+              {["Color", "Fit", "Streetwear"].map((label, index) => (
+                <View key={label} style={styles.heroMetricRow}>
+                  <Text style={styles.heroMetricLabel}>{label}</Text>
+                  <View style={styles.heroMetricTrack}>
+                    <View style={[styles.heroMetricFill, { width: `${92 - index * 12}%` }]} />
+                  </View>
+                </View>
+              ))}
+            </View>
+          </View>
+        </Animated.View>
+
+        {rewards ? (
+          <Pressable style={styles.rewardsCard} onPress={() => navigation.navigate("Profile")}>
+            <View style={styles.rewardsTopRow}>
+              <View>
+                <Text style={styles.rewardsLabel}>XP & Rewards</Text>
+                <Text style={styles.rewardsMeta}>{rewards.xp_until_next_reward} XP to 10 free scans</Text>
+              </View>
+              <Text style={styles.rewardsValue}>{rewards.xp} XP</Text>
+            </View>
+            <View style={styles.rewardsTrack}>
+              <View style={[styles.rewardsFill, { width: `${rewardProgress}%` }]} />
+            </View>
+            <View style={styles.rewardStatsRow}>
+              <Text style={styles.rewardStat}>{rewards.scan_credits} scan credits</Text>
+              <Text style={styles.rewardStat}>{rewardProgress}% complete</Text>
+            </View>
+          </Pressable>
+        ) : null}
+
+        {activeChallenge?.announcement || activeChallenge?.challenge ? (
+          <View style={styles.challengeCard}>
+            <View style={styles.challengeHeaderRow}>
+              <Text style={styles.challengeEyebrow}>Today's Challenge</Text>
+              <Text style={styles.challengeChip}>Live</Text>
+            </View>
+            <Text style={styles.challengeTitle}>
+              {activeChallenge.challenge?.title || activeChallenge.announcement?.title}
+            </Text>
+            {activeChallenge.announcement?.body || activeChallenge.challenge?.description ? (
+              <Text style={styles.challengeBody}>
+                {activeChallenge.announcement?.body || activeChallenge.challenge?.description}
+              </Text>
+            ) : null}
+            {activeChallenge.challenge ? (
+              <Text style={styles.challengeReward}>
+                Reward: {activeChallenge.challenge.reward_scans} scans + {activeChallenge.challenge.reward_xp} XP
+              </Text>
+            ) : null}
+            <Pressable style={styles.challengeButton} onPress={() => navigation.navigate("Challenge")}>
+              <Text style={styles.challengeButtonText}>View Entries & Vote</Text>
+            </Pressable>
+          </View>
+        ) : null}
+
+        {showToast ? (
+          <Animated.View style={[styles.toastCard, { opacity: toastOpacity, transform: [{ translateY: toastY }] }]}>
+            <Text style={styles.toastIcon}>GO</Text>
+            <Text style={styles.toastText}>You are in. Launch your first scan.</Text>
+          </Animated.View>
+        ) : null}
 
         <View style={styles.actions}>
-          <Pressable style={styles.primaryButton} onPress={handleGetStarted}>
-            <Text style={styles.primaryButtonText}>Get Started</Text>
+          <Pressable style={styles.primaryButton} onPress={() => navigation.navigate("StylePreference")}>
+            <Text style={styles.primaryButtonText}>Start a drip scan</Text>
           </Pressable>
-
-          <Pressable style={styles.secondaryButton} onPress={handleSeeExample}>
-            <Text style={styles.secondaryButtonText}>See Example</Text>
+          <Pressable style={styles.secondaryButton} onPress={() => navigation.navigate("ScanExample")}>
+            <Text style={styles.secondaryButtonText}>Preview results</Text>
           </Pressable>
         </View>
 
-        <Text style={styles.helperText}>
-          Get Started is where real outfit scans begin.
-        </Text>
-      </View>
+        <View style={styles.bottomNav}>
+          <Pressable style={styles.navItem} onPress={() => navigation.navigate("Scan")}>
+            <Text style={styles.navIcon}>S</Text>
+            <Text style={styles.navText}>Scan</Text>
+          </Pressable>
+          <Pressable style={styles.navItem} onPress={() => navigation.navigate("Leaderboard")}>
+            <Text style={styles.navIcon}>L</Text>
+            <Text style={styles.navText}>Ranks</Text>
+          </Pressable>
+          <Pressable style={styles.navItem} onPress={() => navigation.navigate("Challenge")}>
+            <Text style={styles.navIcon}>C</Text>
+            <Text style={styles.navText}>Challenge</Text>
+          </Pressable>
+          <Pressable style={styles.navItem} onPress={() => navigation.navigate("Profile")}>
+            <Text style={styles.navIcon}>P</Text>
+            <Text style={styles.navText}>Profile</Text>
+          </Pressable>
+        </View>
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: "#020617",
-  },
+  safeArea: { flex: 1, backgroundColor: "#020617" },
   container: {
-    flex: 1,
-    paddingHorizontal: 24,
-    paddingVertical: 32,
+    flexGrow: 1,
+    paddingHorizontal: 20,
+    paddingTop: 18,
+    paddingBottom: 34,
+    gap: 16,
+  },
+  backgroundLayer: {
+    ...StyleSheet.absoluteFillObject,
+    overflow: "hidden",
+  },
+  glowPanel: {
+    position: "absolute",
+    top: -80,
+    right: -80,
+    width: 240,
+    height: 240,
+    borderRadius: 120,
+    backgroundColor: "#22C55E",
+  },
+  topBar: {
+    flexDirection: "row",
+    alignItems: "center",
     justifyContent: "space-between",
+    gap: 12,
   },
-  logo: {
-    fontSize: 22,
-    fontWeight: "700",
-    color: "#22C55E",
-    letterSpacing: 1.5,
-    marginBottom: 12,
-  },
-  headerRow: { flexDirection: "row", alignItems: "center", marginBottom: 12, gap: 10 },
+  headerRow: { flexDirection: "row", alignItems: "center", gap: 10, flex: 1 },
+  headerCopy: { flex: 1 },
   avatar: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
+    width: 46,
+    height: 46,
+    borderRadius: 18,
     backgroundColor: "#111827",
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: "#1F2937",
+    borderColor: "#263449",
   },
-  avatarText: { color: "#F9FAFB", fontSize: 18, fontWeight: "800" },
-  userName: { color: "#E5E7EB", fontSize: 15, fontWeight: "800" },
-  userEmail: { color: "#9CA3AF", fontSize: 12 },
+  avatarText: { color: "#F9FAFB", fontSize: 18, fontWeight: "900" },
+  userName: { color: "#E5E7EB", fontSize: 15, fontWeight: "900" },
+  userEmail: { color: "#94A3B8", fontSize: 12, marginTop: 2 },
+  profilePill: {
+    borderWidth: 1,
+    borderColor: "#334155",
+    borderRadius: 999,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+    backgroundColor: "#0F172A",
+  },
+  profilePillText: { color: "#E5E7EB", fontSize: 12, fontWeight: "900" },
+  heroCard: {
+    borderWidth: 1,
+    borderColor: "#204B3A",
+    borderRadius: 24,
+    padding: 20,
+    backgroundColor: "#061A14",
+    gap: 14,
+  },
+  logo: {
+    fontSize: 13,
+    fontWeight: "900",
+    color: "#86EFAC",
+    letterSpacing: 1.5,
+    textTransform: "uppercase",
+  },
+  title: {
+    fontSize: 34,
+    fontWeight: "900",
+    color: "#F9FAFB",
+    letterSpacing: 0,
+    lineHeight: 39,
+  },
+  subtitle: {
+    fontSize: 15,
+    color: "#D1FAE5",
+    lineHeight: 22,
+  },
+  heroPreview: {
+    marginTop: 4,
+    flexDirection: "row",
+    gap: 14,
+    alignItems: "center",
+  },
+  heroScoreRing: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    borderWidth: 8,
+    borderColor: "#22C55E",
+    backgroundColor: "#020617",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  heroScore: { color: "#F8FAFC", fontSize: 28, fontWeight: "900" },
+  heroScoreLabel: { color: "#86EFAC", fontSize: 11, fontWeight: "900", textTransform: "uppercase" },
+  heroMetricList: { flex: 1, gap: 10 },
+  heroMetricRow: { gap: 5 },
+  heroMetricLabel: { color: "#D1FAE5", fontSize: 12, fontWeight: "800" },
+  heroMetricTrack: {
+    height: 9,
+    borderRadius: 999,
+    overflow: "hidden",
+    backgroundColor: "#123027",
+  },
+  heroMetricFill: { height: "100%", borderRadius: 999, backgroundColor: "#38BDF8" },
   rewardsCard: {
     backgroundColor: "#0F172A",
     borderWidth: 1,
     borderColor: "#1F2937",
-    borderRadius: 8,
-    padding: 12,
-    marginBottom: 14,
-    gap: 8,
+    borderRadius: 18,
+    padding: 14,
+    gap: 10,
   },
   rewardsTopRow: {
     flexDirection: "row",
-    alignItems: "center",
+    alignItems: "flex-start",
     justifyContent: "space-between",
+    gap: 12,
   },
-  rewardsLabel: {
-    color: "#9CA3AF",
-    fontSize: 12,
-    fontWeight: "800",
-    textTransform: "uppercase",
-  },
-  rewardsValue: {
-    color: "#BBF7D0",
-    fontSize: 14,
-    fontWeight: "900",
-  },
+  rewardsLabel: { color: "#C4B5FD", fontSize: 12, fontWeight: "900", textTransform: "uppercase" },
+  rewardsValue: { color: "#F9FAFB", fontSize: 18, fontWeight: "900" },
   rewardsTrack: {
-    height: 8,
+    height: 10,
     borderRadius: 999,
     backgroundColor: "#111827",
     overflow: "hidden",
   },
-  rewardsFill: {
-    height: "100%",
-    borderRadius: 999,
-    backgroundColor: "#22C55E",
-  },
-  rewardsMeta: {
-    color: "#CBD5E1",
-    fontSize: 12,
-    fontWeight: "600",
-  },
-  title: {
-    fontSize: 28,
-    fontWeight: "800",
-    color: "#F9FAFB",
-    marginBottom: 8,
-  },
-  subtitle: {
-    fontSize: 15,
-    color: "#9CA3AF",
-    lineHeight: 22,
-  },
-  actions: {
-    gap: 12,
-  },
-  primaryButton: {
-    backgroundColor: "#22C55E",
-    paddingVertical: 14,
-    borderRadius: 999,
-    alignItems: "center",
-    justifyContent: "center",
-  },
-  primaryButtonText: {
-    color: "#022C22",
-    fontSize: 16,
-    fontWeight: "700",
-  },
-  secondaryButton: {
+  rewardsFill: { height: "100%", borderRadius: 999, backgroundColor: "#A78BFA" },
+  rewardsMeta: { color: "#CBD5E1", fontSize: 12, fontWeight: "700", marginTop: 4 },
+  rewardStatsRow: { flexDirection: "row", justifyContent: "space-between", gap: 10 },
+  rewardStat: { color: "#94A3B8", fontSize: 12, fontWeight: "800" },
+  challengeCard: {
+    backgroundColor: "#0B1220",
+    borderRadius: 18,
+    padding: 16,
     borderWidth: 1,
-    borderColor: "#4B5563",
-    paddingVertical: 14,
+    borderColor: "#243247",
+    gap: 8,
+  },
+  challengeHeaderRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  challengeEyebrow: { color: "#38BDF8", fontSize: 12, fontWeight: "900", textTransform: "uppercase" },
+  challengeChip: {
+    color: "#022C22",
+    backgroundColor: "#22C55E",
     borderRadius: 999,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    overflow: "hidden",
+    fontSize: 11,
+    fontWeight: "900",
+  },
+  challengeTitle: { color: "#F9FAFB", fontSize: 19, fontWeight: "900" },
+  challengeBody: { color: "#CBD5E1", fontSize: 13, lineHeight: 19 },
+  challengeReward: { color: "#E5E7EB", fontSize: 13, fontWeight: "800" },
+  challengeButton: {
+    marginTop: 4,
+    backgroundColor: "#22C55E",
+    borderRadius: 13,
+    paddingVertical: 12,
     alignItems: "center",
-    justifyContent: "center",
   },
-  secondaryButtonText: {
-    color: "#E5E7EB",
-    fontSize: 16,
-    fontWeight: "600",
-  },
-  helperText: {
-    fontSize: 12,
-    color: "#6B7280",
-    textAlign: "center",
-  },
-  rocketCard: {
-    marginTop: 12,
+  challengeButtonText: { color: "#022C22", fontSize: 14, fontWeight: "900" },
+  toastCard: {
     flexDirection: "row",
     alignItems: "center",
     gap: 10,
     backgroundColor: "#0F172A",
-    borderRadius: 14,
+    borderRadius: 16,
     padding: 12,
     borderWidth: 1,
     borderColor: "#1F2937",
   },
-  rocket: { fontSize: 24 },
-  rocketText: { color: "#E5E7EB", fontWeight: "700", fontSize: 14 },
-  challengeCard: {
-    marginTop: 16,
-    backgroundColor: "#0B1220",
-    borderRadius: 8,
-    padding: 14,
+  toastIcon: {
+    width: 32,
+    height: 32,
+    borderRadius: 10,
+    backgroundColor: "#22C55E",
+    color: "#022C22",
+    textAlign: "center",
+    textAlignVertical: "center",
+    fontSize: 11,
+    fontWeight: "900",
+    overflow: "hidden",
+  },
+  toastText: { color: "#E5E7EB", fontWeight: "800", fontSize: 14, flex: 1 },
+  actions: { gap: 10 },
+  primaryButton: {
+    backgroundColor: "#22C55E",
+    paddingVertical: 15,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  primaryButtonText: { color: "#022C22", fontSize: 16, fontWeight: "900" },
+  secondaryButton: {
+    borderWidth: 1,
+    borderColor: "#334155",
+    backgroundColor: "#0F172A",
+    paddingVertical: 15,
+    borderRadius: 16,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  secondaryButtonText: { color: "#E5E7EB", fontSize: 15, fontWeight: "900" },
+  bottomNav: {
+    flexDirection: "row",
+    gap: 8,
     borderWidth: 1,
     borderColor: "#1F2937",
+    backgroundColor: "#07111F",
+    borderRadius: 18,
+    padding: 8,
   },
-  challengeEyebrow: {
-    color: "#22C55E",
-    fontSize: 12,
-    fontWeight: "800",
-    textTransform: "uppercase",
-    marginBottom: 6,
-  },
-  challengeTitle: {
-    color: "#F9FAFB",
-    fontSize: 18,
-    fontWeight: "800",
-  },
-  challengeBody: {
-    color: "#CBD5E1",
-    fontSize: 13,
-    lineHeight: 18,
-    marginTop: 6,
-  },
-  challengeReward: {
-    color: "#E5E7EB",
-    fontSize: 13,
-    fontWeight: "700",
-    marginTop: 8,
-  },
-  challengeButton: {
-    marginTop: 12,
-    backgroundColor: "#22C55E",
-    borderRadius: 12,
-    paddingVertical: 11,
+  navItem: {
+    flex: 1,
     alignItems: "center",
+    gap: 5,
+    paddingVertical: 8,
+    borderRadius: 12,
   },
-  challengeButtonText: {
-    color: "#022C22",
-    fontSize: 14,
-    fontWeight: "800",
+  navIcon: {
+    width: 26,
+    height: 26,
+    borderRadius: 9,
+    backgroundColor: "#111827",
+    color: "#A5B4FC",
+    textAlign: "center",
+    textAlignVertical: "center",
+    overflow: "hidden",
+    fontSize: 12,
+    fontWeight: "900",
   },
+  navText: { color: "#CBD5E1", fontSize: 11, fontWeight: "900" },
 });

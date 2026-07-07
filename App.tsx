@@ -1,7 +1,7 @@
-import React, { useEffect } from "react";
-import { NavigationContainer } from "@react-navigation/native";
+import React, { useCallback, useEffect, useState } from "react";
+import { NavigationContainer, createNavigationContainerRef } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import { LogBox, Platform } from "react-native";
+import { LogBox } from "react-native";
 import * as Linking from "expo-linking";
 
 import ValuePropositionScreen from "./app/index";
@@ -11,7 +11,7 @@ import BodyFitScreen from "./app/body-fit";
 import CameraPermissionScreen from "./app/camera-permission";
 import ScanStubScreen from "./app/scan";
 import ScanExampleScreen from "./app/scan-example";
-import { StoreProvider } from "./store";
+import { StoreProvider, useStore } from "./store";
 import AuthScreen from "./app/auth";
 import ProfileScreen from "./app/profile";
 import PaywallScreen from "./app/paywall";
@@ -26,6 +26,7 @@ import GroupLeaderboardScreen from "./app/group-leaderboard";
 import LegalScreen from "./app/legal";
 import ChallengeScreen from "./app/challenge";
 import 'react-native-url-polyfill/auto';
+import { syncAuthenticatedUser } from "./lib/authProfile";
 import { logWarn } from "./lib/logger";
 import { supabase } from "./lib/supabase";
 
@@ -53,8 +54,17 @@ export type RootStackParamList = {
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
+const navigationRef = createNavigationContainerRef<RootStackParamList>();
 
-export default function App() {
+function AppShell() {
+  const {
+    setUserId,
+    setUserEmail,
+    setUsername,
+    setDisplayName,
+    setAvatarUrl,
+  } = useStore();
+  const [pendingHomeNavigation, setPendingHomeNavigation] = useState(false);
   const appUrlPrefix = Linking.createURL("/", { isTripleSlashed: true });
   const linking = {
     prefixes: [appUrlPrefix, "acme://", "acme:///"],
@@ -69,6 +79,30 @@ export default function App() {
       },
     },
   };
+  const syncSessionAndGoHome = useCallback(
+    async (user: Parameters<typeof syncAuthenticatedUser>[0]) => {
+      await syncAuthenticatedUser(user, {
+        setUserId,
+        setUserEmail,
+        setUsername,
+        setDisplayName,
+        setAvatarUrl,
+      });
+      if (navigationRef.isReady()) {
+        navigationRef.navigate("ValueProposition", { celebrate: true });
+      } else {
+        setPendingHomeNavigation(true);
+      }
+    },
+    [setAvatarUrl, setDisplayName, setUserEmail, setUserId, setUsername]
+  );
+
+  const handleNavigationReady = useCallback(() => {
+    if (pendingHomeNavigation && navigationRef.isReady()) {
+      navigationRef.navigate("ValueProposition", { celebrate: true });
+      setPendingHomeNavigation(false);
+    }
+  }, [pendingHomeNavigation]);
 
   useEffect(() => {
     LogBox.ignoreLogs([
@@ -76,16 +110,24 @@ export default function App() {
     ]);
     const handleDeepLink = async (url: string | null) => {
       if (!url) return;
-      const parts = url.split("#");
-      if (parts.length < 2) return;
-      const params = new URLSearchParams(parts[1]);
+      const [beforeHash, hash = ""] = url.split("#");
+      const query = beforeHash.includes("?") ? beforeHash.split("?").slice(1).join("?") : "";
+      const params = new URLSearchParams(hash || query);
       const access_token = params.get("access_token");
       const refresh_token = params.get("refresh_token");
-      if (access_token && refresh_token) {
+      const code = params.get("code");
+      if ((access_token && refresh_token) || code) {
         try {
-          await supabase.auth.setSession({ access_token, refresh_token });
+          const { data, error } =
+            access_token && refresh_token
+              ? await supabase.auth.setSession({ access_token, refresh_token })
+              : await supabase.auth.exchangeCodeForSession(code || "");
+          if (error) throw error;
+          if (data.user) {
+            await syncSessionAndGoHome(data.user);
+          }
         } catch (e) {
-          logWarn("[Linking] setSession failed", e);
+          logWarn("[Linking] OAuth callback failed", e);
         }
       }
     };
@@ -98,53 +140,83 @@ export default function App() {
     return () => {
       listener.remove();
     };
-  }, []);
+  }, [syncSessionAndGoHome]);
+
+  useEffect(() => {
+    const { data } = supabase.auth.onAuthStateChange((event, session) => {
+      if ((event === "SIGNED_IN" || event === "INITIAL_SESSION") && session?.user) {
+        syncSessionAndGoHome(session.user).catch((e) => logWarn("[Auth] session sync failed", e));
+      }
+    });
+
+    return () => {
+      data.subscription.unsubscribe();
+    };
+  }, [syncSessionAndGoHome]);
+
+  useEffect(() => {
+    supabase.auth
+      .getSession()
+      .then(({ data }) => {
+        if (data.session?.user) {
+          return syncSessionAndGoHome(data.session.user);
+        }
+        return undefined;
+      })
+      .catch((e) => logWarn("[Auth] initial session check failed", e));
+  }, [syncSessionAndGoHome]);
 
   return (
+    <NavigationContainer ref={navigationRef} linking={linking} onReady={handleNavigationReady}>
+      <Stack.Navigator
+        id="root-stack"
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: "#020617" },
+        }}
+        initialRouteName="Intro"
+      >
+        <Stack.Screen name="Intro" component={IntroScreen} />
+        <Stack.Screen name="Auth" component={AuthScreen} />
+        <Stack.Screen name="SignUp" component={SignUpScreen} />
+        <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
+        <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
+        <Stack.Screen
+          name="ValueProposition"
+          component={ValuePropositionScreen}
+        />
+        <Stack.Screen
+          name="StylePreference"
+          component={StylePreferenceScreen}
+        />
+        <Stack.Screen
+          name="StyleInspiration"
+          component={StyleInspirationScreen}
+        />
+        <Stack.Screen name="BodyFit" component={BodyFitScreen} />
+        <Stack.Screen
+          name="CameraPermission"
+          component={CameraPermissionScreen}
+        />
+        <Stack.Screen name="Paywall" component={PaywallScreen} />
+        <Stack.Screen name="Scan" component={ScanStubScreen} />
+        <Stack.Screen name="ScanExample" component={ScanExampleScreen} />
+        <Stack.Screen name="Profile" component={ProfileScreen} />
+        <Stack.Screen name="Leaderboard" component={LeaderboardScreen} />
+        <Stack.Screen name="RankingGroups" component={RankingGroupsScreen} />
+        <Stack.Screen name="GroupLeaderboard" component={GroupLeaderboardScreen} />
+        <Stack.Screen name="UserProfile" component={UserProfileViewScreen} />
+        <Stack.Screen name="Legal" component={LegalScreen} />
+        <Stack.Screen name="Challenge" component={ChallengeScreen} />
+      </Stack.Navigator>
+    </NavigationContainer>
+  );
+}
+
+export default function App() {
+  return (
     <StoreProvider>
-      <NavigationContainer linking={linking}>
-        <Stack.Navigator
-          id="root-stack"
-          screenOptions={{
-            headerShown: false,
-            contentStyle: { backgroundColor: "#020617" },
-          }}
-          initialRouteName="Intro"
-        >
-          <Stack.Screen name="Intro" component={IntroScreen} />
-          <Stack.Screen name="Auth" component={AuthScreen} />
-          <Stack.Screen name="SignUp" component={SignUpScreen} />
-          <Stack.Screen name="ForgotPassword" component={ForgotPasswordScreen} />
-          <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
-          <Stack.Screen
-            name="ValueProposition"
-            component={ValuePropositionScreen}
-          />
-          <Stack.Screen
-            name="StylePreference"
-            component={StylePreferenceScreen}
-          />
-          <Stack.Screen
-            name="StyleInspiration"
-            component={StyleInspirationScreen}
-          />
-          <Stack.Screen name="BodyFit" component={BodyFitScreen} />
-          <Stack.Screen
-            name="CameraPermission"
-            component={CameraPermissionScreen}
-          />
-          <Stack.Screen name="Paywall" component={PaywallScreen} />
-          <Stack.Screen name="Scan" component={ScanStubScreen} />
-          <Stack.Screen name="ScanExample" component={ScanExampleScreen} />
-          <Stack.Screen name="Profile" component={ProfileScreen} />
-          <Stack.Screen name="Leaderboard" component={LeaderboardScreen} />
-          <Stack.Screen name="RankingGroups" component={RankingGroupsScreen} />
-          <Stack.Screen name="GroupLeaderboard" component={GroupLeaderboardScreen} />
-          <Stack.Screen name="UserProfile" component={UserProfileViewScreen} />
-          <Stack.Screen name="Legal" component={LegalScreen} />
-          <Stack.Screen name="Challenge" component={ChallengeScreen} />
-        </Stack.Navigator>
-      </NavigationContainer>
+      <AppShell />
     </StoreProvider>
   );
 }

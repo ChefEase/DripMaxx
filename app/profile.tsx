@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, Pressable, StyleSheet, SafeAreaView, Alert, ScrollView, Platform } from "react-native";
+import { View, Text, Pressable, StyleSheet, SafeAreaView, Alert, ScrollView, Platform, Image } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -31,6 +31,7 @@ export default function ProfileScreen() {
   } = useStore();
   const [recent, setRecent] = useState<any[]>([]);
   const [history, setHistory] = useState<any[]>([]);
+  const [scoreCards, setScoreCards] = useState<any[]>([]);
   const [dna, setDna] = useState<{ label: string; description: string; tags: string[] } | null>(null);
   const [profileVisibility, setProfileVisibility] = useState<"public" | "friends_only" | "private">("public");
   const [billingStatus, setBillingStatus] = useState<null | { plan: string; used: number; remaining: number; limit_type: string }>(null);
@@ -51,6 +52,7 @@ export default function ProfileScreen() {
           const data = await historyRes.json();
           setRecent(data.recent_outfits || []);
           setHistory(data.history || []);
+          setScoreCards(data.score_cards || []);
           if (data.profile_visibility) setProfileVisibility(data.profile_visibility);
         }
       } catch (err) {
@@ -315,27 +317,104 @@ export default function ProfileScreen() {
 
         <View style={styles.card}>
           <Text style={styles.label}>Drip score trend</Text>
-          {history.length === 0 ? (
+          <Text style={styles.trendSubtitle}>
+            Swipe through your scans, compare score cards, and see what actually moved each rating.
+          </Text>
+          {scoreCards.length === 0 ? (
             <Text style={styles.muted}>No history yet.</Text>
           ) : (
-            <View style={styles.chartViewport}>
+            <View style={styles.scoreCardViewport}>
               <ScrollView
                 horizontal
-                showsHorizontalScrollIndicator={history.length > 10}
-                contentContainerStyle={styles.chartRow}
+                showsHorizontalScrollIndicator={scoreCards.length > 1}
+                contentContainerStyle={styles.scoreCardRow}
               >
-                {history.map((p, idx) => {
-                  const height = p.drip_score ? (p.drip_score / 10) * 60 : 4;
+                {scoreCards.map((item, idx) => {
+                  const breakdown = item.breakdown || {};
+                  const metrics = [
+                    { label: "Color", value: breakdown.color_match },
+                    { label: "Fit", value: breakdown.fit_quality },
+                    { label: "Trend", value: breakdown.trend_score },
+                    { label: "Body", value: breakdown.body_compatibility },
+                    { label: "Style", value: breakdown.style_match },
+                  ].filter((metric) => metric.value != null);
+                  const score = item.drip_score ?? 0;
+
                   return (
-                    <View key={idx} style={styles.barColumn}>
-                      <View style={[styles.bar, { height }]} />
-                      <Text style={styles.barLabel}>{p.scanned_at?.slice(5, 10) || `#${idx + 1}`}</Text>
+                    <View key={item.outfit_id || idx} style={styles.scoreTrendCard}>
+                      <View style={styles.scoreTrendImageWrap}>
+                        {item.image_url ? (
+                          <Image source={{ uri: item.image_url }} style={styles.scoreTrendImage} />
+                        ) : (
+                          <View style={styles.scoreTrendImageFallback}>
+                            <Text style={styles.scoreTrendImageFallbackText}>No photo</Text>
+                          </View>
+                        )}
+                        <View style={styles.scoreTrendBadge}>
+                          <Text style={styles.scoreTrendBadgeText}>{Number(score).toFixed(1)}</Text>
+                        </View>
+                      </View>
+                      <View style={styles.scoreTrendBody}>
+                        <View style={styles.scoreTrendHeader}>
+                          <View>
+                            <Text style={styles.scoreTrendTitle}>Score card #{scoreCards.length - idx}</Text>
+                            <Text style={styles.scoreTrendDate}>{item.scanned_at?.slice(0, 10) || "Recent scan"}</Text>
+                          </View>
+                          <Text style={styles.scoreTrendTier}>
+                            {score >= 8.5 ? "Elite" : score >= 7 ? "Strong" : score >= 5.5 ? "Solid" : "Build"}
+                          </Text>
+                        </View>
+                        <View style={styles.scoreTrendMeterTrack}>
+                          <View
+                            style={[
+                              styles.scoreTrendMeterFill,
+                              { width: `${Math.max(4, Math.min(100, Math.round(score * 10)))}%` },
+                            ]}
+                          />
+                        </View>
+                        <View style={styles.scoreTrendMetrics}>
+                          {metrics.map((metric) => (
+                            <View key={metric.label} style={styles.scoreTrendMetricRow}>
+                              <Text style={styles.scoreTrendMetricLabel}>{metric.label}</Text>
+                              <View style={styles.scoreTrendMetricTrack}>
+                                <View
+                                  style={[
+                                    styles.scoreTrendMetricFill,
+                                    {
+                                      width: `${Math.max(
+                                        4,
+                                        Math.min(100, Math.round(Number(metric.value) * 10))
+                                      )}%`,
+                                    },
+                                  ]}
+                                />
+                              </View>
+                              <Text style={styles.scoreTrendMetricValue}>
+                                {Number(metric.value).toFixed(1)}
+                              </Text>
+                            </View>
+                          ))}
+                        </View>
+                      </View>
                     </View>
                   );
                 })}
               </ScrollView>
             </View>
           )}
+          {history.length > 0 ? (
+            <View style={styles.miniTrendStrip}>
+              {history.slice(-12).map((p, idx) => (
+                <View
+                  key={`${p.recorded_at || idx}`}
+                  style={[
+                    styles.miniTrendDot,
+                    { height: Math.max(8, Math.round((Number(p.drip_score || 0) / 10) * 38)) },
+                  ]}
+                />
+              ))}
+            </View>
+          ) : null}
         </View>
         <View style={styles.footerLinks}>
           <Pressable style={styles.link} onPress={() => nav.navigate("Legal", { doc: "terms" })}>
@@ -427,6 +506,154 @@ const styles = StyleSheet.create({
     marginTop: 4,
     borderRadius: 10,
     overflow: "hidden",
+  },
+  trendSubtitle: {
+    color: "#CBD5E1",
+    fontSize: 13,
+    lineHeight: 18,
+    fontWeight: "600",
+  },
+  scoreCardViewport: {
+    marginTop: 8,
+  },
+  scoreCardRow: {
+    gap: 12,
+    paddingVertical: 8,
+    paddingRight: 10,
+  },
+  scoreTrendCard: {
+    width: 280,
+    borderWidth: 1,
+    borderColor: "#204B3A",
+    borderRadius: 18,
+    backgroundColor: "#061A14",
+    overflow: "hidden",
+  },
+  scoreTrendImageWrap: {
+    width: "100%",
+    aspectRatio: 4 / 3,
+    backgroundColor: "#020617",
+    position: "relative",
+  },
+  scoreTrendImage: {
+    width: "100%",
+    height: "100%",
+  },
+  scoreTrendImageFallback: {
+    flex: 1,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#0F172A",
+  },
+  scoreTrendImageFallbackText: {
+    color: "#64748B",
+    fontSize: 13,
+    fontWeight: "800",
+  },
+  scoreTrendBadge: {
+    position: "absolute",
+    right: 12,
+    bottom: 12,
+    minWidth: 58,
+    borderRadius: 999,
+    paddingHorizontal: 12,
+    paddingVertical: 7,
+    backgroundColor: "#22C55E",
+    alignItems: "center",
+  },
+  scoreTrendBadgeText: {
+    color: "#022C22",
+    fontSize: 17,
+    fontWeight: "900",
+  },
+  scoreTrendBody: {
+    padding: 12,
+    gap: 10,
+  },
+  scoreTrendHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: 10,
+    alignItems: "flex-start",
+  },
+  scoreTrendTitle: {
+    color: "#F8FAFC",
+    fontSize: 15,
+    fontWeight: "900",
+  },
+  scoreTrendDate: {
+    color: "#86EFAC",
+    fontSize: 11,
+    fontWeight: "800",
+    marginTop: 2,
+  },
+  scoreTrendTier: {
+    color: "#111827",
+    backgroundColor: "#F59E0B",
+    borderRadius: 999,
+    overflow: "hidden",
+    paddingHorizontal: 9,
+    paddingVertical: 5,
+    fontSize: 11,
+    fontWeight: "900",
+  },
+  scoreTrendMeterTrack: {
+    height: 10,
+    borderRadius: 999,
+    overflow: "hidden",
+    backgroundColor: "#123027",
+  },
+  scoreTrendMeterFill: {
+    height: "100%",
+    borderRadius: 999,
+    backgroundColor: "#22C55E",
+  },
+  scoreTrendMetrics: {
+    gap: 8,
+  },
+  scoreTrendMetricRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  scoreTrendMetricLabel: {
+    width: 42,
+    color: "#D1FAE5",
+    fontSize: 11,
+    fontWeight: "900",
+  },
+  scoreTrendMetricTrack: {
+    flex: 1,
+    height: 7,
+    borderRadius: 999,
+    backgroundColor: "#0F172A",
+    overflow: "hidden",
+  },
+  scoreTrendMetricFill: {
+    height: "100%",
+    borderRadius: 999,
+    backgroundColor: "#38BDF8",
+  },
+  scoreTrendMetricValue: {
+    width: 30,
+    color: "#F8FAFC",
+    fontSize: 11,
+    textAlign: "right",
+    fontWeight: "900",
+  },
+  miniTrendStrip: {
+    marginTop: 6,
+    flexDirection: "row",
+    alignItems: "flex-end",
+    gap: 5,
+    height: 42,
+    paddingHorizontal: 4,
+  },
+  miniTrendDot: {
+    flex: 1,
+    borderRadius: 999,
+    backgroundColor: "#22C55E",
+    opacity: 0.85,
   },
   barColumn: {
     alignItems: "center",

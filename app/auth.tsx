@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   View,
   Text,
@@ -7,12 +7,15 @@ import {
   StyleSheet,
   SafeAreaView,
   Alert,
+  Platform,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 import type { RootStackParamList } from "../App";
 import { apiFetch, apiJsonHeaders } from "../lib/api";
+import { syncAuthenticatedUser } from "../lib/authProfile";
+import { startOAuthSignIn, type OAuthProvider } from "../lib/oauth";
 import { logWarn } from "../lib/logger";
 import { supabase } from "../lib/supabase";
 import { useStore } from "../store";
@@ -21,10 +24,35 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 export default function AuthScreen() {
   const nav = useNavigation<Nav>();
-  const { setUserId, setUserEmail, setUsername, setDisplayName } = useStore();
+  const { setUserId, setUserEmail, setUsername, setDisplayName, setAvatarUrl } = useStore();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loading, setLoading] = useState(false);
+  const [oauthLoading, setOauthLoading] = useState<OAuthProvider | null>(null);
+
+  useEffect(() => {
+    let active = true;
+    supabase.auth
+      .getSession()
+      .then(async ({ data }) => {
+        if (!active || !data.session?.user) return;
+        await syncAuthenticatedUser(data.session.user, {
+          setUserId,
+          setUserEmail,
+          setUsername,
+          setDisplayName,
+          setAvatarUrl,
+        });
+        if (active) {
+          nav.navigate("ValueProposition", { celebrate: true });
+        }
+      })
+      .catch((e) => logWarn("auth screen session check failed", e));
+
+    return () => {
+      active = false;
+    };
+  }, [nav, setAvatarUrl, setDisplayName, setUserEmail, setUserId, setUsername]);
 
   const doSignIn = async () => {
     if (!email || !password) {
@@ -87,10 +115,42 @@ export default function AuthScreen() {
     }
   };
 
+  const doOAuthSignIn = async (provider: OAuthProvider) => {
+    setOauthLoading(provider);
+    try {
+      await startOAuthSignIn(provider);
+    } catch (err: any) {
+      Alert.alert("Sign in failed", err.message || "Try again.");
+    } finally {
+      setOauthLoading(null);
+    }
+  };
+
   return (
     <SafeAreaView style={styles.safeArea}>
+      <View style={styles.authGlow} pointerEvents="none" />
       <View style={styles.container}>
-        <Text style={styles.title}>Sign in to DripMaxx</Text>
+        <View style={styles.brandPanel}>
+          <Text style={styles.brandKicker}>DripMaxx</Text>
+          <Text style={styles.title}>Step into your style lab.</Text>
+          <Text style={styles.subtitle}>
+            Save scans, build XP, enter challenges, and track your best outfits.
+          </Text>
+          <View style={styles.previewStrip}>
+            <View style={styles.previewTile}>
+              <Text style={styles.previewValue}>92</Text>
+              <Text style={styles.previewLabel}>Score</Text>
+            </View>
+            <View style={styles.previewTile}>
+              <Text style={styles.previewValue}>+10</Text>
+              <Text style={styles.previewLabel}>XP</Text>
+            </View>
+            <View style={styles.previewTile}>
+              <Text style={styles.previewValue}>Top</Text>
+              <Text style={styles.previewLabel}>Fit</Text>
+            </View>
+          </View>
+        </View>
         <TextInput
           style={styles.input}
           placeholder="Email"
@@ -117,6 +177,33 @@ export default function AuthScreen() {
             {loading ? "Working..." : "Sign In"}
           </Text>
         </Pressable>
+        <View style={styles.dividerRow}>
+          <View style={styles.dividerLine} />
+          <Text style={styles.dividerText}>or</Text>
+          <View style={styles.dividerLine} />
+        </View>
+        <Pressable
+          style={[styles.socialButton, oauthLoading === "google" && { opacity: 0.7 }]}
+          onPress={() => doOAuthSignIn("google")}
+          disabled={!!oauthLoading}
+        >
+          <Text style={styles.socialIcon}>G</Text>
+          <Text style={styles.socialText}>
+            {oauthLoading === "google" ? "Opening Google..." : "Continue with Google"}
+          </Text>
+        </Pressable>
+        {Platform.OS === "ios" ? (
+          <Pressable
+            style={[styles.appleButton, oauthLoading === "apple" && { opacity: 0.7 }]}
+            onPress={() => doOAuthSignIn("apple")}
+            disabled={!!oauthLoading}
+          >
+            <Text style={styles.appleIcon}>A</Text>
+            <Text style={styles.appleText}>
+              {oauthLoading === "apple" ? "Opening Apple..." : "Continue with Apple"}
+            </Text>
+          </Pressable>
+        ) : null}
         <Pressable style={styles.linkButton} onPress={() => nav.navigate("SignUp")}>
           <Text style={styles.linkText}>Create account</Text>
         </Pressable>
@@ -141,13 +228,52 @@ export default function AuthScreen() {
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: "#020617" },
+  authGlow: {
+    position: "absolute",
+    top: -90,
+    right: -70,
+    width: 220,
+    height: 220,
+    borderRadius: 110,
+    backgroundColor: "#14532D",
+    opacity: 0.7,
+  },
   container: {
     flex: 1,
     padding: 24,
     gap: 14,
     justifyContent: "center",
   },
-  title: { color: "#F9FAFB", fontSize: 22, fontWeight: "800" },
+  brandPanel: {
+    borderWidth: 1,
+    borderColor: "#204B3A",
+    borderRadius: 22,
+    backgroundColor: "#061A14",
+    padding: 18,
+    gap: 12,
+    marginBottom: 4,
+  },
+  brandKicker: {
+    color: "#86EFAC",
+    fontSize: 12,
+    fontWeight: "900",
+    letterSpacing: 1.5,
+    textTransform: "uppercase",
+  },
+  title: { color: "#F9FAFB", fontSize: 28, fontWeight: "900", lineHeight: 33 },
+  subtitle: { color: "#D1FAE5", fontSize: 14, lineHeight: 20, fontWeight: "600" },
+  previewStrip: { flexDirection: "row", gap: 8 },
+  previewTile: {
+    flex: 1,
+    backgroundColor: "#020617",
+    borderWidth: 1,
+    borderColor: "#123027",
+    borderRadius: 14,
+    padding: 10,
+    gap: 3,
+  },
+  previewValue: { color: "#F8FAFC", fontSize: 18, fontWeight: "900" },
+  previewLabel: { color: "#86EFAC", fontSize: 11, fontWeight: "900", textTransform: "uppercase" },
   input: {
     backgroundColor: "#0F172A",
     borderWidth: 1,
@@ -164,6 +290,37 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   buttonText: { color: "#022C22", fontWeight: "800", fontSize: 15 },
+  dividerRow: { flexDirection: "row", alignItems: "center", gap: 10, marginVertical: 2 },
+  dividerLine: { flex: 1, height: 1, backgroundColor: "#1F2937" },
+  dividerText: { color: "#64748B", fontSize: 12, fontWeight: "700" },
+  socialButton: {
+    backgroundColor: "#F8FAFC",
+    borderWidth: 1,
+    borderColor: "#CBD5E1",
+    borderRadius: 12,
+    paddingVertical: 13,
+    paddingHorizontal: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: 10,
+  },
+  socialIcon: { color: "#111827", fontWeight: "900", fontSize: 16 },
+  socialText: { color: "#111827", fontWeight: "800", fontSize: 15 },
+  appleButton: {
+    backgroundColor: "#000000",
+    borderWidth: 1,
+    borderColor: "#374151",
+    borderRadius: 12,
+    paddingVertical: 13,
+    paddingHorizontal: 14,
+    alignItems: "center",
+    justifyContent: "center",
+    flexDirection: "row",
+    gap: 10,
+  },
+  appleIcon: { color: "#FFFFFF", fontWeight: "900", fontSize: 16 },
+  appleText: { color: "#FFFFFF", fontWeight: "800", fontSize: 15 },
   linkButton: { alignItems: "center", paddingVertical: 8 },
   linkText: { color: "#A5B4FC", fontWeight: "700" },
   legalRow: { marginTop: 8, flexDirection: "row", justifyContent: "center", gap: 18 },

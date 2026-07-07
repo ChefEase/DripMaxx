@@ -3,6 +3,7 @@ import { View, Text, StyleSheet, SafeAreaView, Animated, Easing, Pressable } fro
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useNavigation } from "@react-navigation/native";
 import type { RootStackParamList } from "../App";
+import { supabase } from "../lib/supabase";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -11,7 +12,7 @@ export default function IntroScreen() {
   const opacity = useRef(new Animated.Value(0)).current;
   const slide = useRef(new Animated.Value(20)).current;
   const [wordIdx, setWordIdx] = useState(0);
-  const words = ["Scan", "Score", "Level Up"];
+  const words = ["Scan, Score, Level Up", "Dress Better, Feel Confident"];
 
   useEffect(() => {
     Animated.sequence([
@@ -27,7 +28,10 @@ export default function IntroScreen() {
     const interval = setInterval(() => {
       setWordIdx((prev) => (prev + 1) % words.length);
     }, 700);
-    const timer = setTimeout(() => nav.navigate("Auth"), 2600);
+    const timer = setTimeout(async () => {
+      const { data } = await supabase.auth.getSession();
+      nav.navigate(data.session?.user ? "ValueProposition" : "Auth");
+    }, 2600);
     return () => {
       clearInterval(interval);
       clearTimeout(timer);

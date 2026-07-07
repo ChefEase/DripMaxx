@@ -29,6 +29,10 @@
         "backgroundColor": "#ffffff"
       }
     },
+    "ios": {
+      "bundleIdentifier": "com.anonymous.dripmaxx",
+      "usesAppleSignIn": true
+    },
     "extra": {
       "eas": {
         "projectId": "e2e8f183-5956-439e-82f1-8dbab7bc3428"

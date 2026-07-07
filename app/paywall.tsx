@@ -191,6 +191,22 @@ function NativePaywall() {
     });
   }, [connected, fetchProducts, getAvailablePurchases]);
 
+  const monthlyProduct = useMemo(
+    () => products.find((product: any) => product.id === PRODUCT_ID) || null,
+    [products]
+  );
+  const androidSubscriptionOffer = useMemo(
+    () =>
+      Platform.OS === "android"
+        ? monthlyProduct?.subscriptionOffers?.find(
+            (offer: any) => offer?.offerTokenAndroid && offer?.basePlanIdAndroid === "dripmaxx-premium-monthly-1"
+          ) ||
+          monthlyProduct?.subscriptionOffers?.find((offer: any) => offer?.offerTokenAndroid) ||
+          null
+        : null,
+    [monthlyProduct]
+  );
+
   useEffect(() => {
     if (connected) {
       setStoreWaitTimedOut(false);
@@ -225,22 +241,6 @@ function NativePaywall() {
       subscriptionOffers: monthlyProduct?.subscriptionOffers?.length || 0,
     });
   }, [androidSubscriptionOffer?.offerTokenAndroid, monthlyProduct]);
-
-  const monthlyProduct = useMemo(
-    () => products.find((product: any) => product.id === PRODUCT_ID) || null,
-    [products]
-  );
-  const androidSubscriptionOffer = useMemo(
-    () =>
-      Platform.OS === "android"
-        ? monthlyProduct?.subscriptionOffers?.find(
-            (offer: any) => offer?.offerTokenAndroid && offer?.basePlanIdAndroid === "dripmaxx-premium-monthly-1"
-          ) ||
-          monthlyProduct?.subscriptionOffers?.find((offer: any) => offer?.offerTokenAndroid) ||
-          null
-        : null,
-    [monthlyProduct]
-  );
 
   const diagnostics = useMemo(() => {
     const lines = [

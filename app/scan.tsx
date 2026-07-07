@@ -10,6 +10,7 @@ import {
   ScrollView,
   Modal,
   Platform,
+  Share,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -18,6 +19,7 @@ import * as ImagePicker from "expo-image-picker";
 import { useStore } from "../store";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import RankingsCard from "./components/RankingsCard";
+import AnimatedNumber from "./components/AnimatedNumber";
 import { apiFetch, apiJsonHeaders } from "../lib/api";
 import { trackEvent } from "../lib/analytics";
 import { logWarn } from "../lib/logger";
@@ -53,6 +55,23 @@ const ANALYSIS_STEPS = [
     progress: 0.9,
   },
 ];
+
+const categoryIcon = (label: string) => {
+  if (label.includes("Color")) return "C";
+  if (label.includes("Fit")) return "F";
+  if (label.includes("Trend")) return "T";
+  if (label.includes("Body")) return "B";
+  return "S";
+};
+
+const scoreTone = (value: number) => {
+  if (value >= 8.5) return "Elite";
+  if (value >= 7) return "Strong";
+  if (value >= 5.5) return "Solid";
+  return "Needs work";
+};
+
+const clampPercent = (value: number) => Math.max(0, Math.min(100, Math.round(value * 10)));
 
 const scanErrorMessage = (statusCode: number, bodyText: string) => {
   let detail = bodyText;
@@ -376,6 +395,18 @@ export default function ScanStubScreen() {
     Alert.alert("Saved locally", "This outfit was saved for this session.");
   };
 
+  const handleShareResult = async () => {
+    if (!result) return;
+    try {
+      await Share.share({
+        message: `I scored ${result.dripScore.toFixed(1)}/10 on DripMaxx. Think your outfit can beat mine?`,
+      });
+      trackEvent("score_shared", { dripScore: result.dripScore }, userId);
+    } catch (e) {
+      logWarn("share score failed", e);
+    }
+  };
+
   const handleSubmitChallenge = async () => {
     if (!activeChallenge?.challenge || !result?.outfitId) {
       Alert.alert("No active challenge", "There is no active challenge for this outfit yet.");
@@ -412,6 +443,19 @@ export default function ScanStubScreen() {
       setIsSubmittingChallenge(false);
     }
   };
+
+  const topCategories = result
+    ? [...result.categories].sort((a, b) => b.value - a.value).slice(0, 3)
+    : [];
+  const improveTips = result?.suggestions.slice(0, 3) || [];
+  const confidenceScore = result
+    ? Math.max(1, Math.min(10, result.dripScore - result.warnings.length * 0.4))
+    : 0;
+  const photoQualityScore = result
+    ? result.warnings.length ? Math.max(5, 9 - result.warnings.length) : 9.2
+    : 0;
+  const trendValue = result?.categories.find((c) => c.label.includes("Trend"))?.value || 0;
+  const styleValue = result?.categories.find((c) => c.label.includes("Style"))?.value || 0;
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -550,8 +594,21 @@ export default function ScanStubScreen() {
             <View style={styles.resultBody}>
               <View style={styles.resultTopRow}>
                 <View style={styles.resultHeader}>
-                  <Text style={styles.resultLabel}>Drip Score</Text>
-                  <Text style={styles.resultValue}>{result.dripScore}/10</Text>
+                  <View style={styles.resultEyebrowRow}>
+                    <Text style={styles.resultIcon}>DM</Text>
+                    <Text style={styles.resultLabel}>Outfit Score</Text>
+                  </View>
+                  <View style={styles.scoreRevealRow}>
+                    <AnimatedNumber
+                      value={result.dripScore}
+                      decimals={1}
+                      suffix="/10"
+                      style={styles.resultValue}
+                    />
+                    <View style={styles.scoreBadge}>
+                      <Text style={styles.scoreBadgeText}>{scoreTone(result.dripScore)}</Text>
+                    </View>
+                  </View>
                   <Text style={styles.xpEarnedText}>+{result.xpAwarded} XP earned</Text>
                 </View>
                 {imageUri ? (
@@ -564,11 +621,46 @@ export default function ScanStubScreen() {
                   </Pressable>
                 ) : null}
               </View>
+              <View style={styles.scoreMeterCard}>
+                <View style={styles.scoreMeterTop}>
+                  <Text style={styles.scoreMeterLabel}>Level-up confidence</Text>
+                  <Text style={styles.scoreMeterValue}>{clampPercent(confidenceScore)}%</Text>
+                </View>
+                <View style={styles.scoreMeterTrack}>
+                  <View style={[styles.scoreMeterFill, { width: `${clampPercent(confidenceScore)}%` }]} />
+                </View>
+              </View>
+              <View style={styles.visualStatsGrid}>
+                {[
+                  { label: "Streetwear", value: trendValue },
+                  { label: "Smart Casual", value: styleValue },
+                  { label: "Photo Quality", value: photoQualityScore },
+                ].map((metric) => (
+                  <View key={metric.label} style={styles.visualStatCard}>
+                    <Text style={styles.visualStatValue}>{clampPercent(metric.value)}%</Text>
+                    <Text style={styles.visualStatLabel}>{metric.label}</Text>
+                  </View>
+                ))}
+              </View>
               <View style={styles.breakdown}>
+                <View style={styles.sectionHeaderRow}>
+                  <Text style={styles.sectionTitle}>Breakdown</Text>
+                  <Text style={styles.sectionMeta}>tap photo to expand</Text>
+                </View>
                 {result.categories.map((c) => (
                   <View key={c.label} style={styles.breakdownRow}>
-                    <Text style={styles.breakdownLabel}>{c.label}</Text>
-                    <Text style={styles.breakdownValue}>{c.value}</Text>
+                    <View style={styles.breakdownLabelWrap}>
+                      <View style={styles.breakdownIcon}>
+                        <Text style={styles.breakdownIconText}>{categoryIcon(c.label)}</Text>
+                      </View>
+                      <Text style={styles.breakdownLabel}>{c.label}</Text>
+                    </View>
+                    <View style={styles.breakdownMeterWrap}>
+                      <View style={styles.breakdownMeterTrack}>
+                        <View style={[styles.breakdownMeterFill, { width: `${clampPercent(c.value)}%` }]} />
+                      </View>
+                      <Text style={styles.breakdownValue}>{c.value.toFixed(1)}</Text>
+                    </View>
                   </View>
                 ))}
               </View>
@@ -596,7 +688,37 @@ export default function ScanStubScreen() {
                   </Text>
                 </View>
               ) : null}
+              <View style={styles.insightGrid}>
+                <View style={styles.insightColumn}>
+                  <Text style={styles.sectionTitle}>Strengths</Text>
+                  {topCategories.map((item) => (
+                    <View key={item.label} style={styles.insightRow}>
+                      <Text style={styles.insightBullet}>+</Text>
+                      <View style={styles.insightCopy}>
+                        <Text style={styles.insightTitle}>{scoreTone(item.value)} {item.label.toLowerCase()}</Text>
+                        <Text style={styles.insightText}>{item.value.toFixed(1)}/10 foundation to build on.</Text>
+                      </View>
+                    </View>
+                  ))}
+                </View>
+                <View style={styles.insightColumn}>
+                  <Text style={styles.sectionTitle}>Improve</Text>
+                  {improveTips.map((tip, idx) => (
+                    <View key={`${tip.title}-improve-${idx}`} style={styles.insightRow}>
+                      <Text style={styles.insightBullet}>!</Text>
+                      <View style={styles.insightCopy}>
+                        <Text style={styles.insightTitle}>{tip.title}</Text>
+                        <Text style={styles.insightText}>{tip.description}</Text>
+                      </View>
+                    </View>
+                  ))}
+                </View>
+              </View>
               <View style={styles.suggestions}>
+                <View style={styles.sectionHeaderRow}>
+                  <Text style={styles.sectionTitle}>Style cards</Text>
+                  <Text style={styles.sectionMeta}>{result.suggestions.length} tips</Text>
+                </View>
                 {result.suggestions.map((tip, idx) => (
                   <View key={`${tip.title}-${idx}`} style={styles.suggestionCard}>
                     <Text style={styles.suggestionTag}>{tip.type}</Text>
@@ -692,7 +814,10 @@ export default function ScanStubScreen() {
             />
             <View style={styles.resultActions}>
               <Pressable style={styles.secondaryButton} onPress={handleRescan}>
-                <Text style={styles.secondaryButtonText}>Rescan</Text>
+                <Text style={styles.secondaryButtonText}>Check another outfit</Text>
+              </Pressable>
+              <Pressable style={styles.secondaryButton} onPress={handleShareResult}>
+                <Text style={styles.secondaryButtonText}>Share</Text>
               </Pressable>
               <Pressable
                 style={[
@@ -987,7 +1112,8 @@ const styles = StyleSheet.create({
   resultHeader: {
     flexDirection: "column",
     alignItems: "flex-start",
-    gap: 2,
+    gap: 8,
+    flex: 1,
   },
   resultTopRow: {
     flexDirection: "row",
@@ -995,21 +1121,120 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     gap: 12,
   },
+  resultEyebrowRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  resultIcon: {
+    width: 28,
+    height: 28,
+    borderRadius: 9,
+    backgroundColor: "#22C55E",
+    color: "#022C22",
+    textAlign: "center",
+    textAlignVertical: "center",
+    fontSize: 11,
+    fontWeight: "900",
+    overflow: "hidden",
+  },
   resultLabel: {
-    color: "#9CA3AF",
-    fontSize: 14,
-    fontWeight: "600",
+    color: "#BBF7D0",
+    fontSize: 12,
+    fontWeight: "900",
+    textTransform: "uppercase",
+    letterSpacing: 0.7,
+  },
+  scoreRevealRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 10,
+    flexWrap: "wrap",
   },
   resultValue: {
     color: "#F9FAFB",
-    fontSize: 24,
-    fontWeight: "800",
+    fontSize: 44,
+    fontWeight: "900",
+    letterSpacing: 0,
+  },
+  scoreBadge: {
+    backgroundColor: "#F59E0B",
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 999,
+  },
+  scoreBadgeText: {
+    color: "#111827",
+    fontSize: 12,
+    fontWeight: "900",
   },
   xpEarnedText: {
     color: "#BBF7D0",
     fontSize: 13,
     fontWeight: "800",
     marginTop: 4,
+  },
+  scoreMeterCard: {
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: "#204B3A",
+    backgroundColor: "#061A14",
+    padding: 14,
+    gap: 10,
+  },
+  scoreMeterTop: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+  },
+  scoreMeterLabel: {
+    color: "#D1FAE5",
+    fontSize: 13,
+    fontWeight: "900",
+    textTransform: "uppercase",
+    letterSpacing: 0.5,
+  },
+  scoreMeterValue: {
+    color: "#86EFAC",
+    fontSize: 16,
+    fontWeight: "900",
+  },
+  scoreMeterTrack: {
+    height: 12,
+    borderRadius: 999,
+    backgroundColor: "#123027",
+    overflow: "hidden",
+  },
+  scoreMeterFill: {
+    height: "100%",
+    borderRadius: 999,
+    backgroundColor: "#22C55E",
+  },
+  visualStatsGrid: {
+    flexDirection: "row",
+    gap: 8,
+  },
+  visualStatCard: {
+    flex: 1,
+    borderWidth: 1,
+    borderColor: "#1F2937",
+    backgroundColor: "#0F172A",
+    borderRadius: 14,
+    padding: 12,
+    minHeight: 76,
+    justifyContent: "space-between",
+  },
+  visualStatValue: {
+    color: "#F9FAFB",
+    fontSize: 18,
+    fontWeight: "900",
+  },
+  visualStatLabel: {
+    color: "#94A3B8",
+    fontSize: 11,
+    fontWeight: "800",
+    textTransform: "uppercase",
+    lineHeight: 15,
   },
   thumbnailBox: {
     borderWidth: 1,
@@ -1033,7 +1258,29 @@ const styles = StyleSheet.create({
     fontWeight: "600",
   },
   breakdown: {
-    gap: 6,
+    gap: 10,
+    borderWidth: 1,
+    borderColor: "#1F2937",
+    borderRadius: 14,
+    backgroundColor: "#07111F",
+    padding: 12,
+  },
+  sectionHeaderRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: 10,
+  },
+  sectionTitle: {
+    color: "#F9FAFB",
+    fontSize: 15,
+    fontWeight: "900",
+  },
+  sectionMeta: {
+    color: "#64748B",
+    fontSize: 11,
+    fontWeight: "800",
+    textTransform: "uppercase",
   },
   rewardsCard: {
     borderWidth: 1,
@@ -1078,18 +1325,103 @@ const styles = StyleSheet.create({
   breakdownRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    paddingVertical: 4,
-    borderBottomWidth: 1,
-    borderBottomColor: "#111827",
+    alignItems: "center",
+    gap: 10,
+    paddingVertical: 5,
+  },
+  breakdownLabelWrap: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+    flex: 0.9,
+  },
+  breakdownIcon: {
+    width: 26,
+    height: 26,
+    borderRadius: 8,
+    backgroundColor: "#111827",
+    borderWidth: 1,
+    borderColor: "#263449",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  breakdownIconText: {
+    color: "#86EFAC",
+    fontSize: 11,
+    fontWeight: "900",
   },
   breakdownLabel: {
     color: "#E5E7EB",
     fontSize: 13,
+    fontWeight: "800",
+    flexShrink: 1,
+  },
+  breakdownMeterWrap: {
+    flex: 1,
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 8,
+  },
+  breakdownMeterTrack: {
+    flex: 1,
+    height: 8,
+    borderRadius: 999,
+    overflow: "hidden",
+    backgroundColor: "#111827",
+  },
+  breakdownMeterFill: {
+    height: "100%",
+    borderRadius: 999,
+    backgroundColor: "#38BDF8",
   },
   breakdownValue: {
     color: "#BBF7D0",
     fontSize: 13,
-    fontWeight: "700",
+    fontWeight: "900",
+    width: 34,
+    textAlign: "right",
+  },
+  insightGrid: {
+    gap: 10,
+  },
+  insightColumn: {
+    borderWidth: 1,
+    borderColor: "#1F2937",
+    borderRadius: 14,
+    backgroundColor: "#0F172A",
+    padding: 12,
+    gap: 10,
+  },
+  insightRow: {
+    flexDirection: "row",
+    gap: 10,
+    alignItems: "flex-start",
+  },
+  insightBullet: {
+    width: 24,
+    height: 24,
+    borderRadius: 8,
+    backgroundColor: "#172033",
+    color: "#C4B5FD",
+    textAlign: "center",
+    textAlignVertical: "center",
+    fontSize: 14,
+    fontWeight: "900",
+    overflow: "hidden",
+  },
+  insightCopy: {
+    flex: 1,
+    gap: 2,
+  },
+  insightTitle: {
+    color: "#F8FAFC",
+    fontSize: 13,
+    fontWeight: "900",
+  },
+  insightText: {
+    color: "#CBD5E1",
+    fontSize: 12,
+    lineHeight: 17,
   },
   suggestions: {
     gap: 10,
@@ -1257,6 +1589,7 @@ const styles = StyleSheet.create({
   },
   resultActions: {
     flexDirection: "row",
+    flexWrap: "wrap",
     gap: 10,
   },
   actions: {

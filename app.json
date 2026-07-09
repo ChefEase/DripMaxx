@@ -20,7 +20,8 @@
       "baseUrl": "/DripMaxx/"
     },
     "web": {
-      "output": "single"
+      "output": "single",
+      "favicon": "./assets/icon.png"
     },
     "android": {
       "package": "com.anonymous.DripMaxx",

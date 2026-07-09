@@ -6,7 +6,6 @@ import {
   StyleSheet,
   ScrollView,
   Pressable,
-  Image,
   ActivityIndicator,
   Modal,
 } from "react-native";
@@ -17,6 +16,7 @@ import type { RootStackParamList } from "../App";
 import { apiFetch } from "../lib/api";
 import { logWarn } from "../lib/logger";
 import { useStore } from "../store";
+import RemoteImage from "./components/RemoteImage";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 type UserProfileRoute = RouteProp<RootStackParamList, "UserProfile">;
@@ -158,7 +158,7 @@ export default function UserProfileViewScreen() {
                 <Text style={styles.outfitRank}>{idx + 1}</Text>
                 {o.image_url && !o.image_url.startsWith("uploaded://") ? (
                   <Pressable onPress={() => setPreviewUrl(o.image_url)} style={styles.thumbPressable}>
-                    <Image source={{ uri: o.image_url }} style={styles.thumb} />
+                    <RemoteImage uri={o.image_url} style={styles.thumb} />
                   </Pressable>
                 ) : (
                   <View style={[styles.thumb, styles.thumbPlaceholder]}>
@@ -182,7 +182,7 @@ export default function UserProfileViewScreen() {
       <Modal transparent visible={!!previewUrl} animationType="fade">
         <Pressable style={styles.previewOverlay} onPress={() => setPreviewUrl(null)}>
           <View style={styles.previewModal}>
-            {previewUrl ? <Image source={{ uri: previewUrl }} style={styles.previewImage} /> : null}
+            {previewUrl ? <RemoteImage uri={previewUrl} style={styles.previewImage} /> : null}
           </View>
         </Pressable>
       </Modal>

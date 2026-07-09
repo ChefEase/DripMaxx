@@ -5,7 +5,6 @@ import {
   Text,
   StyleSheet,
   Pressable,
-  Image,
   Alert,
   ScrollView,
   Modal,
@@ -20,6 +19,7 @@ import { useStore } from "../store";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import RankingsCard from "./components/RankingsCard";
 import AnimatedNumber from "./components/AnimatedNumber";
+import RemoteImage from "./components/RemoteImage";
 import { apiFetch, apiJsonHeaders } from "../lib/api";
 import { trackEvent } from "../lib/analytics";
 import { logWarn } from "../lib/logger";
@@ -209,7 +209,9 @@ export default function ScanStubScreen() {
     const result = await ImagePicker.launchCameraAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: false,
-      quality: 0.8,
+      quality: 0.7,
+      base64: false,
+      exif: false,
     });
     if (!result.canceled) {
       const uri = result.assets[0]?.uri;
@@ -232,7 +234,9 @@ export default function ScanStubScreen() {
     }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
-      quality: 0.8,
+      quality: 0.7,
+      base64: false,
+      exif: false,
     });
     if (!result.canceled) {
       const uri = result.assets[0]?.uri;
@@ -482,7 +486,7 @@ export default function ScanStubScreen() {
         {imageUri ? (
           <View style={styles.previewCard}>
             <Text style={styles.previewLabel}>Preview</Text>
-            <Image source={{ uri: imageUri }} style={styles.previewImage} />
+            <RemoteImage uri={imageUri} style={styles.previewImage} />
             {scanError ? (
               <View style={styles.scanErrorCard}>
                 <Text style={styles.scanErrorTitle}>Scan needs a better photo</Text>
@@ -616,7 +620,7 @@ export default function ScanStubScreen() {
                     style={styles.thumbnailBox}
                     onPress={() => setPreviewUrl(imageUri)}
                   >
-                    <Image source={{ uri: imageUri }} style={styles.thumbnailImage} />
+                    <RemoteImage uri={imageUri} style={styles.thumbnailImage} />
                     <Text style={styles.thumbnailHint}>Tap to expand</Text>
                   </Pressable>
                 ) : null}
@@ -787,7 +791,7 @@ export default function ScanStubScreen() {
                         onPress={() => imageUri && setPreviewUrl(imageUri)}
                         style={styles.compareImageWrap}
                       >
-                        <Image source={{ uri: imageUri || undefined }} style={styles.compareImage} />
+                        <RemoteImage uri={imageUri} style={styles.compareImage} />
                       </Pressable>
                       <Text style={styles.compareScore}>{result.dripScore.toFixed(1)}/10</Text>
                     </View>
@@ -797,7 +801,7 @@ export default function ScanStubScreen() {
                         onPress={() => setPreviewUrl(bestOutfit.imageUrl)}
                         style={styles.compareImageWrap}
                       >
-                        <Image source={{ uri: bestOutfit.imageUrl }} style={styles.compareImage} />
+                        <RemoteImage uri={bestOutfit.imageUrl} style={styles.compareImage} />
                       </Pressable>
                       <Text style={styles.compareScore}>
                         {bestOutfit.dripScore != null ? `${bestOutfit.dripScore.toFixed(1)}/10` : "--"}
@@ -849,7 +853,7 @@ export default function ScanStubScreen() {
         <Pressable style={styles.previewOverlay} onPress={() => setPreviewUrl(null)}>
           <View style={styles.previewModal}>
             {previewUrl ? (
-              <Image source={{ uri: previewUrl }} style={styles.previewModalImage} />
+              <RemoteImage uri={previewUrl} style={styles.previewModalImage} />
             ) : null}
           </View>
         </Pressable>

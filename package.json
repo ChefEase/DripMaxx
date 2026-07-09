@@ -19,6 +19,7 @@
     "expo": "^54.0.35",
     "expo-dev-client": "~6.0.20",
     "expo-iap": "^3.4.0",
+    "expo-image": "^57.0.0",
     "expo-image-picker": "~17.0.10",
     "expo-linking": "^55.0.9",
     "expo-localization": "~17.0.8",

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, Pressable, StyleSheet, SafeAreaView, Alert, ScrollView, Platform, Image } from "react-native";
+import { View, Text, Pressable, StyleSheet, SafeAreaView, Alert, ScrollView, Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -11,6 +11,7 @@ import { supabase } from "../lib/supabase";
 import { useStore } from "../store";
 import { bodyTypeLabel, genderStyleLabel } from "../lib/profileEnums";
 import RankingsCard from "./components/RankingsCard";
+import RemoteImage from "./components/RemoteImage";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -356,7 +357,7 @@ export default function ProfileScreen() {
                     <View key={item.outfit_id || idx} style={styles.scoreTrendCard}>
                       <View style={styles.scoreTrendImageWrap}>
                         {item.image_url ? (
-                          <Image source={{ uri: item.image_url }} style={styles.scoreTrendImage} />
+                          <RemoteImage uri={item.image_url} style={styles.scoreTrendImage} />
                         ) : (
                           <View style={styles.scoreTrendImageFallback}>
                             <Text style={styles.scoreTrendImageFallbackText}>No photo</Text>

@@ -2,7 +2,6 @@ import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Alert,
-  Image,
   Pressable,
   SafeAreaView,
   ScrollView,
@@ -23,6 +22,7 @@ import {
 } from "../lib/challenges";
 import { logWarn } from "../lib/logger";
 import { useStore } from "../store";
+import RemoteImage from "./components/RemoteImage";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -244,7 +244,7 @@ export default function ChallengeScreen() {
                   {winnerSubmission.user_vote_points.toFixed(1)}
                 </Text>
                 {winnerSubmission.image_url ? (
-                  <Image source={{ uri: winnerSubmission.image_url }} style={styles.winnerImage} />
+                  <RemoteImage uri={winnerSubmission.image_url} style={styles.winnerImage} />
                 ) : null}
                 <Text style={styles.winnerCopy}>
                   Prize awarded: {challenge.reward_scans} scans + {challenge.reward_xp} XP.
@@ -294,7 +294,7 @@ export default function ChallengeScreen() {
                         </Text>
                       </View>
                     </View>
-                    {item.image_url ? <Image source={{ uri: item.image_url }} style={styles.entryImage} /> : null}
+                    {item.image_url ? <RemoteImage uri={item.image_url} style={styles.entryImage} /> : null}
                     <View style={styles.actionRow}>
                       <Pressable
                         style={[

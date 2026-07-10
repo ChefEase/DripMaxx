@@ -22,9 +22,15 @@ const cleanUsernamePart = (value: string) =>
 export const deriveAuthProfile = (user: User) => {
   const email = user.email?.trim().toLowerCase() || null;
   const metadata = user.user_metadata || {};
-  const rawName = String(metadata.username || metadata.name || metadata.full_name || "").trim();
+  const isGoogleUser = user.app_metadata?.provider === "google";
+  const googleName = String(metadata.full_name || metadata.name || "").trim();
+  const rawName = String(
+    isGoogleUser ? googleName : metadata.username || metadata.name || metadata.full_name || ""
+  ).trim();
   const displayName = rawName || email?.split("@")[0] || "DripMaxx user";
-  const base = cleanUsernamePart(String(metadata.username || email?.split("@")[0] || rawName || "user"));
+  const base = cleanUsernamePart(
+    String(isGoogleUser ? googleName || email?.split("@")[0] : metadata.username || rawName || email?.split("@")[0] || "user")
+  );
   const suffix = user.id.replace(/-/g, "").slice(0, 6).toLowerCase();
   const usernameBase = base || "user";
   const username = `${usernameBase.slice(0, Math.max(3, 19 - suffix.length))}_${suffix}`.slice(0, 20);

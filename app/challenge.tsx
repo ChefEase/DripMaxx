@@ -216,7 +216,11 @@ export default function ChallengeScreen() {
         ) : !challenge ? (
           <View style={styles.card}>
             <Text style={styles.title}>No active challenge</Text>
-            <Text style={styles.muted}>Create one in the backend/database to open voting.</Text>
+            <Text style={styles.muted}>
+              {isAdmin
+                ? "Create one in the backend/database to open voting."
+                : "There isn't an active challenge right now. Check back soon to enter and vote."}
+            </Text>
           </View>
         ) : (
           <>

@@ -2,7 +2,7 @@
   "expo": {
     "name": "DripMaxx",
     "slug": "DripMaxx",
-    "version": "1.0.1",
+    "version": "1.0.3",
     "scheme": "acme",
     "sdkVersion": "54.0.0",
     "icon": "./assets/icon.png",
@@ -30,7 +30,7 @@
         "foregroundImage": "./assets/adaptive-icon.png.png",
         "backgroundColor": "#ffffff"
       },
-      "versionCode" : 2
+      "versionCode" : 26
     },
     "ios": {
       "bundleIdentifier": "com.anonymous.dripmaxx",

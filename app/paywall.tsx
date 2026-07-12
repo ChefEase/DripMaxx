@@ -142,7 +142,6 @@ function NativePaywall() {
             purchase_token:
               purchase?.purchaseToken ||
               purchase?.purchaseTokenAndroid ||
-              purchase?.originalJson ||
               null,
             transaction_id:
               purchase?.id ||
@@ -315,7 +314,9 @@ function NativePaywall() {
       setLastStoreError("billing_not_connected");
       Alert.alert(
         "Store unavailable",
-        "Google Play Billing is not connected. Test on a physical Android device signed into Play, using a Play-distributed build and a licensed tester account."
+        Platform.OS === "ios"
+          ? "The App Store is not connected. Test on a physical iPhone signed into a sandbox tester account using a development or TestFlight build."
+          : "Google Play Billing is not connected. Test on a physical Android device signed into Play, using a Play-distributed build and a licensed tester account."
       );
       return;
     }
@@ -361,10 +362,12 @@ function NativePaywall() {
             ? Platform.OS === "android" && !androidSubscriptionOffer?.offerTokenAndroid
               ? `Store connected, but ${PRODUCT_ID} has no active Play offer yet.`
               : `Store connected for ${PRODUCT_ID}.`
-            : `Store connected, but ${PRODUCT_ID} was not returned by Google Play yet.`
+            : `Store connected, but ${PRODUCT_ID} was not returned by ${Platform.OS === "ios" ? "the App Store" : "Google Play"} yet.`
           : storeWaitTimedOut
-            ? "Still not connected to Google Play. Local installs, Expo Go, emulators, unsigned builds, or non-tester accounts usually cannot use billing."
-            : "Connecting to Google Play billing..."
+            ? Platform.OS === "ios"
+              ? "Still not connected to the App Store. Use a physical iPhone with a development or TestFlight build and a sandbox tester account."
+              : "Still not connected to Google Play. Local installs, Expo Go, emulators, unsigned builds, or non-tester accounts usually cannot use billing."
+            : `Connecting to ${Platform.OS === "ios" ? "the App Store" : "Google Play billing"}...`
       }
       diagnostics={diagnostics}
       onBuy={handleBuy}

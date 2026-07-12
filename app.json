@@ -14,7 +14,15 @@
     "plugins": [
       "expo-localization",
       "expo-secure-store",
-      "expo-iap"
+      "expo-iap",
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Allow DripMaxx to access your photos so you can upload an outfit for analysis.",
+          "cameraPermission": "Allow DripMaxx to use your camera so you can photograph an outfit for analysis.",
+          "microphonePermission": false
+        }
+      ]
     ],
     "experiments": {
       "baseUrl": "/DripMaxx/"
@@ -30,11 +38,15 @@
         "foregroundImage": "./assets/adaptive-icon.png.png",
         "backgroundColor": "#ffffff"
       },
-      "versionCode" : 26
+      "versionCode": 26
     },
     "ios": {
       "bundleIdentifier": "com.anonymous.dripmaxx",
-      "usesAppleSignIn": true
+      "buildNumber": "26",
+      "usesAppleSignIn": true,
+      "infoPlist": {
+        "ITSAppUsesNonExemptEncryption": false
+      }
     },
     "extra": {
       "eas": {

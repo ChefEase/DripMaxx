@@ -455,11 +455,14 @@ export default function ScanStubScreen() {
   const confidenceScore = result
     ? Math.max(1, Math.min(10, result.dripScore - result.warnings.length * 0.4))
     : 0;
-  const photoQualityScore = result
-    ? result.warnings.length ? Math.max(5, 9 - result.warnings.length) : 9.2
-    : 0;
+  const colorValue = result?.categories.find((c) => c.label.includes("Color"))?.value || 0;
   const trendValue = result?.categories.find((c) => c.label.includes("Trend"))?.value || 0;
   const styleValue = result?.categories.find((c) => c.label.includes("Style"))?.value || 0;
+  const styleMetricLabel = stylePreferences.length === 1
+    ? `${stylePreferences[0]} Match`
+    : stylePreferences.length > 1
+      ? `Style Match (${stylePreferences.length})`
+      : "Style (not selected)";
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -636,9 +639,9 @@ export default function ScanStubScreen() {
               </View>
               <View style={styles.visualStatsGrid}>
                 {[
-                  { label: "Streetwear", value: trendValue },
-                  { label: "Smart Casual", value: styleValue },
-                  { label: "Photo Quality", value: photoQualityScore },
+                  { label: "Color Harmony", value: colorValue },
+                  { label: styleMetricLabel, value: styleValue },
+                  { label: "Trend Relevance", value: trendValue },
                 ].map((metric) => (
                   <View key={metric.label} style={styles.visualStatCard}>
                     <Text style={styles.visualStatValue}>{clampPercent(metric.value)}%</Text>

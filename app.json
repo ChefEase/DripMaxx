@@ -24,9 +24,6 @@
         }
       ]
     ],
-    "experiments": {
-      "baseUrl": "/DripMaxx/"
-    },
     "web": {
       "output": "single",
       "favicon": "./assets/icon.png"

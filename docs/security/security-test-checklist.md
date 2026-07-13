@@ -22,7 +22,7 @@ Endpoints to test:
 - `GET /v1/rankings/groups`
 - `POST /v1/profile/sync`
 - `POST /v1/profile/delete-account`
-- `POST /v1/billing/verify-purchase`
+- `POST /v1/billing/sync-revenuecat`
 - `POST /v1/rankings/groups`
 - `POST /v1/rankings/groups/join`
 - `DELETE /v1/rankings/groups/{id}`

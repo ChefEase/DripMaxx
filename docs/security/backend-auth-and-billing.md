@@ -59,7 +59,7 @@ if payload.user_id and payload.user_id != auth["app_user_id"]:
 - `GET /v1/profile/style_dna`
 - `POST /v1/profile/delete-account`
 - `GET /v1/billing/status`
-- `POST /v1/billing/verify-purchase`
+- `POST /v1/billing/sync-revenuecat`
 - `GET /v1/rankings/me`
 - `GET /v1/rankings/groups`
 - `POST /v1/rankings/groups`
@@ -79,7 +79,7 @@ Billing verification must reject:
 
 ### Required rules
 
-1. Verify the receipt directly with Apple/Google or your billing provider.
+1. Verify the authenticated App User ID and entitlement through RevenueCat.
 2. Extract canonical identifiers from the provider response.
 3. Upsert only if the provider token and transaction belong to the same authenticated user.
 4. Store the normalized receipt in a table with uniqueness constraints.

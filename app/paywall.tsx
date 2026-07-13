@@ -1,46 +1,41 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { View, Text, StyleSheet, SafeAreaView, Pressable, Alert, ActivityIndicator, Platform } from "react-native";
+import React, { useCallback, useEffect, useMemo, useState } from "react";
+import { ActivityIndicator, Alert, Platform, Pressable, SafeAreaView, StyleSheet, Text, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 import type { RootStackParamList } from "../App";
 import { apiFetch, apiJsonHeaders } from "../lib/api";
 import { logWarn } from "../lib/logger";
+import {
+  ensureRevenueCatConfigured,
+  hasRevenueCatEntitlement,
+  REVENUECAT_ENTITLEMENT_ID,
+} from "../lib/revenueCat";
 import { useStore } from "../store";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
-const PRODUCT_ID =
-  Platform.OS === "ios"
-    ? process.env.EXPO_PUBLIC_IOS_PREMIUM_PRODUCT_ID || "dripmaxx_premium_monthly"
-    : process.env.EXPO_PUBLIC_ANDROID_PREMIUM_PRODUCT_ID || "dripmaxx_premium_monthly";
+const PRODUCT_ID = Platform.OS === "ios"
+  ? process.env.EXPO_PUBLIC_IOS_PREMIUM_PRODUCT_ID || "dripmaxx_premium_monthly"
+  : process.env.EXPO_PUBLIC_ANDROID_PREMIUM_PRODUCT_ID || "dripmaxx_premium_monthly";
 
-function PaywallShell({
-  priceLabel,
-  metaText,
-  diagnostics,
-  onBuy,
-  purchaseBusy,
-}: {
+function PaywallShell({ priceLabel, metaText, diagnostics, onBuy, onRestore, busy }: {
   priceLabel: string;
   metaText: string;
-  diagnostics?: string[];
+  diagnostics: string[];
   onBuy: () => void;
-  purchaseBusy: boolean;
+  onRestore: () => void;
+  busy: boolean;
 }) {
   const nav = useNavigation<Nav>();
-
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
         <View>
           <Text style={styles.kicker}>Upgrade Plan</Text>
           <Text style={styles.title}>DripMaxx Monthly</Text>
-          <Text style={styles.subtitle}>
-            Free users get 5 scans to start, then 1 free scan every 3 days.
-          </Text>
+          <Text style={styles.subtitle}>Free users get 5 scans to start, then 1 free scan every 3 days.</Text>
         </View>
-
         <View style={styles.card}>
           <Text style={styles.cardTitle}>Plan details</Text>
           <Text style={styles.bullet}>- {priceLabel} per month</Text>
@@ -48,25 +43,15 @@ function PaywallShell({
           <Text style={styles.bullet}>- AI score breakdown + suggestions</Text>
           <Text style={styles.bullet}>- Save and compare outfits</Text>
           <Text style={styles.meta}>{metaText}</Text>
-          {diagnostics?.length ? (
-            <View style={styles.diagnosticsBox}>
-              {diagnostics.map((line) => (
-                <Text key={line} style={styles.diagnosticsText}>{line}</Text>
-              ))}
-            </View>
-          ) : null}
+          <View style={styles.diagnosticsBox}>
+            {diagnostics.map((line) => <Text key={line} style={styles.diagnosticsText}>{line}</Text>)}
+          </View>
         </View>
-
-        <Pressable
-          style={[styles.primary, purchaseBusy && styles.primaryDisabled]}
-          onPress={onBuy}
-          disabled={purchaseBusy}
-        >
-          {purchaseBusy ? (
-            <ActivityIndicator color="#022C22" />
-          ) : (
-            <Text style={styles.primaryText}>Upgrade to Premium</Text>
-          )}
+        <Pressable style={[styles.primary, busy && styles.primaryDisabled]} onPress={onBuy} disabled={busy}>
+          {busy ? <ActivityIndicator color="#022C22" /> : <Text style={styles.primaryText}>Upgrade to Premium</Text>}
+        </Pressable>
+        <Pressable style={styles.secondary} onPress={onRestore} disabled={busy}>
+          <Text style={styles.secondaryText}>Restore Purchases</Text>
         </Pressable>
         <Pressable style={styles.secondary} onPress={() => nav.navigate("Scan")}>
           <Text style={styles.secondaryText}>Back to Scan</Text>
@@ -77,355 +62,145 @@ function PaywallShell({
 }
 
 function WebPaywall() {
-  const handleBuy = () => {
-    Alert.alert("Mobile only", "In-app purchases require an iOS or Android development build.");
-  };
-
-  return (
-    <PaywallShell
-      priceLabel="$3.99"
-      metaText="Use a development build on iPhone or Android to test purchases."
-      diagnostics={["platform=web", "billing is not available in the web build"]}
-      onBuy={handleBuy}
-      purchaseBusy={false}
-    />
-  );
+  return <PaywallShell priceLabel="$3.99" metaText="RevenueCat purchases require an iOS or Android build."
+    diagnostics={["provider=RevenueCat", "platform=web", "billing=unavailable"]}
+    onBuy={() => Alert.alert("Mobile only", "Use the iOS or Android app to subscribe.")}
+    onRestore={() => Alert.alert("Mobile only", "Use the iOS or Android app to restore purchases.")} busy={false} />;
 }
 
 function NativePaywall() {
   const nav = useNavigation<Nav>();
-  const { userId, username, displayName } = useStore();
-  const [purchaseBusy, setPurchaseBusy] = useState(false);
-  const [storeWaitTimedOut, setStoreWaitTimedOut] = useState(false);
-  const [lastStoreError, setLastStoreError] = useState<string | null>(null);
-  const [directInitStatus, setDirectInitStatus] = useState<string>("idle");
-  const expoIap = require("expo-iap");
-  const { useIAP, initConnection, endConnection } = expoIap;
+  const { userId } = useStore();
+  const [purchasePackage, setPurchasePackage] = useState<any>(null);
+  const [offeringId, setOfferingId] = useState<string | null>(null);
+  const [busy, setBusy] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [configured, setConfigured] = useState(false);
+  const [lastError, setLastError] = useState<string | null>(null);
+  const [entitlementActive, setEntitlementActive] = useState(false);
 
   const summarizeError = (error: any) => {
-    const code = error?.code || error?.responseCode || error?.debugMessage || null;
+    const code = error?.code || error?.underlyingErrorMessage || null;
     const message = error?.message || String(error || "unknown");
     return code ? `${code}: ${message}` : message;
   };
 
-  const obfuscate = (value: string | null | undefined) => {
-    if (!value) return null;
-    let hash = 0;
-    for (let i = 0; i < value.length; i += 1) {
-      hash = (hash * 31 + value.charCodeAt(i)) >>> 0;
-    }
-    return `dmx_${hash.toString(16)}`;
-  };
-
-  const {
-    connected,
-    products,
-    fetchProducts,
-    requestPurchase,
-    finishTransaction,
-    availablePurchases,
-    getAvailablePurchases,
-  } = useIAP({
-    onPurchaseSuccess: async (purchase: any) => {
-      try {
-        setLastStoreError(null);
-        if (!userId) {
-          throw new Error("Sign in required before purchase verification.");
-        }
-        const verifyResp = await apiFetch("/v1/billing/verify-purchase", {
-          method: "POST",
-          headers: apiJsonHeaders(),
-          body: JSON.stringify({
-            user_id: userId,
-            platform: Platform.OS,
-            product_id: PRODUCT_ID,
-            purchase_token:
-              purchase?.purchaseToken ||
-              purchase?.purchaseTokenAndroid ||
-              null,
-            transaction_id:
-              purchase?.id ||
-              purchase?.transactionId ||
-              purchase?.orderId ||
-              null,
-          }),
-        });
-        if (!verifyResp.ok) {
-          const text = await verifyResp.text();
-          throw new Error(text || "Purchase verification failed.");
-        }
-        await finishTransaction({ purchase, isConsumable: false });
-        Alert.alert("Premium unlocked", "Your subscription is active on this account.");
-        nav.navigate("Profile");
-      } catch (error: any) {
-        logWarn("[Paywall] purchase verification failed", error);
-        setLastStoreError(`verification_failed: ${summarizeError(error)}`);
-        Alert.alert("Purchase verification failed", error?.message || "Try again.");
-      } finally {
-        setPurchaseBusy(false);
-      }
-    },
-    onPurchaseError: (error: any) => {
-      setPurchaseBusy(false);
-      logWarn("[Paywall] purchase error", error);
-      setLastStoreError(`purchase_error: ${summarizeError(error)}`);
-      Alert.alert("Purchase failed", error?.message || "The purchase did not complete.");
-    },
-    onError: (error: any) => {
-      logWarn("[Paywall] iap general error", error);
-      setLastStoreError(`iap_error: ${summarizeError(error)}`);
-    },
-  });
-
-  useEffect(() => {
-    if (!connected) return;
-    setLastStoreError(null);
-    fetchProducts({ skus: [PRODUCT_ID], type: "subs" }).catch((error: any) => {
-      logWarn("fetchProducts failed", error);
-      setLastStoreError(`fetch_products_failed: ${summarizeError(error)}`);
+  const syncBackend = useCallback(async () => {
+    const response = await apiFetch("/v1/billing/sync-revenuecat", {
+      method: "POST",
+      headers: apiJsonHeaders(),
+      body: JSON.stringify({ user_id: userId, platform: Platform.OS }),
     });
-    getAvailablePurchases().catch((error: any) => {
-      logWarn("[Paywall] getAvailablePurchases failed", error);
-      setLastStoreError(`available_purchases_failed: ${summarizeError(error)}`);
-    });
-  }, [connected, fetchProducts, getAvailablePurchases]);
+    if (!response.ok) throw new Error((await response.text()) || "RevenueCat account sync failed.");
+  }, [userId]);
 
-  const monthlyProduct = useMemo(
-    () => products.find((product: any) => product.id === PRODUCT_ID) || null,
-    [products]
-  );
-  const androidSubscriptionOffer = useMemo(
-    () =>
-      Platform.OS === "android"
-        ? monthlyProduct?.subscriptionOffers?.find(
-            (offer: any) => offer?.offerTokenAndroid && offer?.basePlanIdAndroid === "dripmaxx-premium-monthly-1"
-          ) ||
-          monthlyProduct?.subscriptionOffers?.find((offer: any) => offer?.offerTokenAndroid) ||
-          null
-        : null,
-    [monthlyProduct]
-  );
-
-  useEffect(() => {
-    if (connected) {
-      setStoreWaitTimedOut(false);
-      logWarn("[Paywall] store connected", { platform: Platform.OS, productId: PRODUCT_ID });
+  const loadRevenueCat = useCallback(async () => {
+    if (!userId) {
+      setLoading(false);
+      setLastError("Sign in is required before RevenueCat can load offerings.");
       return;
     }
-    const timer = setTimeout(() => {
-      setStoreWaitTimedOut(true);
-      logWarn("[Paywall] store connection timeout", {
-        platform: Platform.OS,
-        productId: PRODUCT_ID,
-      });
-      setLastStoreError("store_connection_timeout");
-    }, 8000);
-    return () => clearTimeout(timer);
-  }, [connected]);
-
-  useEffect(() => {
-    if (!connected || monthlyProduct) return;
-    logWarn("[Paywall] product missing from store", {
-      platform: Platform.OS,
-      productId: PRODUCT_ID,
-      connected,
-      productCount: products.length,
-    });
-  }, [connected, monthlyProduct, products.length]);
-
-  useEffect(() => {
-    if (Platform.OS !== "android" || !monthlyProduct || androidSubscriptionOffer?.offerTokenAndroid) return;
-    logWarn("[Paywall] android subscription offer missing", {
-      productId: PRODUCT_ID,
-      subscriptionOffers: monthlyProduct?.subscriptionOffers?.length || 0,
-    });
-  }, [androidSubscriptionOffer?.offerTokenAndroid, monthlyProduct]);
-
-  const diagnostics = useMemo(() => {
-    const lines = [
-      `platform=${Platform.OS}`,
-      `connected=${String(connected)}`,
-      `directInit=${directInitStatus}`,
-      `userId=${userId ? "present" : "missing"}`,
-      `productId=${PRODUCT_ID}`,
-      `productsReturned=${products.length}`,
-      `productLoaded=${String(Boolean(monthlyProduct))}`,
-      `availablePurchases=${availablePurchases.length}`,
-    ];
-
-    if (Platform.OS === "android") {
-      lines.push(`offerLoaded=${String(Boolean(androidSubscriptionOffer?.offerTokenAndroid))}`);
-      lines.push(`offersReturned=${monthlyProduct?.subscriptionOffers?.length || 0}`);
+    setLoading(true);
+    setLastError(null);
+    try {
+      const purchases = await ensureRevenueCatConfigured(userId);
+      setConfigured(true);
+      const [offerings, customerInfo] = await Promise.all([
+        purchases.getOfferings(),
+        purchases.getCustomerInfo(),
+      ]);
+      const current = offerings.current;
+      const packages = current?.availablePackages || [];
+      const selected = current?.monthly
+        || packages.find((item: any) => item.product?.identifier === PRODUCT_ID)
+        || packages[0]
+        || null;
+      const active = hasRevenueCatEntitlement(customerInfo);
+      setOfferingId(current?.identifier || null);
+      setPurchasePackage(selected);
+      setEntitlementActive(active);
+      if (active) await syncBackend();
+      if (!current) setLastError("RevenueCat has no current offering configured for this app.");
+      else if (!selected) setLastError("The current RevenueCat offering has no purchase package.");
+    } catch (error: any) {
+      setConfigured(false);
+      logWarn("[RevenueCat] load failed", error);
+      setLastError(summarizeError(error));
+    } finally {
+      setLoading(false);
     }
+  }, [syncBackend, userId]);
 
-    if (lastStoreError) {
-      lines.push(`lastError=${lastStoreError}`);
+  useEffect(() => { void loadRevenueCat(); }, [loadRevenueCat]);
+
+  const unlock = async (customerInfo: any, action: "purchase" | "restore") => {
+    if (!hasRevenueCatEntitlement(customerInfo)) {
+      throw new Error(`${REVENUECAT_ENTITLEMENT_ID} is not active after ${action}. Check the product-to-entitlement attachment in RevenueCat.`);
     }
-
-    return lines;
-  }, [androidSubscriptionOffer?.offerTokenAndroid, availablePurchases.length, connected, directInitStatus, lastStoreError, monthlyProduct, products.length, userId]);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    const probeConnection = async () => {
-      try {
-        setDirectInitStatus("probing");
-        const result = await initConnection();
-        if (cancelled) return;
-        const nextStatus = `result=${String(result)}`;
-        setDirectInitStatus(nextStatus);
-        logWarn("[Paywall] direct initConnection result", {
-          platform: Platform.OS,
-          productId: PRODUCT_ID,
-          result,
-        });
-      } catch (error: any) {
-        if (cancelled) return;
-        const nextStatus = `error=${summarizeError(error)}`;
-        setDirectInitStatus(nextStatus);
-        setLastStoreError(`direct_init_failed: ${summarizeError(error)}`);
-        logWarn("[Paywall] direct initConnection failed", error);
-      }
-    };
-
-    void probeConnection();
-
-    return () => {
-      cancelled = true;
-      endConnection()
-        .then((result: boolean) => {
-          logWarn("[Paywall] direct endConnection result", { result });
-        })
-        .catch((error: any) => {
-          logWarn("[Paywall] direct endConnection failed", error);
-        });
-    };
-  }, [endConnection, initConnection]);
+    setEntitlementActive(true);
+    await syncBackend();
+    Alert.alert("Premium unlocked", "Your RevenueCat subscription is active on this account.");
+    nav.navigate("Profile");
+  };
 
   const handleBuy = async () => {
-    if (!userId) {
-      setLastStoreError("missing_user_session");
-      Alert.alert("Sign in required", "Please sign in before upgrading.");
-      nav.navigate("Auth");
-      return;
-    }
-    if (!connected) {
-      setLastStoreError("billing_not_connected");
-      Alert.alert(
-        "Store unavailable",
-        Platform.OS === "ios"
-          ? "The App Store is not connected. Test on a physical iPhone signed into a sandbox tester account using a development or TestFlight build."
-          : "Google Play Billing is not connected. Test on a physical Android device signed into Play, using a Play-distributed build and a licensed tester account."
-      );
-      return;
-    }
-    if (Platform.OS === "android" && !androidSubscriptionOffer?.offerTokenAndroid) {
-      setLastStoreError("subscription_offer_missing");
-      Alert.alert(
-        "Store not ready",
-        "The subscription product loaded without an active offer. Check that your Play Console base plan is active and available to your tester track."
-      );
-      return;
-    }
-    setPurchaseBusy(true);
+    if (!userId) { Alert.alert("Sign in required", "Please sign in before upgrading."); nav.navigate("Auth"); return; }
+    if (!purchasePackage) { Alert.alert("RevenueCat not ready", lastError || "No package is available."); return; }
+    setBusy(true); setLastError(null);
     try {
-      setLastStoreError(null);
-      await requestPurchase({
-        request: {
-          apple: { sku: PRODUCT_ID },
-          google: {
-            skus: [PRODUCT_ID],
-            obfuscatedAccountId: obfuscate(userId),
-            obfuscatedProfileId: obfuscate(username || displayName || userId),
-            subscriptionOffers: androidSubscriptionOffer?.offerTokenAndroid
-              ? [{ sku: PRODUCT_ID, offerToken: androidSubscriptionOffer.offerTokenAndroid }]
-              : undefined,
-          },
-        },
-        type: "subs",
-      });
+      const purchases = await ensureRevenueCatConfigured(userId);
+      const result = await purchases.purchasePackage(purchasePackage);
+      await unlock(result.customerInfo, "purchase");
     } catch (error: any) {
-      setPurchaseBusy(false);
-      logWarn("[Paywall] requestPurchase failed", error);
-      setLastStoreError(`request_purchase_failed: ${summarizeError(error)}`);
-      Alert.alert("Purchase failed", error?.message || "The store did not start the purchase.");
-    }
+      if (!error?.userCancelled) {
+        const message = summarizeError(error);
+        setLastError(message);
+        logWarn("[RevenueCat] purchase failed", error);
+        Alert.alert("Purchase failed", message);
+      }
+    } finally { setBusy(false); }
   };
 
-  return (
-    <PaywallShell
-      priceLabel={monthlyProduct?.displayPrice || "$3.99"}
-      metaText={
-        connected
-          ? monthlyProduct
-            ? Platform.OS === "android" && !androidSubscriptionOffer?.offerTokenAndroid
-              ? `Store connected, but ${PRODUCT_ID} has no active Play offer yet.`
-              : `Store connected for ${PRODUCT_ID}.`
-            : `Store connected, but ${PRODUCT_ID} was not returned by ${Platform.OS === "ios" ? "the App Store" : "Google Play"} yet.`
-          : storeWaitTimedOut
-            ? Platform.OS === "ios"
-              ? "Still not connected to the App Store. Use a physical iPhone with a development or TestFlight build and a sandbox tester account."
-              : "Still not connected to Google Play. Local installs, Expo Go, emulators, unsigned builds, or non-tester accounts usually cannot use billing."
-            : `Connecting to ${Platform.OS === "ios" ? "the App Store" : "Google Play billing"}...`
-      }
-      diagnostics={diagnostics}
-      onBuy={handleBuy}
-      purchaseBusy={purchaseBusy}
-    />
-  );
+  const handleRestore = async () => {
+    if (!userId) { Alert.alert("Sign in required", "Please sign in before restoring."); nav.navigate("Auth"); return; }
+    setBusy(true); setLastError(null);
+    try {
+      const purchases = await ensureRevenueCatConfigured(userId);
+      await unlock(await purchases.restorePurchases(), "restore");
+    } catch (error: any) {
+      const message = summarizeError(error);
+      setLastError(message);
+      Alert.alert("Restore failed", message);
+    } finally { setBusy(false); }
+  };
+
+  const diagnostics = useMemo(() => [
+    "provider=RevenueCat",
+    `platform=${Platform.OS}`,
+    `configured=${String(configured)}`,
+    `offering=${offeringId || "missing"}`,
+    `package=${purchasePackage?.identifier || "missing"}`,
+    `product=${purchasePackage?.product?.identifier || PRODUCT_ID}`,
+    `entitlement=${REVENUECAT_ENTITLEMENT_ID}`,
+    `entitlementActive=${String(entitlementActive)}`,
+    ...(lastError ? [`lastError=${lastError}`] : []),
+  ], [configured, entitlementActive, lastError, offeringId, purchasePackage]);
+
+  return <PaywallShell
+    priceLabel={purchasePackage?.product?.priceString || "$3.99"}
+    metaText={loading ? "Loading RevenueCat offering..." : entitlementActive ? "RevenueCat entitlement is active." : purchasePackage ? "RevenueCat is ready." : "RevenueCat configuration needs attention."}
+    diagnostics={diagnostics} onBuy={handleBuy} onRestore={handleRestore} busy={busy || loading}
+  />;
 }
 
-export default function PaywallScreen() {
-  if (Platform.OS === "web") {
-    return <WebPaywall />;
-  }
-  return <NativePaywall />;
-}
+export default function PaywallScreen() { return Platform.OS === "web" ? <WebPaywall /> : <NativePaywall />; }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: "#020617" },
-  container: { flex: 1, padding: 24, gap: 16 },
-  kicker: { color: "#A5B4FC", fontSize: 13, fontWeight: "700" },
-  title: { color: "#F9FAFB", fontSize: 26, fontWeight: "800", marginTop: 4 },
-  subtitle: { color: "#9CA3AF", fontSize: 14, marginTop: 4 },
-  card: {
-    backgroundColor: "#0F172A",
-    borderWidth: 1,
-    borderColor: "#1F2937",
-    borderRadius: 16,
-    padding: 16,
-    gap: 8,
-  },
-  cardTitle: { color: "#E5E7EB", fontSize: 15, fontWeight: "800" },
-  bullet: { color: "#E5E7EB", fontSize: 14 },
-  meta: { color: "#9CA3AF", fontSize: 12, marginTop: 6 },
-  diagnosticsBox: {
-    marginTop: 8,
-    borderWidth: 1,
-    borderColor: "#1F2937",
-    borderRadius: 12,
-    backgroundColor: "#07111F",
-    padding: 10,
-    gap: 4,
-  },
-  diagnosticsText: {
-    color: "#94A3B8",
-    fontSize: 11,
-  },
-  primary: {
-    backgroundColor: "#22C55E",
-    paddingVertical: 14,
-    borderRadius: 12,
-    alignItems: "center",
-    minHeight: 52,
-    justifyContent: "center",
-  },
-  primaryDisabled: { opacity: 0.7 },
-  primaryText: { color: "#022C22", fontSize: 15, fontWeight: "800" },
-  secondary: {
-    alignItems: "center",
-    paddingVertical: 12,
-  },
-  secondaryText: { color: "#9CA3AF", fontSize: 14, fontWeight: "700" },
+  safeArea: { flex: 1, backgroundColor: "#020617" }, container: { flex: 1, padding: 24, gap: 16 },
+  kicker: { color: "#A5B4FC", fontSize: 13, fontWeight: "700" }, title: { color: "#F9FAFB", fontSize: 26, fontWeight: "800", marginTop: 4 },
+  subtitle: { color: "#9CA3AF", fontSize: 14, marginTop: 4 }, card: { backgroundColor: "#0F172A", borderWidth: 1, borderColor: "#1F2937", borderRadius: 16, padding: 16, gap: 8 },
+  cardTitle: { color: "#E5E7EB", fontSize: 15, fontWeight: "800" }, bullet: { color: "#E5E7EB", fontSize: 14 }, meta: { color: "#9CA3AF", fontSize: 12, marginTop: 6 },
+  diagnosticsBox: { marginTop: 8, borderWidth: 1, borderColor: "#1F2937", borderRadius: 12, backgroundColor: "#07111F", padding: 10, gap: 4 }, diagnosticsText: { color: "#94A3B8", fontSize: 11 },
+  primary: { backgroundColor: "#22C55E", paddingVertical: 14, borderRadius: 12, alignItems: "center", minHeight: 52, justifyContent: "center" }, primaryDisabled: { opacity: 0.7 },
+  primaryText: { color: "#022C22", fontSize: 15, fontWeight: "800" }, secondary: { alignItems: "center", paddingVertical: 10 }, secondaryText: { color: "#9CA3AF", fontSize: 14, fontWeight: "700" },
 });

@@ -1,0 +1,6 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-labelledby="title">
+  <title id="title">DripMaxx logo</title>
+  <defs><linearGradient id="g" x1="8" y1="8" x2="56" y2="56"><stop stop-color="#a78bfa"/><stop offset="1" stop-color="#38bdf8"/></linearGradient></defs>
+  <rect width="64" height="64" rx="17" fill="#11162b"/>
+  <path d="M18 14h14c12 0 20 7 20 18S44 50 32 50H18V14Zm11 9v18h3c6.5 0 10-3.2 10-9s-3.5-9-10-9h-3Z" fill="url(#g)"/>
+</svg>

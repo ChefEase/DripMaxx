@@ -141,6 +141,7 @@ export default function ScanStubScreen() {
         categories: { label: string; value: number }[];
         suggestions: { title: string; type: string; description: string }[];
         warnings: string[];
+        unavailableMetrics: string[];
       }
   >(null);
   useEffect(() => {
@@ -354,12 +355,17 @@ export default function ScanStubScreen() {
       } catch (e) {
         logWarn("profile sync failed", e);
       }
+      const unavailableMetrics: string[] = data.unavailable_metrics || [];
       const categories = [
         { label: "Color Match", value: data.breakdown.color_match },
         { label: "Fit Quality", value: data.breakdown.fit_quality },
         { label: "Trend Score", value: data.breakdown.trend_score },
-        { label: "Body Compatibility", value: data.breakdown.body_compatibility },
-        { label: "Style Match", value: data.breakdown.style_match },
+        ...(!unavailableMetrics.includes("body_compatibility")
+          ? [{ label: "Body Compatibility", value: data.breakdown.body_compatibility }]
+          : []),
+        ...(!unavailableMetrics.includes("style_match")
+          ? [{ label: "Style Match", value: data.breakdown.style_match }]
+          : []),
       ];
       setResult({
         dripScore: data.drip_score,
@@ -368,6 +374,7 @@ export default function ScanStubScreen() {
         categories,
         suggestions: data.suggestions,
         warnings: data.warnings || [],
+        unavailableMetrics,
       });
       setAnalysisProgress(1);
       setBestOutfit(bestBeforeScan);
@@ -671,6 +678,15 @@ export default function ScanStubScreen() {
                   </View>
                 ))}
               </View>
+              {result.unavailableMetrics.length > 0 ? (
+                <View style={styles.warningBox}>
+                  <Text style={styles.warningText}>
+                    Personalized {result.unavailableMetrics.includes("body_compatibility") ? "body compatibility" : ""}
+                    {result.unavailableMetrics.length === 2 ? " and " : ""}
+                    {result.unavailableMetrics.includes("style_match") ? "style match" : ""} were not scored because those profile choices were skipped.
+                  </Text>
+                </View>
+              ) : null}
               {rewards ? (
                 <View style={styles.rewardsCard}>
                   <View style={styles.rewardsTopRow}>

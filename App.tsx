@@ -79,8 +79,11 @@ function AppShell() {
       },
     },
   };
-  const syncSessionAndGoHome = useCallback(
-    async (user: Parameters<typeof syncAuthenticatedUser>[0]) => {
+  const syncSession = useCallback(
+    async (
+      user: Parameters<typeof syncAuthenticatedUser>[0],
+      navigateHome = false
+    ) => {
       await syncAuthenticatedUser(user, {
         setUserId,
         setUserEmail,
@@ -88,10 +91,12 @@ function AppShell() {
         setDisplayName,
         setAvatarUrl,
       });
-      if (navigationRef.isReady()) {
-        navigationRef.navigate("ValueProposition", { celebrate: true });
-      } else {
-        setPendingHomeNavigation(true);
+      if (navigateHome) {
+        if (navigationRef.isReady()) {
+          navigationRef.navigate("ValueProposition", { celebrate: true });
+        } else {
+          setPendingHomeNavigation(true);
+        }
       }
     },
     [setAvatarUrl, setDisplayName, setUserEmail, setUserId, setUsername]
@@ -124,7 +129,7 @@ function AppShell() {
               : await supabase.auth.exchangeCodeForSession(code || "");
           if (error) throw error;
           if (data.user) {
-            await syncSessionAndGoHome(data.user);
+            await syncSession(data.user, true);
           }
         } catch (e) {
           logWarn("[Linking] OAuth callback failed", e);
@@ -140,31 +145,31 @@ function AppShell() {
     return () => {
       listener.remove();
     };
-  }, [syncSessionAndGoHome]);
+  }, [syncSession]);
 
   useEffect(() => {
     const { data } = supabase.auth.onAuthStateChange((event, session) => {
       if ((event === "SIGNED_IN" || event === "INITIAL_SESSION") && session?.user) {
-        syncSessionAndGoHome(session.user).catch((e) => logWarn("[Auth] session sync failed", e));
+        syncSession(session.user).catch((e) => logWarn("[Auth] session sync failed", e));
       }
     });
 
     return () => {
       data.subscription.unsubscribe();
     };
-  }, [syncSessionAndGoHome]);
+  }, [syncSession]);
 
   useEffect(() => {
     supabase.auth
       .getSession()
       .then(({ data }) => {
         if (data.session?.user) {
-          return syncSessionAndGoHome(data.session.user);
+          return syncSession(data.session.user);
         }
         return undefined;
       })
       .catch((e) => logWarn("[Auth] initial session check failed", e));
-  }, [syncSessionAndGoHome]);
+  }, [syncSession]);
 
   return (
     <NavigationContainer ref={navigationRef} linking={linking} onReady={handleNavigationReady}>

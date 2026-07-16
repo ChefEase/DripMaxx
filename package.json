@@ -25,6 +25,7 @@
     "expo-secure-store": "~15.0.8",
     "expo-web-browser": "~15.0.11",
     "gh-pages": "^6.3.0",
+    "jsonwebtoken": "^9.0.3",
     "react": "19.1.0",
     "react-dom": "19.1.0",
     "react-native": "0.81.5",
@@ -38,5 +39,22 @@
   "devDependencies": {
     "@types/react": "~19.1.10",
     "typescript": "~5.9.2"
-  }
+  },
+  "description": "Expo React Native app for outfit scoring and style feedback.",
+  "directories": {
+    "doc": "docs",
+    "lib": "lib"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/ChefEase/DripMaxx.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/ChefEase/DripMaxx/issues"
+  },
+  "homepage": "https://github.com/ChefEase/DripMaxx#readme"
 }

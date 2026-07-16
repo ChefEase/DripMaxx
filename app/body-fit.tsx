@@ -54,6 +54,12 @@ export default function BodyFitScreen() {
 
   const handleSkip = () => {
     console.log("[BodyFitScreen] Skip pressed");
+    setHeight("");
+    setBodyType(null);
+    setGenderStyle(null);
+    setUserHeight("");
+    setUserBodyType(null);
+    setGenderStylePreference(null);
     navigation.navigate("CameraPermission");
   };
 

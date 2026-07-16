@@ -296,12 +296,12 @@ export default function ScanStubScreen() {
       form.append(
         "user_context",
         JSON.stringify({
-          style_preferences: stylePreferences.length ? stylePreferences : ["unspecified"],
+          style_preferences: stylePreferences,
           style_inspirations: styleInspirations.length ? styleInspirations : [],
-          user_height: userHeight || "n/a",
-          user_body_type: normalizeBodyTypeValue(userBodyType) || userBodyType || "n/a",
+          user_height: userHeight?.trim() || null,
+          user_body_type: normalizeBodyTypeValue(userBodyType),
           gender_style_preference:
-            normalizeGenderStyleValue(genderStylePreference) || genderStylePreference || "n/a",
+            normalizeGenderStyleValue(genderStylePreference),
           user_id: userId || null,
         })
       );

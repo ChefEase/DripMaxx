@@ -65,6 +65,9 @@ export default function StylePreferenceScreen() {
 
   const handleSkip = () => {
     console.log("[StylePreferenceScreen] Skip pressed");
+    setStylePreferences([]);
+    setCustomStyle("");
+    setFavoriteCelebrityStyle("");
     navigation.navigate("StyleInspiration");
   };
 

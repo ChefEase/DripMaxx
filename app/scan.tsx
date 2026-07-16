@@ -355,7 +355,40 @@ export default function ScanStubScreen() {
       } catch (e) {
         logWarn("profile sync failed", e);
       }
-      const unavailableMetrics: string[] = data.unavailable_metrics || [];
+      const hasStyleTarget = stylePreferences.length > 0;
+      const hasBodyProfile = Boolean(
+        userHeight?.trim() || userBodyType || genderStylePreference
+      );
+      const unavailableMetrics: string[] = Array.isArray(data.unavailable_metrics)
+        ? data.unavailable_metrics
+        : [
+            ...(!hasBodyProfile ? ["body_compatibility"] : []),
+            ...(!hasStyleTarget ? ["style_match"] : []),
+          ];
+      // Compatibility guard for a production backend that has not deployed the
+      // availability-aware formula yet. The server remains authoritative once
+      // it includes unavailable_metrics in its response.
+      const dripScore = Array.isArray(data.unavailable_metrics)
+        ? data.drip_score
+        : Number(
+            (
+              !hasStyleTarget && !hasBodyProfile
+                ? 0.44 * data.breakdown.color_match +
+                  0.34 * data.breakdown.fit_quality +
+                  0.22 * data.breakdown.trend_score
+                : !hasBodyProfile
+                  ? 0.36 * data.breakdown.color_match +
+                    0.27 * data.breakdown.fit_quality +
+                    0.15 * data.breakdown.trend_score +
+                    0.22 * data.breakdown.style_match
+                  : !hasStyleTarget
+                    ? 0.37 * data.breakdown.color_match +
+                      0.27 * data.breakdown.fit_quality +
+                      0.20 * data.breakdown.body_compatibility +
+                      0.16 * data.breakdown.trend_score
+                    : data.drip_score
+            ).toFixed(1)
+          );
       const categories = [
         { label: "Color Match", value: data.breakdown.color_match },
         { label: "Fit Quality", value: data.breakdown.fit_quality },
@@ -368,7 +401,7 @@ export default function ScanStubScreen() {
           : []),
       ];
       setResult({
-        dripScore: data.drip_score,
+        dripScore,
         outfitId: data.outfit_id || null,
         xpAwarded: data.xp_awarded || 0,
         categories,
@@ -381,7 +414,7 @@ export default function ScanStubScreen() {
       fetchRewardsSummary(userId).then(setRewards);
       trackEvent(
         "score_viewed",
-        { drip_score: data.drip_score, suggestion_count: data.suggestions?.length || 0 },
+        { drip_score: dripScore, suggestion_count: data.suggestions?.length || 0 },
         userId
       );
     } catch (err: any) {

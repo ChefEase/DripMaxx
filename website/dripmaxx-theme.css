@@ -40,6 +40,7 @@ h1 { margin: .7rem auto 1.25rem; max-width: 850px; font-size: clamp(2.65rem, 8vw
 .lead { max-width: 680px; margin: 0 auto 2rem; color: var(--muted); font-size: clamp(1.05rem, 2.2vw, 1.25rem); }
 .buttons { display: flex; flex-wrap: wrap; justify-content: center; gap: .8rem; }
 .button { display: inline-block; border-radius: 999px; padding: .85rem 1.25rem; text-decoration: none; font-weight: 850; color: #022c22; background: linear-gradient(100deg, var(--green), #4ade80); box-shadow: 0 12px 30px rgba(34, 197, 94, .22); }
+.button-disabled { cursor: not-allowed; opacity: .58; box-shadow: none; }
 .button.secondary { color: var(--text); background: rgba(255,255,255,.06); border: 1px solid var(--line); box-shadow: none; }
 .section { padding: 3.5rem 0; }
 .section h2 { margin: 0 0 .6rem; font-size: clamp(2rem, 4vw, 3rem); letter-spacing: -.035em; }

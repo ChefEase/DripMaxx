@@ -41,8 +41,10 @@ export default function ResetPasswordScreen() {
 
       const { error } = await supabase.auth.updateUser({ password });
       if (error) throw error;
+      const { error: signOutError } = await supabase.auth.signOut();
+      if (signOutError) throw signOutError;
       Alert.alert("Password updated", "Sign in with your new password.", [
-        { text: "OK", onPress: () => nav.navigate("Auth") },
+        { text: "OK", onPress: () => nav.reset({ index: 0, routes: [{ name: "Auth" }] }) },
       ]);
     } catch (err: any) {
       Alert.alert("Update failed", err.message || "Try again.");

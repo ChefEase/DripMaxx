@@ -68,6 +68,7 @@ function AppShell() {
   } = useStore();
   const appState = useRef(AppState.currentState);
   const [pendingHomeNavigation, setPendingHomeNavigation] = useState(false);
+  const [pendingResetNavigation, setPendingResetNavigation] = useState(false);
   const appUrlPrefix = Linking.createURL("/", { isTripleSlashed: true });
   const linking = {
     prefixes: [appUrlPrefix, "acme://", "acme:///"],
@@ -106,11 +107,16 @@ function AppShell() {
   );
 
   const handleNavigationReady = useCallback(() => {
+    if (pendingResetNavigation && navigationRef.isReady()) {
+      navigationRef.navigate("ResetPassword");
+      setPendingResetNavigation(false);
+      return;
+    }
     if (pendingHomeNavigation && navigationRef.isReady()) {
       navigationRef.navigate("ValueProposition", { celebrate: true });
       setPendingHomeNavigation(false);
     }
-  }, [pendingHomeNavigation]);
+  }, [pendingHomeNavigation, pendingResetNavigation]);
 
   useEffect(() => {
     LogBox.ignoreLogs([
@@ -124,6 +130,8 @@ function AppShell() {
       const access_token = params.get("access_token");
       const refresh_token = params.get("refresh_token");
       const code = params.get("code");
+      const type = params.get("type");
+      const isPasswordRecovery = type === "recovery" || beforeHash.includes("reset-password");
       if ((access_token && refresh_token) || code) {
         try {
           const { data, error } =
@@ -132,7 +140,20 @@ function AppShell() {
               : await supabase.auth.exchangeCodeForSession(code || "");
           if (error) throw error;
           if (data.user) {
-            await syncSession(data.user, true);
+            await syncSession(data.user);
+            if (isPasswordRecovery) {
+              if (navigationRef.isReady()) {
+                navigationRef.navigate("ResetPassword");
+              } else {
+                setPendingResetNavigation(true);
+              }
+            } else {
+              if (navigationRef.isReady()) {
+                navigationRef.navigate("ValueProposition", { celebrate: true });
+              } else {
+                setPendingHomeNavigation(true);
+              }
+            }
           }
         } catch (e) {
           logWarn("[Linking] OAuth callback failed", e);
@@ -152,8 +173,18 @@ function AppShell() {
 
   useEffect(() => {
     const { data } = supabase.auth.onAuthStateChange((event, session) => {
+      if (event === "PASSWORD_RECOVERY") {
+        if (navigationRef.isReady()) {
+          navigationRef.navigate("ResetPassword");
+        } else {
+          setPendingResetNavigation(true);
+        }
+        return;
+      }
       if ((event === "SIGNED_IN" || event === "INITIAL_SESSION") && session?.user) {
-        syncSession(session.user).catch((e) => logWarn("[Auth] session sync failed", e));
+        syncSession(session.user, event === "SIGNED_IN").catch((e) =>
+          logWarn("[Auth] session sync failed", e)
+        );
       }
     });
 

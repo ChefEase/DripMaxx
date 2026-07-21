@@ -1,4 +1,3 @@
-import * as Linking from "expo-linking";
 import * as WebBrowser from "expo-web-browser";
 import { Platform } from "react-native";
 
@@ -42,7 +41,20 @@ export const startOAuthSignIn = async (provider: OAuthProvider) => {
   const result = await WebBrowser.openAuthSessionAsync(data.url, redirectTo);
 
   if (result.type === "success") {
-    Linking.openURL(result.url);
+    const [beforeHash, hash = ""] = result.url.split("#");
+    const query = beforeHash.includes("?") ? beforeHash.split("?").slice(1).join("?") : "";
+    const params = new URLSearchParams(hash || query);
+    const accessToken = params.get("access_token");
+    const refreshToken = params.get("refresh_token");
+    const code = params.get("code");
+
+    const { error: sessionError } =
+      accessToken && refreshToken
+        ? await supabase.auth.setSession({ access_token: accessToken, refresh_token: refreshToken })
+        : code
+          ? await supabase.auth.exchangeCodeForSession(code)
+          : { error: new Error("Google did not return a session to the app.") };
+    if (sessionError) throw sessionError;
     return;
   }
 

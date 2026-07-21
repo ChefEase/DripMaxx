@@ -7,7 +7,8 @@ Place investor media in this directory using these names:
 - product-scan.png — scan/upload screen
 - product-results.png — completed AI rating
 - product-profile.png — history/profile screen
-- review-01.png, review-02.png, review-03.png — approved review screenshots
+- review-01.png through review-04.png — approved user-review screenshots
+- review-05.png — public founder/operator feedback
 - creator-01.jpg, creator-02.jpg — approved creator portraits
 - achievement-01.png — award, press, or milestone evidence
 - pitch-deck.pdf — optional downloadable presentation

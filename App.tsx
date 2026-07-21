@@ -1,7 +1,7 @@
-import React, { useCallback, useEffect, useState } from "react";
+import React, { useCallback, useEffect, useRef, useState } from "react";
 import { NavigationContainer, createNavigationContainerRef } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import { LogBox } from "react-native";
+import { AppState, LogBox } from "react-native";
 import * as Linking from "expo-linking";
 
 import ValuePropositionScreen from "./app/index";
@@ -29,6 +29,7 @@ import 'react-native-url-polyfill/auto';
 import { syncAuthenticatedUser } from "./lib/authProfile";
 import { logWarn } from "./lib/logger";
 import { supabase } from "./lib/supabase";
+import { trackEvent } from "./lib/analytics";
 
 export type RootStackParamList = {
   ValueProposition: { celebrate?: boolean } | undefined;
@@ -58,12 +59,14 @@ const navigationRef = createNavigationContainerRef<RootStackParamList>();
 
 function AppShell() {
   const {
+    userId,
     setUserId,
     setUserEmail,
     setUsername,
     setDisplayName,
     setAvatarUrl,
   } = useStore();
+  const appState = useRef(AppState.currentState);
   const [pendingHomeNavigation, setPendingHomeNavigation] = useState(false);
   const appUrlPrefix = Linking.createURL("/", { isTripleSlashed: true });
   const linking = {
@@ -170,6 +173,22 @@ function AppShell() {
       })
       .catch((e) => logWarn("[Auth] initial session check failed", e));
   }, [syncSession]);
+
+  useEffect(() => {
+    if (!userId) return;
+
+    trackEvent("app_opened", { source: "launch" }, userId);
+    const subscription = AppState.addEventListener("change", (nextState) => {
+      const returningToForeground =
+        appState.current.match(/inactive|background/) && nextState === "active";
+      appState.current = nextState;
+      if (returningToForeground) {
+        trackEvent("app_opened", { source: "foreground" }, userId);
+      }
+    });
+
+    return () => subscription.remove();
+  }, [userId]);
 
   return (
     <NavigationContainer ref={navigationRef} linking={linking} onReady={handleNavigationReady}>

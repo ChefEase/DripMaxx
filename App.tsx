@@ -25,6 +25,7 @@ import UserProfileViewScreen from "./app/user-profile-view";
 import GroupLeaderboardScreen from "./app/group-leaderboard";
 import LegalScreen from "./app/legal";
 import ChallengeScreen from "./app/challenge";
+import FeatureSubmissionsScreen from "./app/feature-submissions";
 import 'react-native-url-polyfill/auto';
 import { syncAuthenticatedUser } from "./lib/authProfile";
 import { logWarn } from "./lib/logger";
@@ -52,6 +53,7 @@ export type RootStackParamList = {
   UserProfile: { userId: string };
   Legal: { doc: "terms" | "privacy" };
   Challenge: undefined;
+  FeatureSubmissions: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -263,6 +265,7 @@ function AppShell() {
         <Stack.Screen name="UserProfile" component={UserProfileViewScreen} />
         <Stack.Screen name="Legal" component={LegalScreen} />
         <Stack.Screen name="Challenge" component={ChallengeScreen} />
+        <Stack.Screen name="FeatureSubmissions" component={FeatureSubmissionsScreen} />
       </Stack.Navigator>
     </NavigationContainer>
   );

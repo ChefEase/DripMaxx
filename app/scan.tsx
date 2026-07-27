@@ -10,6 +10,7 @@ import {
   Modal,
   Platform,
   Share,
+  TextInput,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -119,6 +120,7 @@ export default function ScanStubScreen() {
     userId,
     setUserId,
     country,
+    username,
   } = useStore();
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -135,6 +137,13 @@ export default function ScanStubScreen() {
   const [bestOutfit, setBestOutfit] = useState<null | { imageUrl: string | null; dripScore: number | null }>(null);
   const [progressInsights, setProgressInsights] = useState<ProgressInsights | null>(null);
   const [showProgressPopup, setShowProgressPopup] = useState(false);
+  const [showFeaturePrompt, setShowFeaturePrompt] = useState(false);
+  const [showFeatureForm, setShowFeatureForm] = useState(false);
+  const [featureUsername, setFeatureUsername] = useState("");
+  const [instagramUrl, setInstagramUrl] = useState("");
+  const [tiktokUrl, setTiktokUrl] = useState("");
+  const [featureConsent, setFeatureConsent] = useState(false);
+  const [isSubmittingFeature, setIsSubmittingFeature] = useState(false);
   const [result, setResult] = useState<
     | null
     | {
@@ -424,13 +433,20 @@ export default function ScanStubScreen() {
         warnings: data.warnings || [],
         unavailableMetrics,
       });
+      if (dripScore >= 7.5 && data.outfit_id) {
+        setFeatureUsername(username || "");
+        setShowProgressPopup(false);
+        setShowFeatureForm(false);
+        setFeatureConsent(false);
+        setShowFeaturePrompt(true);
+      }
       setAnalysisProgress(1);
       setBestOutfit(bestBeforeScan);
       fetchRewardsSummary(userId).then(setRewards);
       fetchProgressInsights(userId).then((insights) => {
         if (!insights) return;
         setProgressInsights(insights);
-        setShowProgressPopup(true);
+        if (dripScore < 7.5) setShowProgressPopup(true);
       });
       trackEvent(
         "score_viewed",
@@ -457,6 +473,44 @@ export default function ScanStubScreen() {
     setSaved(true);
     trackEvent("outfit_saved", { dripScore: result?.dripScore }, userId);
     Alert.alert("Saved locally", "This outfit was saved for this session.");
+  };
+
+  const closeFeaturePrompt = () => {
+    setShowFeaturePrompt(false);
+    setShowFeatureForm(false);
+  };
+
+  const handleSubmitFeature = async () => {
+    if (!result?.outfitId) return;
+    if (!featureConsent) {
+      Alert.alert("Permission required", "Please agree that DripMaxx may feature this outfit.");
+      return;
+    }
+    setIsSubmittingFeature(true);
+    try {
+      const resp = await apiFetch("/v1/features/submissions", {
+        method: "POST",
+        headers: apiJsonHeaders(),
+        body: JSON.stringify({
+          outfit_id: result.outfitId,
+          feature_username: featureUsername,
+          instagram_url: instagramUrl,
+          tiktok_url: tiktokUrl,
+          display_consent: true,
+        }),
+      });
+      if (!resp.ok) {
+        const body = await resp.json().catch(() => null);
+        throw new Error(body?.detail || "Could not submit this outfit.");
+      }
+      trackEvent("feature_submission_created", { outfit_id: result.outfitId }, userId);
+      closeFeaturePrompt();
+      Alert.alert("Submitted!", "Thanks — your outfit is ready for feature review.");
+    } catch (err: any) {
+      Alert.alert("Submission failed", err?.message || "Try again in a moment.");
+    } finally {
+      setIsSubmittingFeature(false);
+    }
   };
 
   const handleShareResult = async () => {
@@ -932,6 +986,83 @@ export default function ScanStubScreen() {
       </Modal>
       <Modal
         transparent
+        visible={showFeaturePrompt}
+        animationType="fade"
+        onRequestClose={closeFeaturePrompt}
+      >
+        <View style={styles.featureOverlay}>
+          <View style={styles.featureCard}>
+            <Text style={styles.featureStar}>🌟</Text>
+            <Text style={styles.featureTitle}>Great outfit!</Text>
+            <Text style={styles.featureBody}>Want to be featured on our Instagram?</Text>
+            {showFeatureForm ? (
+              <>
+                <Text style={styles.featureHint}>These details are optional.</Text>
+                <TextInput
+                  style={styles.featureInput}
+                  value={featureUsername}
+                  onChangeText={setFeatureUsername}
+                  placeholder="Username"
+                  placeholderTextColor="#64748B"
+                  autoCapitalize="none"
+                />
+                <TextInput
+                  style={styles.featureInput}
+                  value={instagramUrl}
+                  onChangeText={setInstagramUrl}
+                  placeholder="Instagram profile link"
+                  placeholderTextColor="#64748B"
+                  autoCapitalize="none"
+                  keyboardType="url"
+                />
+                <TextInput
+                  style={styles.featureInput}
+                  value={tiktokUrl}
+                  onChangeText={setTiktokUrl}
+                  placeholder="TikTok profile link"
+                  placeholderTextColor="#64748B"
+                  autoCapitalize="none"
+                  keyboardType="url"
+                />
+                <Pressable
+                  style={styles.featureConsentRow}
+                  onPress={() => setFeatureConsent((value) => !value)}
+                >
+                  <View style={[styles.featureCheckbox, featureConsent && styles.featureCheckboxChecked]}>
+                    <Text style={styles.featureCheckmark}>{featureConsent ? "✓" : ""}</Text>
+                  </View>
+                  <Text style={styles.featureConsentText}>
+                    I agree that DripMaxx may feature this outfit and the details I provided.
+                  </Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.featurePrimary, isSubmittingFeature && styles.disabledButton]}
+                  onPress={handleSubmitFeature}
+                  disabled={isSubmittingFeature}
+                >
+                  <Text style={styles.featurePrimaryText}>
+                    {isSubmittingFeature ? "Submitting..." : "Submit for review"}
+                  </Text>
+                </Pressable>
+                <Pressable style={styles.featureSecondary} onPress={closeFeaturePrompt}>
+                  <Text style={styles.featureSecondaryText}>No thanks</Text>
+                </Pressable>
+              </>
+            ) : (
+              <>
+                <Pressable style={styles.featurePrimary} onPress={() => setShowFeatureForm(true)}>
+                  <Text style={styles.featurePrimaryText}>Yes, feature my outfit</Text>
+                </Pressable>
+                <Pressable style={styles.featureSecondary} onPress={closeFeaturePrompt}>
+                  <Text style={styles.featureSecondaryText}>No thanks</Text>
+                </Pressable>
+              </>
+            )}
+          </View>
+        </View>
+      </Modal>
+      <Modal
+        transparent
         visible={showProgressPopup && !!progressInsights}
         animationType="fade"
         onRequestClose={() => setShowProgressPopup(false)}
@@ -1179,6 +1310,56 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
   },
+  featureOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(2, 6, 23, 0.86)",
+    justifyContent: "center",
+    padding: 24,
+  },
+  featureCard: {
+    backgroundColor: "#0F172A",
+    borderColor: "#F59E0B",
+    borderWidth: 1,
+    borderRadius: 20,
+    padding: 22,
+    gap: 12,
+  },
+  featureStar: { fontSize: 34, textAlign: "center" },
+  featureTitle: { color: "#F8FAFC", fontSize: 24, fontWeight: "900", textAlign: "center" },
+  featureBody: { color: "#CBD5E1", fontSize: 16, lineHeight: 22, textAlign: "center" },
+  featureHint: { color: "#94A3B8", fontSize: 12, textAlign: "center" },
+  featureInput: {
+    color: "#F8FAFC",
+    backgroundColor: "#020617",
+    borderColor: "#334155",
+    borderWidth: 1,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+  },
+  featureConsentRow: { flexDirection: "row", alignItems: "flex-start", gap: 10, paddingVertical: 4 },
+  featureCheckbox: {
+    width: 22,
+    height: 22,
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: "#64748B",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  featureCheckboxChecked: { backgroundColor: "#22C55E", borderColor: "#22C55E" },
+  featureCheckmark: { color: "#052E16", fontWeight: "900" },
+  featureConsentText: { color: "#CBD5E1", fontSize: 13, lineHeight: 18, flex: 1 },
+  featurePrimary: {
+    backgroundColor: "#22C55E",
+    borderRadius: 12,
+    paddingVertical: 13,
+    alignItems: "center",
+  },
+  featurePrimaryText: { color: "#052E16", fontSize: 15, fontWeight: "900" },
+  featureSecondary: { paddingVertical: 10, alignItems: "center" },
+  featureSecondaryText: { color: "#CBD5E1", fontSize: 14, fontWeight: "700" },
+  disabledButton: { opacity: 0.55 },
   scanErrorCard: {
     borderWidth: 1,
     borderColor: "#F97316",

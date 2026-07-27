@@ -290,6 +290,11 @@ export default function ProfileScreen() {
               : "Challenge Voting"}
           </Text>
         </Pressable>
+        {(userEmail || "").toLowerCase() === "onyiakamsy74@gmail.com" && (
+          <Pressable style={styles.secondary} onPress={() => nav.navigate("FeatureSubmissions")}>
+            <Text style={styles.secondaryText}>Feature Submissions</Text>
+          </Pressable>
+        )}
         <Pressable style={styles.secondary} onPress={handleLogout}>
           <Text style={styles.secondaryText}>Log out</Text>
         </Pressable>

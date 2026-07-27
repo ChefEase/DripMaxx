@@ -25,6 +25,7 @@ import { trackEvent } from "../lib/analytics";
 import { logWarn } from "../lib/logger";
 import { ActiveChallengePayload, fetchActiveChallenge } from "../lib/challenges";
 import { RewardsSummary, fetchRewardsSummary } from "../lib/rewards";
+import { ProgressInsights, fetchProgressInsights } from "../lib/progress";
 import {
   normalizeBodyTypeValue,
   normalizeGenderStyleValue,
@@ -132,6 +133,8 @@ export default function ScanStubScreen() {
   const [isSubmittingChallenge, setIsSubmittingChallenge] = useState(false);
   const [rewards, setRewards] = useState<RewardsSummary | null>(null);
   const [bestOutfit, setBestOutfit] = useState<null | { imageUrl: string | null; dripScore: number | null }>(null);
+  const [progressInsights, setProgressInsights] = useState<ProgressInsights | null>(null);
+  const [showProgressPopup, setShowProgressPopup] = useState(false);
   const [result, setResult] = useState<
     | null
     | {
@@ -150,6 +153,18 @@ export default function ScanStubScreen() {
 
   useEffect(() => {
     fetchRewardsSummary(userId).then(setRewards);
+  }, [userId]);
+
+  useEffect(() => {
+    if (!userId) return;
+    fetchProgressInsights(userId).then((insights) => {
+      if (!insights) return;
+      setProgressInsights(insights);
+      // Occasionally celebrate progress before a scan without interrupting every visit.
+      if (insights.outfits_scanned > 0 && Math.random() < 0.35) {
+        setShowProgressPopup(true);
+      }
+    });
   }, [userId]);
 
   useEffect(() => {
@@ -412,6 +427,11 @@ export default function ScanStubScreen() {
       setAnalysisProgress(1);
       setBestOutfit(bestBeforeScan);
       fetchRewardsSummary(userId).then(setRewards);
+      fetchProgressInsights(userId).then((insights) => {
+        if (!insights) return;
+        setProgressInsights(insights);
+        setShowProgressPopup(true);
+      });
       trackEvent(
         "score_viewed",
         { drip_score: dripScore, suggestion_count: data.suggestions?.length || 0 },
@@ -909,6 +929,74 @@ export default function ScanStubScreen() {
             ) : null}
           </View>
         </Pressable>
+      </Modal>
+      <Modal
+        transparent
+        visible={showProgressPopup && !!progressInsights}
+        animationType="fade"
+        onRequestClose={() => setShowProgressPopup(false)}
+      >
+        <View style={styles.progressPopupOverlay}>
+          <View style={styles.progressPopupCard}>
+            <Text style={styles.progressPopupEyebrow}>YOUR DRIPMAXX PROGRESS</Text>
+            <Text style={styles.progressPopupTitle}>
+              You&apos;re dressing better than {progressInsights?.better_than_percent ?? 0}% of users in the app
+            </Text>
+            <View style={styles.progressPopupStats}>
+              <View style={styles.progressPopupStat}>
+                <Text style={styles.progressPopupValue}>{progressInsights?.outfits_scanned ?? 0}</Text>
+                <Text style={styles.progressPopupLabel}>outfits scanned</Text>
+              </View>
+              <View style={styles.progressPopupStat}>
+                <Text style={styles.progressPopupValue}>{progressInsights?.current_streak_days ?? 0}</Text>
+                <Text style={styles.progressPopupLabel}>day streak</Text>
+              </View>
+              <View style={styles.progressPopupStat}>
+                <Text style={styles.progressPopupValue}>
+                  {(progressInsights?.average_score ?? 0).toFixed(1)}
+                </Text>
+                <Text style={styles.progressPopupLabel}>average score</Text>
+              </View>
+              <View style={styles.progressPopupStat}>
+                <Text style={styles.progressPopupValue}>
+                  {(progressInsights?.improvement_points ?? 0) >= 0 ? "+" : ""}
+                  {(progressInsights?.improvement_points ?? 0).toFixed(1)}
+                </Text>
+                <Text style={styles.progressPopupLabel}>points since joining</Text>
+              </View>
+            </View>
+            {!!progressInsights?.style_progress.length && (
+              <View style={styles.styleProgressList}>
+                <Text style={styles.styleProgressHeading}>Style progress</Text>
+                {progressInsights.style_progress.map((item) => (
+                  <View key={item.style} style={styles.styleProgressRow}>
+                    <View style={styles.styleProgressCopy}>
+                      <Text style={styles.styleProgressName}>{item.style}</Text>
+                      <Text style={styles.styleProgressScans}>
+                        {item.scans} {item.scans === 1 ? "scan" : "scans"} · {item.average_score.toFixed(1)} avg
+                      </Text>
+                    </View>
+                    <Text
+                      style={[
+                        styles.styleProgressDelta,
+                        item.improvement_points < 0 && styles.styleProgressDeltaDown,
+                      ]}
+                    >
+                      {item.improvement_points >= 0 ? "+" : ""}
+                      {item.improvement_points.toFixed(1)}
+                    </Text>
+                  </View>
+                ))}
+              </View>
+            )}
+            <Pressable
+              style={styles.progressPopupButton}
+              onPress={() => setShowProgressPopup(false)}
+            >
+              <Text style={styles.progressPopupButtonText}>Keep leveling up</Text>
+            </Pressable>
+          </View>
+        </View>
       </Modal>
     </SafeAreaView>
   );
@@ -1701,4 +1789,54 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: "#111827",
   },
+  progressPopupOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(2, 6, 23, 0.88)",
+    justifyContent: "center",
+    padding: 24,
+  },
+  progressPopupCard: {
+    width: "100%",
+    maxWidth: 440,
+    alignSelf: "center",
+    borderRadius: 24,
+    borderWidth: 1,
+    borderColor: "#22C55E66",
+    backgroundColor: "#0B1224",
+    padding: 20,
+    gap: 16,
+  },
+  progressPopupEyebrow: { color: "#22C55E", fontSize: 12, fontWeight: "900", letterSpacing: 1 },
+  progressPopupTitle: { color: "#F8FAFC", fontSize: 22, lineHeight: 29, fontWeight: "900" },
+  progressPopupStats: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
+  progressPopupStat: {
+    width: "47%",
+    borderRadius: 14,
+    backgroundColor: "#111827",
+    padding: 12,
+  },
+  progressPopupValue: { color: "#F8FAFC", fontSize: 22, fontWeight: "900" },
+  progressPopupLabel: { color: "#94A3B8", fontSize: 12, marginTop: 2 },
+  styleProgressList: { gap: 8 },
+  styleProgressHeading: { color: "#CBD5E1", fontSize: 13, fontWeight: "800", textTransform: "uppercase" },
+  styleProgressRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    borderBottomWidth: 1,
+    borderBottomColor: "#1F2937",
+    paddingVertical: 7,
+  },
+  styleProgressCopy: { flex: 1 },
+  styleProgressName: { color: "#F8FAFC", fontSize: 14, fontWeight: "800", textTransform: "capitalize" },
+  styleProgressScans: { color: "#94A3B8", fontSize: 12, marginTop: 2 },
+  styleProgressDelta: { color: "#22C55E", fontSize: 16, fontWeight: "900" },
+  styleProgressDeltaDown: { color: "#F59E0B" },
+  progressPopupButton: {
+    backgroundColor: "#22C55E",
+    borderRadius: 999,
+    alignItems: "center",
+    paddingVertical: 13,
+  },
+  progressPopupButtonText: { color: "#052E16", fontSize: 14, fontWeight: "900" },
 });

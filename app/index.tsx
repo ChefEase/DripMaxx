@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { SafeAreaView, View, Text, StyleSheet, Pressable, Animated, ScrollView } from "react-native";
+import { SafeAreaView, View, Text, StyleSheet, Pressable, Animated, ScrollView, Modal } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
@@ -7,8 +7,31 @@ import type { RootStackParamList } from "../App";
 import { useStore } from "../store";
 import { ActiveChallengePayload, fetchActiveChallenge } from "../lib/challenges";
 import { RewardsSummary, fetchRewardsSummary } from "../lib/rewards";
+import { apiFetch } from "../lib/api";
+import { logWarn } from "../lib/logger";
+import RemoteImage from "./components/RemoteImage";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
+type NewsItem = {
+  id: string;
+  kind: string;
+  scope: string;
+  category: string;
+  eyebrow: string;
+  title: string;
+  caption: string;
+  image_url: string | null;
+  liked: boolean;
+  like_count: number;
+  content: {
+    podium?: { rank: number; username: string; score: number }[];
+    strengths?: string[];
+    before_image_url?: string;
+    after_image_url?: string;
+    before_score?: number;
+    after_score?: number;
+  };
+};
 
 export default function ValuePropositionScreen() {
   const navigation = useNavigation<Nav>();
@@ -17,6 +40,8 @@ export default function ValuePropositionScreen() {
   const [showToast, setShowToast] = useState(Boolean((route.params as any)?.celebrate));
   const [activeChallenge, setActiveChallenge] = useState<ActiveChallengePayload | null>(null);
   const [rewards, setRewards] = useState<RewardsSummary | null>(null);
+  const [newsItems, setNewsItems] = useState<NewsItem[]>([]);
+  const [dismissingNews, setDismissingNews] = useState(false);
   const toastOpacity = useRef(new Animated.Value(0)).current;
   const toastY = useRef(new Animated.Value(10)).current;
   const heroScale = useRef(new Animated.Value(0.96)).current;
@@ -29,6 +54,56 @@ export default function ValuePropositionScreen() {
   useEffect(() => {
     fetchRewardsSummary(userId).then(setRewards);
   }, [userId]);
+
+  useEffect(() => {
+    if (!userId) {
+      setNewsItems([]);
+      return;
+    }
+    apiFetch("/v1/news/feed")
+      .then(async (response) => {
+        if (!response.ok) throw new Error(`News ${response.status}`);
+        const body = await response.json();
+        setNewsItems(body?.items || []);
+      })
+      .catch((error) => logWarn("[CommunityNews] feed failed", error));
+  }, [userId]);
+
+  const dismissCurrentNews = async () => {
+    const current = newsItems[0];
+    if (!current || dismissingNews) return;
+    setDismissingNews(true);
+    try {
+      const response = await apiFetch(`/v1/news/${encodeURIComponent(current.id)}/dismiss`, {
+        method: "POST",
+      });
+      if (!response.ok) throw new Error(`Dismiss ${response.status}`);
+      setNewsItems((items) => items.slice(1));
+    } catch (error) {
+      logWarn("[CommunityNews] dismiss failed", error);
+    } finally {
+      setDismissingNews(false);
+    }
+  };
+
+  const toggleCurrentNewsLike = async () => {
+    const current = newsItems[0];
+    if (!current) return;
+    try {
+      const response = await apiFetch(`/v1/news/${encodeURIComponent(current.id)}/like`, {
+        method: "POST",
+      });
+      if (!response.ok) throw new Error(`Like ${response.status}`);
+      const body = await response.json();
+      setNewsItems((items) =>
+        items.map((item, index) =>
+          index === 0 ? { ...item, liked: body.liked, like_count: body.like_count } : item
+        )
+      );
+    } catch (error) {
+      logWarn("[CommunityNews] like failed", error);
+    }
+  };
 
   useEffect(() => {
     Animated.parallel([
@@ -194,6 +269,78 @@ export default function ValuePropositionScreen() {
           </Pressable>
         </View>
       </ScrollView>
+      <Modal
+        transparent
+        visible={newsItems.length > 0}
+        animationType="fade"
+        onRequestClose={() => void dismissCurrentNews()}
+      >
+        <View style={styles.newsOverlay}>
+          <View style={styles.newsCard}>
+            <View style={styles.newsHeader}>
+              <Text style={styles.newsEyebrow}>{newsItems[0]?.eyebrow}</Text>
+              <Text style={styles.newsCount}>
+                1 / {newsItems.length}
+              </Text>
+            </View>
+            <ScrollView showsVerticalScrollIndicator={false}>
+              {newsItems[0]?.kind === "glow_up" &&
+              newsItems[0]?.content?.before_image_url &&
+              newsItems[0]?.content?.after_image_url ? (
+                <View style={styles.glowUpImages}>
+                  <View style={styles.glowUpImageWrap}>
+                    <RemoteImage uri={newsItems[0].content.before_image_url} style={styles.glowUpImage} />
+                    <Text style={styles.glowUpLabel}>BEFORE · {newsItems[0].content.before_score}/100</Text>
+                  </View>
+                  <View style={styles.glowUpImageWrap}>
+                    <RemoteImage uri={newsItems[0].content.after_image_url} style={styles.glowUpImage} />
+                    <Text style={styles.glowUpLabel}>AFTER · {newsItems[0].content.after_score}/100</Text>
+                  </View>
+                </View>
+              ) : !!newsItems[0]?.image_url ? (
+                <RemoteImage uri={newsItems[0].image_url!} style={styles.newsImage} />
+              ) : null}
+              <View style={styles.newsBody}>
+                <Text style={styles.newsTitle}>{newsItems[0]?.title}</Text>
+                {!!newsItems[0]?.content?.podium?.length && (
+                  <View style={styles.podium}>
+                    {newsItems[0].content.podium.map((entry) => (
+                      <View key={`${entry.rank}-${entry.username}`} style={styles.podiumRow}>
+                        <Text style={styles.podiumRank}>
+                          {entry.rank === 1 ? "🥇" : entry.rank === 2 ? "🥈" : "🥉"}
+                        </Text>
+                        <Text style={styles.podiumName}>@{entry.username}</Text>
+                        <Text style={styles.podiumScore}>{entry.score}/100</Text>
+                      </View>
+                    ))}
+                  </View>
+                )}
+                <Text style={styles.newsCaption}>{newsItems[0]?.caption}</Text>
+              </View>
+            </ScrollView>
+            <View style={styles.newsActions}>
+              <Pressable style={styles.newsLike} onPress={() => void toggleCurrentNewsLike()}>
+                <Text style={styles.newsLikeText}>
+                  {newsItems[0]?.liked ? "♥ Liked" : "♡ Like"} · {newsItems[0]?.like_count || 0}
+                </Text>
+              </Pressable>
+              <Pressable
+                style={[styles.newsClose, dismissingNews && styles.newsCloseDisabled]}
+                onPress={() => void dismissCurrentNews()}
+                disabled={dismissingNews}
+              >
+                <Text style={styles.newsCloseText}>
+                  {dismissingNews
+                    ? "Saving..."
+                    : newsItems.length > 1
+                      ? "Next story"
+                      : "Close — don’t show again"}
+                </Text>
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -433,4 +580,64 @@ const styles = StyleSheet.create({
     fontWeight: "900",
   },
   navText: { color: "#CBD5E1", fontSize: 11, fontWeight: "900" },
+  newsOverlay: {
+    flex: 1,
+    backgroundColor: "rgba(2, 6, 23, 0.88)",
+    justifyContent: "center",
+    padding: 20,
+  },
+  newsCard: {
+    maxHeight: "88%",
+    backgroundColor: "#07111F",
+    borderWidth: 1,
+    borderColor: "#22C55E",
+    borderRadius: 24,
+    overflow: "hidden",
+  },
+  newsHeader: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    paddingHorizontal: 18,
+    paddingVertical: 14,
+    backgroundColor: "#061A14",
+  },
+  newsEyebrow: { color: "#86EFAC", fontSize: 12, fontWeight: "900", letterSpacing: 0.8 },
+  newsCount: { color: "#94A3B8", fontSize: 12, fontWeight: "800" },
+  newsImage: { width: "100%", aspectRatio: 4 / 3, backgroundColor: "#0F172A" },
+  glowUpImages: { flexDirection: "row", gap: 2, backgroundColor: "#020617" },
+  glowUpImageWrap: { flex: 1, position: "relative" },
+  glowUpImage: { width: "100%", aspectRatio: 3 / 4, backgroundColor: "#0F172A" },
+  glowUpLabel: {
+    position: "absolute",
+    left: 6,
+    right: 6,
+    bottom: 7,
+    color: "#F8FAFC",
+    backgroundColor: "rgba(2, 6, 23, 0.82)",
+    paddingVertical: 5,
+    textAlign: "center",
+    fontSize: 10,
+    fontWeight: "900",
+  },
+  newsBody: { padding: 18, gap: 14 },
+  newsTitle: { color: "#F8FAFC", fontSize: 25, lineHeight: 30, fontWeight: "900" },
+  podium: { gap: 8 },
+  podiumRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#0F172A",
+    borderRadius: 12,
+    padding: 11,
+    gap: 9,
+  },
+  podiumRank: { fontSize: 19 },
+  podiumName: { flex: 1, color: "#F8FAFC", fontSize: 14, fontWeight: "800" },
+  podiumScore: { color: "#86EFAC", fontSize: 14, fontWeight: "900" },
+  newsCaption: { color: "#CBD5E1", fontSize: 14, lineHeight: 21 },
+  newsActions: { flexDirection: "row", borderTopWidth: 1, borderTopColor: "#1E293B" },
+  newsLike: { paddingVertical: 14, paddingHorizontal: 16, alignItems: "center", backgroundColor: "#0F172A" },
+  newsLikeText: { color: "#FCA5A5", fontSize: 13, fontWeight: "900" },
+  newsClose: { flex: 1, backgroundColor: "#22C55E", paddingVertical: 14, alignItems: "center" },
+  newsCloseDisabled: { opacity: 0.6 },
+  newsCloseText: { color: "#052E16", fontSize: 14, fontWeight: "900" },
 });

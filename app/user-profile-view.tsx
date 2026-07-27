@@ -46,6 +46,7 @@ export default function UserProfileViewScreen() {
     rating_count: number;
     profile_visibility: string;
     rankings?: { scope: string; rank: number | null; total_eligible: number }[];
+    badges?: { id: string; label: string; rank: number; is_current: boolean }[];
     top_outfits: TopOutfit[];
   } | null>(null);
   const [loading, setLoading] = useState(true);
@@ -135,6 +136,21 @@ export default function UserProfileViewScreen() {
             </View>
           </View>
         </View>
+        {!!data.badges?.length && (
+          <View style={styles.card}>
+            <Text style={styles.label}>Badges</Text>
+            <View style={styles.badgeGrid}>
+              {data.badges.map((badge) => (
+                <View key={badge.id} style={[styles.badge, badge.is_current && styles.currentBadge]}>
+                  <Text style={styles.badgeText}>
+                    {badge.rank === 1 ? "🥇" : badge.rank === 2 ? "🥈" : "🥉"} {badge.label}
+                  </Text>
+                  {badge.is_current && <Text style={styles.liveText}>LIVE</Text>}
+                </View>
+              ))}
+            </View>
+          </View>
+        )}
         <View style={styles.card}>
           <Text style={styles.label}>Leaderboard ranks</Text>
           {(data.rankings || []).length === 0 ? (
@@ -219,6 +235,11 @@ const styles = StyleSheet.create({
   name: { color: "#F9FAFB", fontSize: 18, fontWeight: "700" },
   avgScore: { color: "#22C55E", fontSize: 14, fontWeight: "600" },
   label: { color: "#9CA3AF", fontSize: 12, textTransform: "uppercase", letterSpacing: 0.5 },
+  badgeGrid: { gap: 8 },
+  badge: { backgroundColor: "#111827", borderRadius: 10, padding: 10, borderWidth: 1, borderColor: "#334155" },
+  currentBadge: { borderColor: "#F59E0B", backgroundColor: "#271A05" },
+  badgeText: { color: "#F8FAFC", fontSize: 13, fontWeight: "700" },
+  liveText: { color: "#FDE68A", fontSize: 10, fontWeight: "900", marginTop: 4 },
   rankRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", paddingVertical: 4 },
   scopeLabel: { color: "#E5E7EB", fontSize: 14, textTransform: "capitalize" },
   rankValue: { color: "#22C55E", fontSize: 14, fontWeight: "700" },

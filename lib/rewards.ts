@@ -6,6 +6,15 @@ export type RewardsSummary = {
   scan_credits: number;
   xp_per_scan_reward: number;
   xp_until_next_reward: number;
+  badges?: {
+    id: string;
+    badge_key: string;
+    label: string;
+    rank: number;
+    scope: string;
+    category: string;
+    earned_at: string | null;
+  }[];
 };
 
 export const fetchRewardsSummary = async (userId?: string | null): Promise<RewardsSummary | null> => {

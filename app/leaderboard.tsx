@@ -25,6 +25,7 @@ type LeaderboardEntry = {
   display_name: string | null;
   avg_drip_score: number;
   rating_count: number;
+  badges: string[];
 };
 
 const STYLE_OPTIONS = ["Streetwear", "Minimal", "Vintage", "Luxury", "Y2K", "Casual"];
@@ -154,6 +155,13 @@ export default function LeaderboardScreen() {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
+        <Text style={styles.eligibilityNote}>
+          {scope === "global"
+            ? "All-time rankings unlock after 10 scored outfits. Podium badges update live."
+            : scope === "yearly"
+              ? "Year rankings require 10 scored outfits during the current year."
+            : "One scored outfit makes you eligible for this ranking."}
+        </Text>
         <View style={styles.groupCard}>
           <View style={styles.groupHeader}>
             <Text style={styles.titleSm}>Your groups</Text>
@@ -209,6 +217,12 @@ export default function LeaderboardScreen() {
               <View style={styles.userInfo}>
                 <Text style={styles.name}>{e.display_name || "Anonymous"}</Text>
                 <Text style={styles.muted}>{e.rating_count} ratings</Text>
+                {!!e.badges?.length && (
+                  <Text style={styles.badges}>
+                    {e.badges.slice(0, 3).map((_, index) => (index === 0 ? "🏅" : "•")).join(" ")}{" "}
+                    {e.badges[0]}
+                  </Text>
+                )}
               </View>
               <Text style={styles.score}>{e.avg_drip_score.toFixed(1)}</Text>
             </Pressable>
@@ -241,6 +255,7 @@ const styles = StyleSheet.create({
   scopeChipTextActive: { color: "#022C22", fontWeight: "700" },
   scroll: { flex: 1 },
   content: { padding: 24, paddingBottom: 80 },
+  eligibilityNote: { color: "#94A3B8", fontSize: 12, marginBottom: 12 },
   row: {
     flexDirection: "row",
     alignItems: "center",
@@ -254,6 +269,7 @@ const styles = StyleSheet.create({
   name: { color: "#F9FAFB", fontSize: 15, fontWeight: "700" },
   score: { color: "#BBF7D0", fontSize: 16, fontWeight: "800" },
   muted: { color: "#6B7280", fontSize: 14 },
+  badges: { color: "#FDE68A", fontSize: 11, marginTop: 3 },
   error: { color: "#F87171", fontSize: 14 },
   footer: {
     position: "absolute",

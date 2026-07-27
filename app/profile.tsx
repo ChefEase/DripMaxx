@@ -41,6 +41,13 @@ export default function ProfileScreen() {
     scan_credits: number;
     xp_per_scan_reward: number;
     xp_until_next_reward: number;
+    badges?: {
+      id: string;
+      label: string;
+      rank: number;
+      scope: string;
+      category: string;
+    }[];
   }>(null);
 
   useEffect(() => {
@@ -242,6 +249,17 @@ export default function ProfileScreen() {
             />
           </View>
           <Text style={styles.value}>{rewards?.scan_credits ?? 0} earned scan credits</Text>
+          {!!rewards?.badges?.length && (
+            <View style={styles.tagRow}>
+              {rewards.badges.map((badge) => (
+                <View key={badge.id} style={styles.tag}>
+                  <Text style={styles.tagText}>
+                    {badge.rank === 1 ? "🥇" : badge.rank === 2 ? "🥈" : "🥉"} {badge.label}
+                  </Text>
+                </View>
+              ))}
+            </View>
+          )}
         </View>
         <View style={styles.card}>
           <Text style={styles.label}>Profile visibility</Text>

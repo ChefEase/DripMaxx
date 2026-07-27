@@ -1,5 +1,16 @@
 import React, { useState } from "react";
-import { SafeAreaView, View, Text, TextInput, Pressable, StyleSheet, Alert, Platform } from "react-native";
+import {
+  SafeAreaView,
+  View,
+  Text,
+  TextInput,
+  Pressable,
+  StyleSheet,
+  Alert,
+  Platform,
+  KeyboardAvoidingView,
+  ScrollView,
+} from "react-native";
 import * as Linking from "expo-linking";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -117,7 +128,15 @@ export default function SignUpScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.authGlow} pointerEvents="none" />
-      <View style={styles.container}>
+      <KeyboardAvoidingView
+        style={styles.keyboardView}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+      >
+        <ScrollView
+          contentContainerStyle={styles.container}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
         <View style={styles.brandPanel}>
           <Text style={styles.brandKicker}>Join DripMaxx</Text>
           <Text style={styles.title}>Start leveling up your fits.</Text>
@@ -197,13 +216,15 @@ export default function SignUpScreen() {
         <Pressable style={styles.linkButton} onPress={() => nav.navigate("Auth")}>
           <Text style={styles.linkText}>Back to sign in</Text>
         </Pressable>
-      </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: "#020617" },
+  keyboardView: { flex: 1 },
   authGlow: {
     position: "absolute",
     top: -90,
@@ -214,7 +235,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#14532D",
     opacity: 0.7,
   },
-  container: { flex: 1, padding: 24, gap: 14, justifyContent: "center" },
+  container: { flexGrow: 1, padding: 24, gap: 14, justifyContent: "center" },
   brandPanel: {
     borderWidth: 1,
     borderColor: "#204B3A",

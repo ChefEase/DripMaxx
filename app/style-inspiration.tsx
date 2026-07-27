@@ -6,6 +6,9 @@ import {
   StyleSheet,
   Pressable,
   ScrollView,
+  TextInput,
+  KeyboardAvoidingView,
+  Platform,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -14,28 +17,30 @@ import { useStore } from "../store";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
+const INSPIRATION_PRESETS = [
+  "Kanye West",
+  "Travis Scott",
+  "Hailey Bieber",
+  "Timothee Chalamet",
+  "Zendaya",
+  "ASAP Rocky",
+  "Bella Hadid",
+  "Pharrell",
+];
+
 export default function StyleInspirationScreen() {
   const navigation = useNavigation<Nav>();
-  const { styleInspirations, setStyleInspirations, favoriteCelebrityStyle } =
-    useStore();
+  const {
+    styleInspirations,
+    setStyleInspirations,
+    favoriteCelebrityStyle,
+    setFavoriteCelebrityStyle,
+  } = useStore();
   const [selectedInspirations, setSelectedInspirations] = useState<string[]>(
-    styleInspirations
+    styleInspirations.filter((name) => INSPIRATION_PRESETS.includes(name))
   );
 
-  const inspirations = useMemo(
-    () => [
-      "Kanye West",
-      "Travis Scott",
-      "Hailey Bieber",
-      "Timothee Chalamet",
-      "Zendaya",
-      "ASAP Rocky",
-      "Bella Hadid",
-      "Pharrell",
-      "Custom muse",
-    ],
-    []
-  );
+  const inspirations = useMemo(() => INSPIRATION_PRESETS, []);
 
   useEffect(() => {
     console.log("[StyleInspirationScreen] mounted");
@@ -46,9 +51,13 @@ export default function StyleInspirationScreen() {
 
   const handleNext = () => {
     console.log("[StyleInspirationScreen] Next pressed");
-    setStyleInspirations(selectedInspirations);
-    console.log("[StyleInspirationScreen] inspirations:", selectedInspirations);
-    if (favoriteCelebrityStyle) {
+    const customInspiration = favoriteCelebrityStyle.trim();
+    const inspirationsToSave = customInspiration
+      ? [...selectedInspirations, customInspiration]
+      : selectedInspirations;
+    setStyleInspirations(inspirationsToSave);
+    console.log("[StyleInspirationScreen] inspirations:", inspirationsToSave);
+    if (customInspiration) {
       console.log(
         "[StyleInspirationScreen] favorite celebrity:",
         favoriteCelebrityStyle
@@ -64,6 +73,8 @@ export default function StyleInspirationScreen() {
 
   const handleSkip = () => {
     console.log("[StyleInspirationScreen] Skip pressed");
+    setStyleInspirations([]);
+    setFavoriteCelebrityStyle("");
     navigation.navigate("BodyFit");
   };
 
@@ -77,6 +88,10 @@ export default function StyleInspirationScreen() {
 
   return (
     <SafeAreaView style={styles.safeArea}>
+      <KeyboardAvoidingView
+        style={styles.keyboardView}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+      >
       <View style={styles.container}>
         <View>
           <Text style={styles.stepLabel}>Step 3 of 5</Text>
@@ -100,7 +115,6 @@ export default function StyleInspirationScreen() {
                   style={[
                     chipStyles.chip,
                     active && chipStyles.chipActive,
-                    name === "Custom muse" && chipStyles.chipGhost,
                   ]}
                 >
                   <Text
@@ -114,6 +128,20 @@ export default function StyleInspirationScreen() {
                 </Pressable>
               );
             })}
+            <View style={styles.customInspiration}>
+              <Text style={styles.customLabel}>Someone else</Text>
+              <Text style={styles.customCopy}>
+                Type a celebrity or creator who is not listed above.
+              </Text>
+              <TextInput
+                value={favoriteCelebrityStyle}
+                onChangeText={setFavoriteCelebrityStyle}
+                placeholder="e.g. Tyler, the Creator"
+                placeholderTextColor="#6B7280"
+                style={styles.customInput}
+                returnKeyType="done"
+              />
+            </View>
           </ScrollView>
 
           <View style={styles.helperCard}>
@@ -139,6 +167,7 @@ export default function StyleInspirationScreen() {
           </Pressable>
         </View>
       </View>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
@@ -147,6 +176,9 @@ const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: "#020617",
+  },
+  keyboardView: {
+    flex: 1,
   },
   container: {
     flex: 1,
@@ -196,6 +228,37 @@ const styles = StyleSheet.create({
     color: "#9CA3AF",
     fontSize: 13,
     lineHeight: 18,
+  },
+  customInspiration: {
+    width: "100%",
+    marginTop: 4,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: "#273042",
+    borderRadius: 14,
+    backgroundColor: "#0B1224",
+  },
+  customLabel: {
+    color: "#F9FAFB",
+    fontSize: 15,
+    fontWeight: "700",
+  },
+  customCopy: {
+    color: "#9CA3AF",
+    fontSize: 13,
+    lineHeight: 18,
+    marginTop: 4,
+    marginBottom: 10,
+  },
+  customInput: {
+    backgroundColor: "#0F172A",
+    borderWidth: 1,
+    borderColor: "#374151",
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    color: "#E5E7EB",
+    fontSize: 14,
   },
   actions: {
     flexDirection: "row",
@@ -247,9 +310,6 @@ const chipStyles = StyleSheet.create({
     borderWidth: 1,
     borderColor: "#273042",
     backgroundColor: "#0B1224",
-  },
-  chipGhost: {
-    borderStyle: "dashed",
   },
   chipActive: {
     borderColor: "#22C55E",

@@ -8,6 +8,8 @@ import {
   SafeAreaView,
   Alert,
   Platform,
+  KeyboardAvoidingView,
+  ScrollView,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -129,7 +131,15 @@ export default function AuthScreen() {
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.authGlow} pointerEvents="none" />
-      <View style={styles.container}>
+      <KeyboardAvoidingView
+        style={styles.keyboardView}
+        behavior={Platform.OS === "ios" ? "padding" : "height"}
+      >
+        <ScrollView
+          contentContainerStyle={styles.container}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+        >
         <View style={styles.brandPanel}>
           <Text style={styles.brandKicker}>DripMaxx</Text>
           <Text style={styles.title}>Step into your style lab.</Text>
@@ -221,13 +231,15 @@ export default function AuthScreen() {
             <Text style={styles.legalText}>Privacy Policy</Text>
           </Pressable>
         </View>
-      </View>
+        </ScrollView>
+      </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: "#020617" },
+  keyboardView: { flex: 1 },
   authGlow: {
     position: "absolute",
     top: -90,
@@ -239,7 +251,7 @@ const styles = StyleSheet.create({
     opacity: 0.7,
   },
   container: {
-    flex: 1,
+    flexGrow: 1,
     padding: 24,
     gap: 14,
     justifyContent: "center",

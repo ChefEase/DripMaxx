@@ -1,12 +1,13 @@
 import React, { useEffect, useState } from "react";
 import { View, Text, Pressable, StyleSheet, SafeAreaView, Alert, ScrollView, Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
-import { useNavigation } from "@react-navigation/native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 import type { RootStackParamList } from "../App";
 import { apiFetch, apiJsonHeaders } from "../lib/api";
 import { logWarn } from "../lib/logger";
+import { ensureRevenueCatConfigured, hasRevenueCatEntitlement } from "../lib/revenueCat";
 import { supabase } from "../lib/supabase";
 import { useStore } from "../store";
 import { bodyTypeLabel, genderStyleLabel } from "../lib/profileEnums";
@@ -50,6 +51,35 @@ export default function ProfileScreen() {
     }[];
   }>(null);
 
+  const fetchBillingStatus = React.useCallback(async () => {
+    if (!userId) return;
+    try {
+      const billingRes = await apiFetch(`/v1/billing/status?user_id=${encodeURIComponent(userId)}`);
+      if (billingRes.ok) setBillingStatus(await billingRes.json());
+    } catch (err) {
+      logWarn("billing status fetch failed", err);
+    }
+
+    if (Platform.OS !== "web") {
+      try {
+        const purchases = await ensureRevenueCatConfigured(userId);
+        const customerInfo = await purchases.getCustomerInfo();
+        if (hasRevenueCatEntitlement(customerInfo)) {
+          setBillingStatus((current) => ({
+            plan: "monthly",
+            used: current?.used ?? 0,
+            remaining: current?.remaining ?? 0,
+            limit_type: current?.limit_type ?? "unlimited",
+          }));
+        }
+      } catch (err) {
+        logWarn("RevenueCat billing status fetch failed", err);
+      }
+    }
+  }, [userId]);
+
+  useFocusEffect(React.useCallback(() => { void fetchBillingStatus(); }, [fetchBillingStatus]));
+
   useEffect(() => {
     const fetchProfileData = async () => {
       if (!userId) return;
@@ -77,15 +107,6 @@ export default function ProfileScreen() {
         logWarn("dna fetch failed", err);
       }
 
-      try {
-        const billingRes = await apiFetch(`/v1/billing/status?user_id=${encodeURIComponent(userId)}`);
-        if (billingRes.ok) {
-          const data = await billingRes.json();
-          setBillingStatus(data);
-        }
-      } catch (err) {
-        logWarn("billing status fetch failed", err);
-      }
 
       try {
         const rewardsRes = await apiFetch(`/v1/rewards/me?user_id=${encodeURIComponent(userId)}`);
@@ -223,9 +244,13 @@ export default function ProfileScreen() {
               ? "Unlimited scans are enabled on this account."
               : "Free plan: 5 scans to start, then 1 free scan every 3 days."}
           </Text>
-          <Pressable style={styles.upgradeButton} onPress={() => nav.navigate("Paywall")}>
+          <Pressable
+            style={[styles.upgradeButton, billingStatus?.plan === "monthly" && styles.upgradeButtonDisabled]}
+            onPress={() => nav.navigate("Paywall")}
+            disabled={billingStatus?.plan === "monthly"}
+          >
             <Text style={styles.upgradeButtonText}>
-              {billingStatus?.plan === "monthly" ? "Manage Premium" : "Upgrade to Premium"}
+              {billingStatus?.plan === "monthly" ? "Premium Active" : "Upgrade to Premium"}
             </Text>
           </Pressable>
         </View>
@@ -254,7 +279,7 @@ export default function ProfileScreen() {
               {rewards.badges.map((badge) => (
                 <View key={badge.id} style={styles.tag}>
                   <Text style={styles.tagText}>
-                    {badge.rank === 1 ? "🥇" : badge.rank === 2 ? "🥈" : "🥉"} {badge.label}
+                    {badge.rank === 1 ? "Gold" : badge.rank === 2 ? "Silver" : "Bronze"} {badge.label}
                   </Text>
                 </View>
               ))}
@@ -499,6 +524,7 @@ const styles = StyleSheet.create({
     alignItems: "center",
   },
   upgradeButtonText: { color: "#022C22", fontWeight: "800", fontSize: 14 },
+  upgradeButtonDisabled: { backgroundColor: "#64748B", opacity: 0.75 },
   secondary: {
     borderWidth: 1,
     borderColor: "#374151",

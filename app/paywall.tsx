@@ -8,6 +8,7 @@ import { apiFetch, apiJsonHeaders } from "../lib/api";
 import { logWarn } from "../lib/logger";
 import {
   ensureRevenueCatConfigured,
+  getActiveRevenueCatEntitlementIds,
   hasRevenueCatEntitlement,
   REVENUECAT_ENTITLEMENT_ID,
 } from "../lib/revenueCat";
@@ -19,13 +20,14 @@ const PRODUCT_ID = Platform.OS === "ios"
   ? process.env.EXPO_PUBLIC_IOS_PREMIUM_PRODUCT_ID || "dripmaxx_premium_monthly"
   : process.env.EXPO_PUBLIC_ANDROID_PREMIUM_PRODUCT_ID || "dripmaxx_premium_monthly";
 
-function PaywallShell({ priceLabel, metaText, diagnostics, onBuy, onRestore, busy }: {
+function PaywallShell({ priceLabel, metaText, diagnostics, onBuy, onRestore, busy, premiumActive = false }: {
   priceLabel: string;
   metaText: string;
   diagnostics: string[];
   onBuy: () => void;
   onRestore: () => void;
   busy: boolean;
+  premiumActive?: boolean;
 }) {
   const nav = useNavigation<Nav>();
   return (
@@ -47,8 +49,8 @@ function PaywallShell({ priceLabel, metaText, diagnostics, onBuy, onRestore, bus
             {diagnostics.map((line) => <Text key={line} style={styles.diagnosticsText}>{line}</Text>)}
           </View>
         </View>
-        <Pressable style={[styles.primary, busy && styles.primaryDisabled]} onPress={onBuy} disabled={busy}>
-          {busy ? <ActivityIndicator color="#022C22" /> : <Text style={styles.primaryText}>Upgrade to Premium</Text>}
+        <Pressable style={[styles.primary, (busy || premiumActive) && styles.primaryDisabled]} onPress={onBuy} disabled={busy || premiumActive}>
+          {busy ? <ActivityIndicator color="#022C22" /> : <Text style={styles.primaryText}>{premiumActive ? "Premium Active" : "Upgrade to Premium"}</Text>}
         </Pressable>
         <Pressable style={styles.secondary} onPress={onRestore} disabled={busy}>
           <Text style={styles.secondaryText}>Restore Purchases</Text>
@@ -78,6 +80,7 @@ function NativePaywall() {
   const [configured, setConfigured] = useState(false);
   const [lastError, setLastError] = useState<string | null>(null);
   const [entitlementActive, setEntitlementActive] = useState(false);
+  const [activeEntitlementIds, setActiveEntitlementIds] = useState<string[]>([]);
 
   const summarizeError = (error: any) => {
     const code = error?.code || error?.underlyingErrorMessage || null;
@@ -116,6 +119,7 @@ function NativePaywall() {
         || packages[0]
         || null;
       const active = hasRevenueCatEntitlement(customerInfo);
+      setActiveEntitlementIds(getActiveRevenueCatEntitlementIds(customerInfo));
       setOfferingId(current?.identifier || null);
       setPurchasePackage(selected);
       setEntitlementActive(active);
@@ -134,8 +138,10 @@ function NativePaywall() {
   useEffect(() => { void loadRevenueCat(); }, [loadRevenueCat]);
 
   const unlock = async (customerInfo: any, action: "purchase" | "restore") => {
+    const activeIds = getActiveRevenueCatEntitlementIds(customerInfo);
+    setActiveEntitlementIds(activeIds);
     if (!hasRevenueCatEntitlement(customerInfo)) {
-      throw new Error(`${REVENUECAT_ENTITLEMENT_ID} is not active after ${action}. Check the product-to-entitlement attachment in RevenueCat.`);
+      throw new Error(`${REVENUECAT_ENTITLEMENT_ID} is not active after ${action}. Active entitlement IDs: ${activeIds.join(", ") || "none"}.`);
     }
     setEntitlementActive(true);
     await syncBackend();
@@ -166,7 +172,9 @@ function NativePaywall() {
     setBusy(true); setLastError(null);
     try {
       const purchases = await ensureRevenueCatConfigured(userId);
-      await unlock(await purchases.restorePurchases(), "restore");
+      await purchases.restorePurchases();
+      await purchases.invalidateCustomerInfoCache();
+      await unlock(await purchases.getCustomerInfo(), "restore");
     } catch (error: any) {
       const message = summarizeError(error);
       setLastError(message);
@@ -182,14 +190,15 @@ function NativePaywall() {
     `package=${purchasePackage?.identifier || "missing"}`,
     `product=${purchasePackage?.product?.identifier || PRODUCT_ID}`,
     `entitlement=${REVENUECAT_ENTITLEMENT_ID}`,
+    `activeEntitlements=${activeEntitlementIds.join(",") || "none"}`,
     `entitlementActive=${String(entitlementActive)}`,
     ...(lastError ? [`lastError=${lastError}`] : []),
-  ], [configured, entitlementActive, lastError, offeringId, purchasePackage]);
+  ], [activeEntitlementIds, configured, entitlementActive, lastError, offeringId, purchasePackage]);
 
   return <PaywallShell
     priceLabel={purchasePackage?.product?.priceString || "$3.99"}
     metaText={loading ? "Loading RevenueCat offering..." : entitlementActive ? "RevenueCat entitlement is active." : purchasePackage ? "RevenueCat is ready." : "RevenueCat configuration needs attention."}
-    diagnostics={diagnostics} onBuy={handleBuy} onRestore={handleRestore} busy={busy || loading}
+    diagnostics={diagnostics} onBuy={handleBuy} onRestore={handleRestore} busy={busy || loading} premiumActive={entitlementActive}
   />;
 }
 

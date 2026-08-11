@@ -2,7 +2,11 @@ import { Platform } from "react-native";
 import Purchases, { LOG_LEVEL } from "react-native-purchases";
 
 export const REVENUECAT_ENTITLEMENT_ID =
-  process.env.EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID || "DripMaxx Pro";
+  process.env.EXPO_PUBLIC_REVENUECAT_ENTITLEMENT_ID?.trim() || "DripMaxx Pro";
+
+const ENTITLEMENT_ALIASES = [REVENUECAT_ENTITLEMENT_ID, "DripMaxx Pro", "pro"];
+const normalizeEntitlementId = (value: string) =>
+  value.trim().toLowerCase().replace(/[^a-z0-9]/g, "");
 
 const platformApiKey = () =>
   Platform.OS === "ios"
@@ -30,5 +34,11 @@ export async function ensureRevenueCatConfigured(appUserId: string) {
 }
 
 export function hasRevenueCatEntitlement(customerInfo: any) {
-  return Boolean(customerInfo?.entitlements?.active?.[REVENUECAT_ENTITLEMENT_ID]);
+  const active = customerInfo?.entitlements?.active || {};
+  const expected = new Set(ENTITLEMENT_ALIASES.map(normalizeEntitlementId));
+  return Object.keys(active).some((identifier) => expected.has(normalizeEntitlementId(identifier)));
+}
+
+export function getActiveRevenueCatEntitlementIds(customerInfo: any): string[] {
+  return Object.keys(customerInfo?.entitlements?.active || {});
 }

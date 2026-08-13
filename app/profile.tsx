@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import { View, Text, Pressable, StyleSheet, SafeAreaView, Alert, ScrollView, Platform } from "react-native";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useFocusEffect, useNavigation } from "@react-navigation/native";
@@ -11,7 +11,7 @@ import { ensureRevenueCatConfigured, hasRevenueCatEntitlement } from "../lib/rev
 import { supabase } from "../lib/supabase";
 import { useStore } from "../store";
 import AppTabBar from "./components/AppTabBar";
-import { colors } from "./ui/theme";
+import { AppColors, colors, themes, themeNames, useAppTheme } from "./ui/theme";
 import { bodyTypeLabel, genderStyleLabel } from "../lib/profileEnums";
 import RankingsCard from "./components/RankingsCard";
 import RemoteImage from "./components/RemoteImage";
@@ -20,6 +20,9 @@ type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 export default function ProfileScreen() {
   const nav = useNavigation<Nav>();
+  const { theme, themeName, setThemeName } = useAppTheme();
+  const colors = theme.colors;
+  const themed = useMemo(() => makeThemedStyles(colors), [colors]);
   const {
     userId,
     userEmail,
@@ -213,16 +216,16 @@ export default function ProfileScreen() {
           }));
 
   return (
-    <SafeAreaView style={styles.safeArea}>
+    <SafeAreaView style={[styles.safeArea, themed.safeArea]}>
       <ScrollView
         style={styles.scroll}
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.eyebrow}>YOUR STYLE</Text>
-        <Text style={styles.title}>Progress, preferences and looks</Text>
-        <View style={styles.card}>
-          <Text style={styles.label}>User</Text>
+        <Text style={[styles.eyebrow, themed.accentText]}>YOUR STYLE</Text>
+        <Text style={[styles.title, themed.text]}>Progress, preferences and looks</Text>
+        <View style={[styles.card, themed.card]}>
+          <Text style={[styles.label, themed.muted]}>User</Text>
           <View style={styles.row}>
             <View style={styles.avatar}>
               <Text style={styles.avatarText}>
@@ -230,15 +233,58 @@ export default function ProfileScreen() {
               </Text>
             </View>
             <View>
-              <Text style={styles.value}>{displayName || "Not signed in"}</Text>
-              <Text style={styles.muted}>{userEmail || "No email"}</Text>
+              <Text style={[styles.value, themed.text]}>{displayName || "Not signed in"}</Text>
+              <Text style={[styles.muted, themed.muted]}>{userEmail || "No email"}</Text>
             </View>
           </View>
         </View>
-        <View style={styles.card}>
-          <Text style={styles.label}>Plan</Text>
-          <Text style={styles.value}>{billingStatus?.plan === "monthly" ? "Premium" : "Free"}</Text>
-          <Text style={styles.muted}>
+        <View style={[styles.card, themed.card]}>
+          <Text style={[styles.label, themed.muted]}>Appearance</Text>
+          <Text style={[styles.value, themed.text]}>Make DripMaxx feel like yours</Text>
+          <Text style={[styles.muted, themed.muted]}>
+            Color changes only. The logo, type, icons, layout and scoring stay unmistakably DripMaxx.
+          </Text>
+          <View style={styles.themeGrid}>
+            {themeNames.map((name) => {
+              const option = themes[name];
+              const selected = name === themeName;
+              return (
+                <Pressable
+                  key={name}
+                  accessibilityRole="radio"
+                  accessibilityState={{ checked: selected }}
+                  accessibilityLabel={`${option.label} theme. ${option.vibe}`}
+                  onPress={() => setThemeName(name)}
+                  style={[
+                    styles.themeOption,
+                    { backgroundColor: option.background, borderColor: selected ? option.accent : option.dark ? "#383838" : "#D4D4D0" },
+                    selected && styles.themeOptionSelected,
+                  ]}
+                >
+                  <View style={[styles.themePreviewCard, { backgroundColor: option.card }]}>
+                    <View style={styles.themePreviewHeader}>
+                      <View style={[styles.themePreviewAvatar, { backgroundColor: option.accent }]} />
+                      <View style={styles.themePreviewLines}>
+                        <View style={[styles.themePreviewLine, { backgroundColor: option.text }]} />
+                        <View style={[styles.themePreviewLineShort, { backgroundColor: option.text, opacity: 0.35 }]} />
+                      </View>
+                    </View>
+                    <View style={[styles.themePreviewButton, { backgroundColor: option.accent }]} />
+                  </View>
+                  <View style={styles.themeOptionFooter}>
+                    <Text style={[styles.themeOptionName, { color: option.text }]}>{option.symbol} {option.label}</Text>
+                    {selected && <Text style={[styles.themeCheck, { color: option.accent }]}>✓</Text>}
+                  </View>
+                </Pressable>
+              );
+            })}
+          </View>
+          <Text style={[styles.themeVibe, themed.muted]}>{theme.vibe}</Text>
+        </View>
+        <View style={[styles.card, themed.card]}>
+          <Text style={[styles.label, themed.muted]}>Plan</Text>
+          <Text style={[styles.value, themed.text]}>{billingStatus?.plan === "monthly" ? "Premium" : "Free"}</Text>
+          <Text style={[styles.muted, themed.muted]}>
             {billingStatus?.plan === "monthly"
               ? "Unlimited scans are enabled on this account."
               : "Free plan: 5 scans to start, then 1 free scan every 3 days."}
@@ -253,10 +299,10 @@ export default function ProfileScreen() {
             </Text>
           </Pressable>
         </View>
-        <View style={styles.card}>
-          <Text style={styles.label}>XP & Rewards</Text>
-          <Text style={styles.value}>{rewards?.xp ?? 0} XP</Text>
-          <Text style={styles.muted}>
+        <View style={[styles.card, themed.card]}>
+          <Text style={[styles.label, themed.muted]}>XP & Rewards</Text>
+          <Text style={[styles.value, themed.text]}>{rewards?.xp ?? 0} XP</Text>
+          <Text style={[styles.muted, themed.muted]}>
             {(rewards?.xp_until_next_reward ?? 500)} XP until 10 free scans
           </Text>
           <View style={styles.rewardMeter}>
@@ -272,7 +318,7 @@ export default function ProfileScreen() {
               ]}
             />
           </View>
-          <Text style={styles.value}>{rewards?.scan_credits ?? 0} earned scan credits</Text>
+          <Text style={[styles.value, themed.text]}>{rewards?.scan_credits ?? 0} earned scan credits</Text>
           {!!rewards?.badges?.length && (
             <View style={styles.tagRow}>
               {rewards.badges.map((badge) => (
@@ -285,9 +331,9 @@ export default function ProfileScreen() {
             </View>
           )}
         </View>
-        <View style={styles.card}>
-          <Text style={styles.label}>Profile visibility</Text>
-          <Text style={styles.muted}>Who can see your outfits when viewing your profile from the leaderboard</Text>
+        <View style={[styles.card, themed.card]}>
+          <Text style={[styles.label, themed.muted]}>Profile visibility</Text>
+          <Text style={[styles.muted, themed.muted]}>Who can see your outfits when viewing your profile from the leaderboard</Text>
           <View style={styles.visibilityRow}>
             {(["public", "friends_only", "private"] as const).map((v) => (
               <Pressable
@@ -309,7 +355,7 @@ export default function ProfileScreen() {
             ))}
           </View>
         </View>
-        <View style={styles.card}>
+        <View style={[styles.card, themed.card]}>
           <Text style={styles.label}>Style Preferences</Text>
           <Text style={styles.value}>{stylePreferences.join(", ") || "None"}</Text>
           <Text style={styles.label}>Inspirations</Text>
@@ -348,7 +394,7 @@ export default function ProfileScreen() {
         </Pressable>
 
         <RankingsCard userId={userId} />
-        <View style={styles.card}>
+        <View style={[styles.card, themed.card]}>
           <Text style={styles.label}>Your Style DNA</Text>
           <Text style={styles.value}>{dna?.label || "Building..."}</Text>
           <Text style={styles.muted}>{dna?.description || "Scan more outfits to unlock your DNA."}</Text>
@@ -361,7 +407,7 @@ export default function ProfileScreen() {
           </View>
         </View>
 
-        <View style={styles.card}>
+        <View style={[styles.card, themed.card]}>
           <Text style={styles.label}>Recent outfits</Text>
           {recent.length === 0 ? (
             <Text style={styles.muted}>No scans yet.</Text>
@@ -375,7 +421,7 @@ export default function ProfileScreen() {
           )}
         </View>
 
-        <View style={styles.card}>
+        <View style={[styles.card, themed.card]}>
           <Text style={styles.label}>Drip score trend</Text>
           <Text style={styles.trendSubtitle}>
             Swipe through your scans, compare score cards, and see what actually moved each rating.
@@ -752,4 +798,34 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     backgroundColor: colors.lime,
   },
+  themeGrid: { flexDirection: "row", flexWrap: "wrap", gap: 10, marginTop: 10 },
+  themeOption: {
+    width: "48%",
+    minWidth: 132,
+    flexGrow: 1,
+    borderWidth: 1,
+    borderRadius: 16,
+    padding: 9,
+    gap: 8,
+  },
+  themeOptionSelected: { borderWidth: 3, padding: 7 },
+  themePreviewCard: { borderRadius: 10, padding: 9, gap: 10 },
+  themePreviewHeader: { flexDirection: "row", alignItems: "center", gap: 7 },
+  themePreviewAvatar: { width: 18, height: 18, borderRadius: 9 },
+  themePreviewLines: { flex: 1, gap: 4 },
+  themePreviewLine: { height: 4, width: "76%", borderRadius: 4 },
+  themePreviewLineShort: { height: 3, width: "50%", borderRadius: 4 },
+  themePreviewButton: { height: 8, width: "100%", borderRadius: 5 },
+  themeOptionFooter: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
+  themeOptionName: { fontSize: 12, fontWeight: "900" },
+  themeCheck: { fontSize: 16, fontWeight: "900" },
+  themeVibe: { fontSize: 12, lineHeight: 17, marginTop: 2 },
+});
+
+const makeThemedStyles = (themeColors: AppColors) => StyleSheet.create({
+  safeArea: { backgroundColor: themeColors.ink },
+  card: { backgroundColor: themeColors.surface, borderColor: themeColors.line },
+  text: { color: themeColors.text },
+  muted: { color: themeColors.textMuted },
+  accentText: { color: themeColors.lime },
 });

@@ -1,10 +1,10 @@
-import React from "react";
+import React, { useMemo } from "react";
 import { Pressable, StyleSheet, Text, View } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 import type { RootStackParamList } from "../../App";
-import { colors, radius } from "../ui/theme";
+import { AppColors, radius, useAppTheme } from "../ui/theme";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 type Tab = "home" | "scan" | "challenge" | "ranks" | "profile";
@@ -19,6 +19,8 @@ const tabs: { key: Tab; label: string; symbol: string; route: keyof RootStackPar
 
 export default function AppTabBar({ active }: { active: Tab }) {
   const navigation = useNavigation<Nav>();
+  const { theme } = useAppTheme();
+  const styles = useMemo(() => createStyles(theme.colors), [theme.colors]);
   return (
     <View style={styles.shell} accessibilityRole="tablist">
       {tabs.map((tab) => {
@@ -45,11 +47,11 @@ export default function AppTabBar({ active }: { active: Tab }) {
   );
 }
 
-const styles = StyleSheet.create({
+const createStyles = (colors: AppColors) => StyleSheet.create({
   shell: {
     flexDirection: "row",
     alignItems: "flex-end",
-    backgroundColor: "rgba(17,20,24,0.98)",
+    backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: colors.line,
     borderRadius: radius.lg,

@@ -31,6 +31,7 @@ import { syncAuthenticatedUser } from "./lib/authProfile";
 import { logWarn } from "./lib/logger";
 import { supabase } from "./lib/supabase";
 import { trackEvent } from "./lib/analytics";
+import { AppThemeProvider, useAppTheme } from "./app/ui/theme";
 
 export type RootStackParamList = {
   ValueProposition: { celebrate?: boolean } | undefined;
@@ -60,6 +61,7 @@ const Stack = createNativeStackNavigator<RootStackParamList>();
 const navigationRef = createNavigationContainerRef<RootStackParamList>();
 
 function AppShell() {
+  const { theme } = useAppTheme();
   const {
     userId,
     setUserId,
@@ -229,7 +231,7 @@ function AppShell() {
         id="root-stack"
         screenOptions={{
           headerShown: false,
-          contentStyle: { backgroundColor: "#020617" },
+          contentStyle: { backgroundColor: theme.background },
         }}
         initialRouteName="Intro"
       >
@@ -273,8 +275,10 @@ function AppShell() {
 
 export default function App() {
   return (
-    <StoreProvider>
-      <AppShell />
-    </StoreProvider>
+    <AppThemeProvider>
+      <StoreProvider>
+        <AppShell />
+      </StoreProvider>
+    </AppThemeProvider>
   );
 }

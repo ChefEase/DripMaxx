@@ -12,6 +12,7 @@ import type { RootStackParamList } from "../App";
 import * as ImagePicker from "expo-image-picker";
 import { trackEvent } from "../lib/analytics";
 import { useStore } from "../store";
+import { colors } from "./ui/theme";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -54,11 +55,10 @@ export default function CameraPermissionScreen() {
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
         <View>
-          <Text style={styles.stepLabel}>Step 5 of 5</Text>
-          <Text style={styles.title}>Allow camera access to scan your outfit</Text>
+          <Text style={styles.stepLabel}>YOUR PRIVACY · 04</Text>
+          <Text style={styles.title}>Your photo stays yours.</Text>
           <Text style={styles.subtitle}>
-            We only use your camera to analyze outfits and improve your Drip
-            Score. You can change this later in settings.
+            Camera access lets you take an outfit photo when you choose. You can use your gallery instead.
           </Text>
         </View>
 
@@ -107,7 +107,7 @@ export default function CameraPermissionScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#020617",
+    backgroundColor: colors.ink,
   },
   container: {
     flex: 1,
@@ -121,7 +121,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   title: {
-    fontSize: 24,
+    fontSize: 32,
     fontWeight: "700",
     color: "#F9FAFB",
     marginBottom: 8,
@@ -138,7 +138,7 @@ const styles = StyleSheet.create({
     borderColor: "#1F2937",
     padding: 16,
     gap: 12,
-    backgroundColor: "#0B1224",
+    backgroundColor: colors.surface,
   },
   row: {
     flexDirection: "row",
@@ -149,7 +149,7 @@ const styles = StyleSheet.create({
     width: 8,
     height: 8,
     borderRadius: 999,
-    backgroundColor: "#22C55E",
+    backgroundColor: colors.lime,
   },
   cardText: {
     color: "#E5E7EB",
@@ -205,14 +205,14 @@ const styles = StyleSheet.create({
   },
   allowButton: {
     flex: 1,
-    backgroundColor: "#22C55E",
+    backgroundColor: colors.lime,
     paddingVertical: 12,
     borderRadius: 999,
     alignItems: "center",
     justifyContent: "center",
   },
   allowButtonText: {
-    color: "#022C22",
+    color: colors.limeInk,
     fontSize: 15,
     fontWeight: "700",
   },

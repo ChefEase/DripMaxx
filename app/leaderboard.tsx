@@ -16,6 +16,8 @@ import type { RootStackParamList } from "../App";
 import { apiFetch, getApiBase } from "../lib/api";
 import { logWarn } from "../lib/logger";
 import { useStore } from "../store";
+import AppTabBar from "./components/AppTabBar";
+import { colors } from "./ui/theme";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -130,7 +132,8 @@ export default function LeaderboardScreen() {
         <Pressable onPress={() => nav.goBack()} style={styles.backBtn}>
           <Text style={styles.backText}>Back</Text>
         </Pressable>
-        <Text style={styles.title}>Leaderboard</Text>
+        <Text style={styles.eyebrow}>COMMUNITY</Text>
+        <Text style={styles.title}>Top looks right now</Text>
       </View>
       <ScrollView
         horizontal
@@ -170,7 +173,7 @@ export default function LeaderboardScreen() {
             </Pressable>
           </View>
           {groupLoading ? (
-            <ActivityIndicator size="small" color="#22C55E" />
+            <ActivityIndicator size="small" color={colors.lime} />
           ) : groups.length === 0 ? (
             <Text style={styles.muted}>No groups yet. Create one to share a code.</Text>
           ) : (
@@ -199,7 +202,7 @@ export default function LeaderboardScreen() {
         </View>
 
         {loading ? (
-          <ActivityIndicator size="large" color="#22C55E" />
+          <ActivityIndicator size="large" color={colors.lime} />
         ) : error ? (
           <Text style={styles.error}>{error}</Text>
         ) : entries.length === 0 ? (
@@ -210,7 +213,7 @@ export default function LeaderboardScreen() {
           entries.map((e) => (
             <Pressable
               key={e.user_id}
-              style={styles.row}
+              style={[styles.row, e.rank <= 3 && styles.podiumRow]}
               onPress={() => nav.navigate("UserProfile", { userId: e.user_id })}
             >
               <Text style={styles.rank}>#{e.rank}</Text>
@@ -229,9 +232,7 @@ export default function LeaderboardScreen() {
           ))
         )}
       </ScrollView>
-      <Pressable style={styles.footer} onPress={() => nav.navigate("RankingGroups")}>
-        <Text style={styles.footerText}>Create or join private groups</Text>
-      </Pressable>
+      <View style={styles.tabDock}><AppTabBar active="ranks" /></View>
     </SafeAreaView>
   );
 }
@@ -242,6 +243,7 @@ const styles = StyleSheet.create({
   backBtn: { marginBottom: 8 },
   backText: { color: "#A5B4FC", fontSize: 15, fontWeight: "600" },
   title: { color: "#F9FAFB", fontSize: 24, fontWeight: "800" },
+  eyebrow: { color: "#C7FF4A", fontSize: 10, fontWeight: "900", letterSpacing: 1.6, marginBottom: 4 },
   scopeRow: { maxHeight: 44 },
   scopeRowContent: { paddingHorizontal: 24, gap: 8, paddingBottom: 12 },
   scopeChip: {
@@ -250,9 +252,9 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     backgroundColor: "#1F2937",
   },
-  scopeChipActive: { backgroundColor: "#22C55E" },
+  scopeChipActive: { backgroundColor: colors.lime },
   scopeChipText: { color: "#9CA3AF", fontSize: 14, fontWeight: "600" },
-  scopeChipTextActive: { color: "#022C22", fontWeight: "700" },
+  scopeChipTextActive: { color: colors.limeInk, fontWeight: "700" },
   scroll: { flex: 1 },
   content: { padding: 24, paddingBottom: 80 },
   eligibilityNote: { color: "#94A3B8", fontSize: 12, marginBottom: 12 },
@@ -264,10 +266,11 @@ const styles = StyleSheet.create({
     borderBottomColor: "#1F2937",
     gap: 12,
   },
-  rank: { color: "#22C55E", fontSize: 16, fontWeight: "800", minWidth: 36 },
+  podiumRow: { backgroundColor: "#181C21", borderRadius: 16, borderBottomWidth: 0, paddingHorizontal: 12, marginBottom: 8 },
+  rank: { color: colors.lime, fontSize: 16, fontWeight: "800", minWidth: 36 },
   userInfo: { flex: 1 },
   name: { color: "#F9FAFB", fontSize: 15, fontWeight: "700" },
-  score: { color: "#BBF7D0", fontSize: 16, fontWeight: "800" },
+  score: { color: colors.cream, fontSize: 16, fontWeight: "800" },
   muted: { color: "#6B7280", fontSize: 14 },
   badges: { color: "#FDE68A", fontSize: 11, marginTop: 3 },
   error: { color: "#F87171", fontSize: 14 },
@@ -282,7 +285,8 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: "#1F2937",
   },
-  footerText: { color: "#22C55E", fontSize: 14, fontWeight: "700" },
+  footerText: { color: colors.lime, fontSize: 14, fontWeight: "700" },
+  tabDock: { paddingHorizontal: 16, paddingTop: 6, paddingBottom: 8, backgroundColor: "#020617" },
   groupCard: {
     backgroundColor: "#0F172A",
     borderWidth: 1,
@@ -297,7 +301,7 @@ const styles = StyleSheet.create({
   link: { color: "#A5B4FC", fontSize: 14, fontWeight: "700" },
   groupRow: { flexDirection: "row", alignItems: "center", gap: 8 },
   code: { color: "#9CA3AF", fontSize: 13 },
-  groupNameLink: { color: "#86EFAC", fontSize: 15, fontWeight: "700", textDecorationLine: "underline" },
+  groupNameLink: { color: colors.lime, fontSize: 15, fontWeight: "700", textDecorationLine: "underline" },
   smallBtn: {
     paddingVertical: 8,
     paddingHorizontal: 10,

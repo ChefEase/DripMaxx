@@ -11,6 +11,7 @@ import {
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../App";
+import { colors } from "./ui/theme";
 import { useStore } from "../store";
 import { BODY_TYPE_OPTIONS, GENDER_STYLE_OPTIONS } from "../lib/profileEnums";
 
@@ -67,8 +68,8 @@ export default function BodyFitScreen() {
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
         <View>
-          <Text style={styles.stepLabel}>Step 4 of 5</Text>
-          <Text style={styles.title}>Body & Fit Setup (Optional)</Text>
+          <Text style={styles.stepLabel}>FIT PROFILE · 03</Text>
+          <Text style={styles.title}>Help us understand your fit</Text>
           <Text style={styles.subtitle}>
             Share your height and body type so fit and compatibility scores are
             more accurate.
@@ -171,7 +172,7 @@ export default function BodyFitScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#020617",
+    backgroundColor: colors.ink,
   },
   container: {
     flex: 1,
@@ -185,7 +186,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   title: {
-    fontSize: 24,
+    fontSize: 32,
     fontWeight: "700",
     color: "#F9FAFB",
     marginBottom: 8,
@@ -260,14 +261,14 @@ const styles = StyleSheet.create({
   },
   nextButton: {
     flex: 1,
-    backgroundColor: "#22C55E",
+    backgroundColor: colors.lime,
     paddingVertical: 12,
     borderRadius: 999,
     alignItems: "center",
     justifyContent: "center",
   },
   nextButtonText: {
-    color: "#022C22",
+    color: colors.limeInk,
     fontSize: 15,
     fontWeight: "700",
   },
@@ -283,7 +284,7 @@ const pillStyles = StyleSheet.create({
     backgroundColor: "#0B1224",
   },
   pillActive: {
-    borderColor: "#22C55E",
+    borderColor: colors.lime,
     backgroundColor: "#112030",
   },
   pillText: {
@@ -292,7 +293,7 @@ const pillStyles = StyleSheet.create({
     fontWeight: "600",
   },
   pillTextActive: {
-    color: "#BBF7D0",
+    color: colors.cream,
   },
 });
 

@@ -13,6 +13,7 @@ import {
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../App";
+import { colors } from "./ui/theme";
 import { useStore } from "../store";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -94,7 +95,7 @@ export default function StyleInspirationScreen() {
       >
       <View style={styles.container}>
         <View>
-          <Text style={styles.stepLabel}>Step 3 of 5</Text>
+          <Text style={styles.stepLabel}>YOUR REFERENCES · 02</Text>
           <Text style={styles.title}>Whose style do you like?</Text>
           <Text style={styles.subtitle}>
             Choose a few inspirations so DripMaxx understands your vibe.
@@ -175,7 +176,7 @@ export default function StyleInspirationScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#020617",
+    backgroundColor: colors.ink,
   },
   keyboardView: {
     flex: 1,
@@ -192,7 +193,7 @@ const styles = StyleSheet.create({
     marginBottom: 8,
   },
   title: {
-    fontSize: 24,
+    fontSize: 32,
     fontWeight: "700",
     color: "#F9FAFB",
     marginBottom: 8,
@@ -251,7 +252,7 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   customInput: {
-    backgroundColor: "#0F172A",
+    backgroundColor: colors.surface,
     borderWidth: 1,
     borderColor: "#374151",
     borderRadius: 10,
@@ -289,14 +290,14 @@ const styles = StyleSheet.create({
   },
   nextButton: {
     flex: 1,
-    backgroundColor: "#22C55E",
+    backgroundColor: colors.lime,
     paddingVertical: 12,
     borderRadius: 999,
     alignItems: "center",
     justifyContent: "center",
   },
   nextButtonText: {
-    color: "#022C22",
+    color: colors.limeInk,
     fontSize: 15,
     fontWeight: "700",
   },
@@ -312,7 +313,7 @@ const chipStyles = StyleSheet.create({
     backgroundColor: "#0B1224",
   },
   chipActive: {
-    borderColor: "#22C55E",
+    borderColor: colors.lime,
     backgroundColor: "#112030",
   },
   chipText: {
@@ -321,6 +322,6 @@ const chipStyles = StyleSheet.create({
     fontWeight: "600",
   },
   chipTextActive: {
-    color: "#BBF7D0",
+    color: colors.cream,
   },
 });

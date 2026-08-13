@@ -1,9 +1,10 @@
 import React from "react";
-import { SafeAreaView, ScrollView, StyleSheet, Text, View, Pressable } from "react-native";
+import { SafeAreaView, ScrollView, StyleSheet, Text, View, Pressable, Image } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 import type { RootStackParamList } from "../App";
+import { colors } from "./ui/theme";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -48,15 +49,14 @@ export default function ScanExampleScreen() {
         </View>
 
         <View style={styles.resultCard}>
+          <View style={styles.previewFrame}>
+            <Image source={require("../assets/editorial/glowup-01-after.jpg")} style={styles.outfitPlaceholder} resizeMode="cover" />
+            <Text style={styles.previewFrameLabel}>OUTFIT PREVIEW</Text>
+          </View>
           <View style={styles.resultTopRow}>
             <View>
               <Text style={styles.resultLabel}>Drip Score</Text>
               <Text style={styles.resultValue}>8.4/10</Text>
-            </View>
-            <View style={styles.thumbnailBox}>
-              <View style={styles.outfitPlaceholder}>
-                <Text style={styles.outfitPlaceholderText}>Sample Outfit</Text>
-              </View>
             </View>
           </View>
 
@@ -80,6 +80,28 @@ export default function ScanExampleScreen() {
           </View>
         </View>
 
+        <View style={styles.transformSection}>
+          <Text style={styles.eyebrow}>REAL STYLE MOVES</Text>
+          <Text style={styles.sectionTitle}>Small changes. Clearer outfits.</Text>
+          <Text style={styles.subtitle}>The goal is not to change who you are—it is to make your intention read faster.</Text>
+          <View style={styles.transformCard}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.transformImages} snapToInterval={272} decelerationRate="fast">
+              <View style={styles.transformImageWrap}><Image source={require("../assets/editorial/glowup-01-before.jpg")} style={styles.transformImage} resizeMode="cover" /><Text style={styles.imageLabel}>BEFORE</Text></View>
+              <View style={styles.transformImageWrap}><Image source={require("../assets/editorial/glowup-01-after.jpg")} style={styles.transformImage} resizeMode="cover" /><Text style={styles.imageLabel}>AFTER</Text></View>
+            </ScrollView>
+            <Text style={styles.transformTitle}>Sharper proportions</Text>
+            <Text style={styles.transformCopy}>A more intentional silhouette and coordinated finish create a stronger first read.</Text>
+          </View>
+          <View style={styles.transformCard}>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.transformImages} snapToInterval={272} decelerationRate="fast">
+              <View style={styles.transformImageWrap}><Image source={require("../assets/editorial/glowup-02-before.jpg")} style={styles.transformImage} resizeMode="cover" /><Text style={styles.imageLabel}>BEFORE</Text></View>
+              <View style={styles.transformImageWrap}><Image source={require("../assets/editorial/glowup-02-after.jpg")} style={styles.transformImage} resizeMode="cover" /><Text style={styles.imageLabel}>AFTER</Text></View>
+            </ScrollView>
+            <Text style={styles.transformTitle}>Stronger color story</Text>
+            <Text style={styles.transformCopy}>Connected tones, footwear and one focal point make the outfit feel considered.</Text>
+          </View>
+        </View>
+
         <View style={styles.actions}>
           <Pressable style={styles.secondaryButton} onPress={() => navigation.goBack()}>
             <Text style={styles.secondaryButtonText}>Back</Text>
@@ -96,7 +118,7 @@ export default function ScanExampleScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#020617",
+    backgroundColor: colors.ink,
   },
   container: {
     paddingHorizontal: 24,
@@ -113,7 +135,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   eyebrow: {
-    color: "#86EFAC",
+    color: colors.lime,
     fontSize: 12,
     fontWeight: "700",
     textTransform: "uppercase",
@@ -153,19 +175,14 @@ const styles = StyleSheet.create({
     fontSize: 28,
     fontWeight: "800",
   },
-  thumbnailBox: {
-    width: 118,
-  },
+  previewFrame: { width: "100%", position: "relative", borderRadius: 12, overflow: "hidden", backgroundColor: colors.surfaceRaised },
   outfitPlaceholder: {
+    width: "100%",
     aspectRatio: 3 / 4,
     borderRadius: 12,
-    borderWidth: 1,
-    borderColor: "#1F2937",
     backgroundColor: "#111827",
-    alignItems: "center",
-    justifyContent: "center",
-    paddingHorizontal: 10,
   },
+  previewFrameLabel: { position: "absolute", left: 10, bottom: 10, color: colors.text, backgroundColor: "rgba(8,10,12,0.8)", borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6, fontSize: 9, fontWeight: "900", letterSpacing: 1 },
   outfitPlaceholderText: {
     color: "#CBD5E1",
     fontSize: 13,
@@ -187,7 +204,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
   },
   breakdownValue: {
-    color: "#BBF7D0",
+    color: colors.cream,
     fontSize: 13,
     fontWeight: "700",
   },
@@ -203,7 +220,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   suggestionTag: {
-    color: "#22C55E",
+    color: colors.lime,
     fontSize: 12,
     fontWeight: "700",
   },
@@ -223,13 +240,13 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     flex: 1,
-    backgroundColor: "#22C55E",
+    backgroundColor: colors.lime,
     paddingVertical: 14,
     borderRadius: 12,
     alignItems: "center",
   },
   primaryButtonText: {
-    color: "#022C22",
+    color: colors.limeInk,
     fontSize: 15,
     fontWeight: "700",
   },
@@ -246,4 +263,13 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: "600",
   },
+  transformSection: { gap: 12, marginTop: 4 },
+  sectionTitle: { color: colors.text, fontSize: 25, lineHeight: 30, fontWeight: "900" },
+  transformCard: { borderRadius: 22, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, padding: 10, gap: 8 },
+  transformImages: { gap: 12, paddingRight: 18 },
+  transformImageWrap: { width: 260, position: "relative", overflow: "hidden", borderRadius: 16 },
+  transformImage: { width: "100%", aspectRatio: 3 / 4, backgroundColor: colors.surfaceSoft },
+  imageLabel: { position: "absolute", left: 8, bottom: 8, color: colors.text, backgroundColor: "rgba(8,10,12,0.78)", borderRadius: 999, paddingHorizontal: 9, paddingVertical: 5, fontSize: 9, fontWeight: "900", letterSpacing: 1 },
+  transformTitle: { color: colors.text, fontSize: 16, fontWeight: "900", paddingHorizontal: 4 },
+  transformCopy: { color: colors.textMuted, fontSize: 13, lineHeight: 19, paddingHorizontal: 4, paddingBottom: 4 },
 });

@@ -21,6 +21,8 @@ import AsyncStorage from "@react-native-async-storage/async-storage";
 import RankingsCard from "./components/RankingsCard";
 import AnimatedNumber from "./components/AnimatedNumber";
 import RemoteImage from "./components/RemoteImage";
+import AppTabBar from "./components/AppTabBar";
+import { colors } from "./ui/theme";
 import { apiFetch, apiJsonHeaders } from "../lib/api";
 import { trackEvent } from "../lib/analytics";
 import { logWarn } from "../lib/logger";
@@ -136,6 +138,9 @@ export default function ScanStubScreen() {
   const [rewards, setRewards] = useState<RewardsSummary | null>(null);
   const [bestOutfit, setBestOutfit] = useState<null | { imageUrl: string | null; dripScore: number | null }>(null);
   const [progressInsights, setProgressInsights] = useState<ProgressInsights | null>(null);
+  const visibleStyleProgress = (progressInsights?.style_progress || []).filter(
+    (item) => !["", "unspecified", "none", "null", "n/a", "na"].includes(item.style.trim().toLowerCase())
+  );
   const [showProgressPopup, setShowProgressPopup] = useState(false);
   const [showFeaturePrompt, setShowFeaturePrompt] = useState(false);
   const [showFeatureForm, setShowFeatureForm] = useState(false);
@@ -585,11 +590,10 @@ export default function ScanStubScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View>
-          <Text style={styles.stepLabel}>Core Experience</Text>
-          <Text style={styles.title}>Scan your outfit</Text>
+          <Text style={styles.stepLabel}>QUICK SCAN</Text>
+          <Text style={styles.title}>Rate the whole fit.</Text>
           <Text style={styles.subtitle}>
-            This is the core scan screen. We&apos;ll wire up the camera and AI
-            rating in later phases.
+            Your saved style profile is applied automatically—no setup needed.
           </Text>
           <View style={styles.guidelineCard}>
             <Text style={styles.guidelineTitle}>Best results</Text>
@@ -706,7 +710,7 @@ export default function ScanStubScreen() {
           <View style={styles.resultCard}>
             {isScoring && (
               <View style={styles.loadingOverlay}>
-                <ActivityIndicator size="large" color="#22C55E" />
+                <ActivityIndicator size="large" color={colors.lime} />
                 <Text style={styles.loadingOverlayText}>
                   Finalizing your drip score...
                 </Text>
@@ -952,7 +956,7 @@ export default function ScanStubScreen() {
               <Pressable
                 style={[
                   styles.primaryButton,
-                  saved && { backgroundColor: "#16A34A" },
+                  saved && { backgroundColor: colors.success },
                 ]}
                 onPress={handleSaveOutfit}
               >
@@ -970,10 +974,11 @@ export default function ScanStubScreen() {
           </Pressable>
 
           <Pressable style={styles.scanButton} onPress={handleStartScan}>
-            <Text style={styles.scanButtonText}>Start Drip Scan</Text>
+            <Text style={styles.scanButtonText}>Take or upload a photo</Text>
           </Pressable>
         </View>
       </ScrollView>
+      <View style={styles.tabDock}><AppTabBar active="scan" /></View>
 
       <Modal transparent visible={!!previewUrl} animationType="fade">
         <Pressable style={styles.previewOverlay} onPress={() => setPreviewUrl(null)}>
@@ -1096,10 +1101,10 @@ export default function ScanStubScreen() {
                 <Text style={styles.progressPopupLabel}>points since joining</Text>
               </View>
             </View>
-            {!!progressInsights?.style_progress.length && (
+            {!!visibleStyleProgress.length && (
               <View style={styles.styleProgressList}>
                 <Text style={styles.styleProgressHeading}>Style progress</Text>
-                {progressInsights.style_progress.map((item) => (
+                {visibleStyleProgress.map((item) => (
                   <View key={item.style} style={styles.styleProgressRow}>
                     <View style={styles.styleProgressCopy}>
                       <Text style={styles.styleProgressName}>{item.style}</Text>
@@ -1136,7 +1141,7 @@ export default function ScanStubScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#020617",
+    backgroundColor: colors.ink,
   },
   container: {
     paddingHorizontal: 24,
@@ -1146,13 +1151,16 @@ const styles = StyleSheet.create({
   },
   stepLabel: {
     fontSize: 13,
-    color: "#9CA3AF",
+    color: colors.lime,
+    fontWeight: "900",
+    letterSpacing: 1.4,
     marginBottom: 6,
   },
   title: {
-    fontSize: 24,
-    fontWeight: "700",
-    color: "#F9FAFB",
+    fontSize: 34,
+    lineHeight: 39,
+    fontWeight: "900",
+    color: colors.text,
     marginBottom: 8,
   },
   subtitle: {
@@ -1223,7 +1231,7 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   progressEyebrow: {
-    color: "#86EFAC",
+    color: colors.lime,
     fontSize: 12,
     fontWeight: "700",
     textTransform: "uppercase",
@@ -1236,7 +1244,7 @@ const styles = StyleSheet.create({
     marginTop: 4,
   },
   progressPercent: {
-    color: "#BBF7D0",
+    color: colors.cream,
     fontSize: 18,
     fontWeight: "800",
   },
@@ -1249,7 +1257,7 @@ const styles = StyleSheet.create({
   progressFill: {
     height: "100%",
     borderRadius: 999,
-    backgroundColor: "#22C55E",
+    backgroundColor: colors.lime,
   },
   progressDetail: {
     color: "#CBD5E1",
@@ -1276,15 +1284,15 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
   stepDotActive: {
-    borderColor: "#22C55E",
-    backgroundColor: "#14532D",
+    borderColor: colors.lime,
+    backgroundColor: colors.surfaceSoft,
   },
   stepDotComplete: {
-    borderColor: "#22C55E",
-    backgroundColor: "#22C55E",
+    borderColor: colors.lime,
+    backgroundColor: colors.lime,
   },
   stepDotText: {
-    color: "#052E16",
+    color: colors.limeInk,
     fontSize: 11,
     fontWeight: "900",
   },
@@ -1298,7 +1306,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
   },
   stepLabelTextComplete: {
-    color: "#BBF7D0",
+    color: colors.cream,
   },
   stepDetailText: {
     color: "#94A3B8",
@@ -1310,6 +1318,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
   },
+  tabDock: { paddingHorizontal: 16, paddingTop: 6, paddingBottom: 8, backgroundColor: "#020617" },
   featureOverlay: {
     flex: 1,
     backgroundColor: "rgba(2, 6, 23, 0.86)",
@@ -1347,16 +1356,16 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  featureCheckboxChecked: { backgroundColor: "#22C55E", borderColor: "#22C55E" },
-  featureCheckmark: { color: "#052E16", fontWeight: "900" },
+  featureCheckboxChecked: { backgroundColor: colors.lime, borderColor: colors.lime },
+  featureCheckmark: { color: colors.limeInk, fontWeight: "900" },
   featureConsentText: { color: "#CBD5E1", fontSize: 13, lineHeight: 18, flex: 1 },
   featurePrimary: {
-    backgroundColor: "#22C55E",
+    backgroundColor: colors.lime,
     borderRadius: 12,
     paddingVertical: 13,
     alignItems: "center",
   },
-  featurePrimaryText: { color: "#052E16", fontSize: 15, fontWeight: "900" },
+  featurePrimaryText: { color: colors.limeInk, fontSize: 15, fontWeight: "900" },
   featureSecondary: { paddingVertical: 10, alignItems: "center" },
   featureSecondaryText: { color: "#CBD5E1", fontSize: 14, fontWeight: "700" },
   disabledButton: { opacity: 0.55 },
@@ -1380,13 +1389,13 @@ const styles = StyleSheet.create({
   },
   primaryButton: {
     flex: 1,
-    backgroundColor: "#22C55E",
+    backgroundColor: colors.lime,
     paddingVertical: 12,
     borderRadius: 12,
     alignItems: "center",
   },
   primaryButtonText: {
-    color: "#022C22",
+    color: colors.limeInk,
     fontSize: 15,
     fontWeight: "700",
   },
@@ -1455,8 +1464,8 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 9,
-    backgroundColor: "#22C55E",
-    color: "#022C22",
+    backgroundColor: colors.lime,
+    color: colors.limeInk,
     textAlign: "center",
     textAlignVertical: "center",
     fontSize: 11,
@@ -1464,7 +1473,7 @@ const styles = StyleSheet.create({
     overflow: "hidden",
   },
   resultLabel: {
-    color: "#BBF7D0",
+    color: colors.cream,
     fontSize: 12,
     fontWeight: "900",
     textTransform: "uppercase",
@@ -1494,7 +1503,7 @@ const styles = StyleSheet.create({
     fontWeight: "900",
   },
   xpEarnedText: {
-    color: "#BBF7D0",
+    color: colors.cream,
     fontSize: 13,
     fontWeight: "800",
     marginTop: 4,
@@ -1502,8 +1511,8 @@ const styles = StyleSheet.create({
   scoreMeterCard: {
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: "#204B3A",
-    backgroundColor: "#061A14",
+    borderColor: colors.line,
+    backgroundColor: colors.surface,
     padding: 14,
     gap: 10,
   },
@@ -1520,20 +1529,20 @@ const styles = StyleSheet.create({
     letterSpacing: 0.5,
   },
   scoreMeterValue: {
-    color: "#86EFAC",
+    color: colors.lime,
     fontSize: 16,
     fontWeight: "900",
   },
   scoreMeterTrack: {
     height: 12,
     borderRadius: 999,
-    backgroundColor: "#123027",
+    backgroundColor: colors.surfaceSoft,
     overflow: "hidden",
   },
   scoreMeterFill: {
     height: "100%",
     borderRadius: 999,
-    backgroundColor: "#22C55E",
+    backgroundColor: colors.lime,
   },
   visualStatsGrid: {
     flexDirection: "row",
@@ -1627,7 +1636,7 @@ const styles = StyleSheet.create({
     textTransform: "uppercase",
   },
   rewardsValue: {
-    color: "#BBF7D0",
+    color: colors.cream,
     fontSize: 14,
     fontWeight: "900",
   },
@@ -1640,7 +1649,7 @@ const styles = StyleSheet.create({
   rewardsFill: {
     height: "100%",
     borderRadius: 999,
-    backgroundColor: "#22C55E",
+    backgroundColor: colors.lime,
   },
   rewardsMeta: {
     color: "#CBD5E1",
@@ -1671,7 +1680,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   breakdownIconText: {
-    color: "#86EFAC",
+    color: colors.lime,
     fontSize: 11,
     fontWeight: "900",
   },
@@ -1700,7 +1709,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#38BDF8",
   },
   breakdownValue: {
-    color: "#BBF7D0",
+    color: colors.cream,
     fontSize: 13,
     fontWeight: "900",
     width: 34,
@@ -1760,7 +1769,7 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   suggestionTag: {
-    color: "#22C55E",
+    color: colors.lime,
     fontSize: 12,
     fontWeight: "700",
   },
@@ -1796,7 +1805,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   challengeSubmitEyebrow: {
-    color: "#22C55E",
+    color: colors.lime,
     fontSize: 12,
     fontWeight: "800",
     textTransform: "uppercase",
@@ -1827,11 +1836,11 @@ const styles = StyleSheet.create({
     marginTop: 1,
   },
   checkboxChecked: {
-    backgroundColor: "#22C55E",
-    borderColor: "#22C55E",
+    backgroundColor: colors.lime,
+    borderColor: colors.lime,
   },
   checkboxText: {
-    color: "#052E16",
+    color: colors.limeInk,
     fontSize: 10,
     fontWeight: "900",
   },
@@ -1842,7 +1851,7 @@ const styles = StyleSheet.create({
     lineHeight: 18,
   },
   challengeSubmitButton: {
-    backgroundColor: "#22C55E",
+    backgroundColor: colors.lime,
     paddingVertical: 12,
     borderRadius: 12,
     alignItems: "center",
@@ -1851,7 +1860,7 @@ const styles = StyleSheet.create({
     opacity: 0.65,
   },
   challengeSubmitButtonText: {
-    color: "#022C22",
+    color: colors.limeInk,
     fontSize: 14,
     fontWeight: "800",
   },
@@ -1937,14 +1946,14 @@ const styles = StyleSheet.create({
   },
   scanButton: {
     flex: 1,
-    backgroundColor: "#22C55E",
+    backgroundColor: colors.lime,
     paddingVertical: 12,
     borderRadius: 999,
     alignItems: "center",
     justifyContent: "center",
   },
   scanButtonText: {
-    color: "#022C22",
+    color: colors.limeInk,
     fontSize: 15,
     fontWeight: "700",
   },
@@ -1982,12 +1991,12 @@ const styles = StyleSheet.create({
     alignSelf: "center",
     borderRadius: 24,
     borderWidth: 1,
-    borderColor: "#22C55E66",
+    borderColor: "#C7FF4A66",
     backgroundColor: "#0B1224",
     padding: 20,
     gap: 16,
   },
-  progressPopupEyebrow: { color: "#22C55E", fontSize: 12, fontWeight: "900", letterSpacing: 1 },
+  progressPopupEyebrow: { color: colors.lime, fontSize: 12, fontWeight: "900", letterSpacing: 1 },
   progressPopupTitle: { color: "#F8FAFC", fontSize: 22, lineHeight: 29, fontWeight: "900" },
   progressPopupStats: { flexDirection: "row", flexWrap: "wrap", gap: 10 },
   progressPopupStat: {
@@ -2011,13 +2020,13 @@ const styles = StyleSheet.create({
   styleProgressCopy: { flex: 1 },
   styleProgressName: { color: "#F8FAFC", fontSize: 14, fontWeight: "800", textTransform: "capitalize" },
   styleProgressScans: { color: "#94A3B8", fontSize: 12, marginTop: 2 },
-  styleProgressDelta: { color: "#22C55E", fontSize: 16, fontWeight: "900" },
+  styleProgressDelta: { color: colors.lime, fontSize: 16, fontWeight: "900" },
   styleProgressDeltaDown: { color: "#F59E0B" },
   progressPopupButton: {
-    backgroundColor: "#22C55E",
+    backgroundColor: colors.lime,
     borderRadius: 999,
     alignItems: "center",
     paddingVertical: 13,
   },
-  progressPopupButtonText: { color: "#052E16", fontSize: 14, fontWeight: "900" },
+  progressPopupButtonText: { color: colors.limeInk, fontSize: 14, fontWeight: "900" },
 });

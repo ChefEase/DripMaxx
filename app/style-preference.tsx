@@ -7,13 +7,24 @@ import {
   Pressable,
   TextInput,
   FlatList,
+  Image,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../App";
+import { colors } from "./ui/theme";
 import { useStore } from "../store";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
+
+const STYLE_IMAGES: Record<string, any> = {
+  Streetwear: require("../assets/editorial/style-streetwear.jpg"),
+  Minimal: require("../assets/editorial/style-minimal.jpg"),
+  Vintage: require("../assets/editorial/style-vintage.jpg"),
+  Luxury: require("../assets/editorial/style-luxury.jpg"),
+  Y2K: require("../assets/editorial/style-y2k.jpg"),
+  Casual: require("../assets/editorial/style-casual.jpg"),
+};
 
 export default function StylePreferenceScreen() {
   const navigation = useNavigation<Nav>();
@@ -83,6 +94,10 @@ export default function StylePreferenceScreen() {
           item.key === "Custom" && cardStyles.cardCustom,
         ]}
       >
+        {STYLE_IMAGES[item.key] ? (
+          <Image source={STYLE_IMAGES[item.key]} style={cardStyles.cardImage} resizeMode="cover" />
+        ) : null}
+        <View style={cardStyles.cardShade} />
         <View style={cardStyles.cardHeader}>
           <Text style={cardStyles.cardTitle}>{item.key}</Text>
           {isSelected ? (
@@ -109,7 +124,7 @@ export default function StylePreferenceScreen() {
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
         <View>
-          <Text style={styles.stepLabel}>Step 2 of 5</Text>
+          <Text style={styles.stepLabel}>YOUR STYLE · 01</Text>
           <Text style={styles.title}>What style do you like?</Text>
           <Text style={styles.subtitle}>
             We&apos;ll use this to personalize your Drip Score and suggestions.
@@ -151,7 +166,7 @@ export default function StylePreferenceScreen() {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: "#020617",
+    backgroundColor: colors.ink,
   },
   container: {
     flex: 1,
@@ -161,13 +176,13 @@ const styles = StyleSheet.create({
   },
   stepLabel: {
     fontSize: 13,
-    color: "#9CA3AF",
+    color: colors.lime,
     marginBottom: 8,
   },
   title: {
-    fontSize: 24,
+    fontSize: 32,
     fontWeight: "700",
-    color: "#F9FAFB",
+    color: colors.text,
     marginBottom: 8,
   },
   subtitle: {
@@ -208,14 +223,14 @@ const styles = StyleSheet.create({
   },
   nextButton: {
     flex: 1,
-    backgroundColor: "#22C55E",
+    backgroundColor: colors.lime,
     paddingVertical: 12,
     borderRadius: 999,
     alignItems: "center",
     justifyContent: "center",
   },
   nextButtonText: {
-    color: "#022C22",
+    color: colors.limeInk,
     fontSize: 15,
     fontWeight: "700",
   },
@@ -227,15 +242,20 @@ const cardStyles = StyleSheet.create({
     gap: 12,
   },
   card: {
-    backgroundColor: "#0B1224",
-    borderRadius: 16,
+    backgroundColor: colors.surface,
+    minHeight: 150,
+    borderRadius: 22,
     borderWidth: 1,
-    borderColor: "#1F2937",
+    borderColor: colors.line,
     padding: 16,
+    overflow: "hidden",
+    justifyContent: "flex-end",
   },
+  cardImage: { ...StyleSheet.absoluteFillObject, width: "100%", height: "100%" },
+  cardShade: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(8,10,12,0.42)" },
   cardSelected: {
-    borderColor: "#22C55E",
-    backgroundColor: "#0F1A2F",
+    borderColor: colors.lime,
+    borderWidth: 2,
   },
   cardCustom: {
     borderStyle: "dashed",
@@ -247,7 +267,7 @@ const cardStyles = StyleSheet.create({
     marginBottom: 8,
   },
   cardTitle: {
-    color: "#F9FAFB",
+    color: colors.text,
     fontSize: 16,
     fontWeight: "700",
   },
@@ -256,12 +276,12 @@ const cardStyles = StyleSheet.create({
     fontSize: 12,
   },
   cardPill: {
-    color: "#22C55E",
+    color: colors.lime,
     fontSize: 12,
     fontWeight: "700",
   },
   cardDescription: {
-    color: "#9CA3AF",
+    color: colors.cream,
     fontSize: 13,
     lineHeight: 18,
   },

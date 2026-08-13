@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { SafeAreaView, View, Text, StyleSheet, Pressable, Animated, ScrollView, Modal } from "react-native";
+import { SafeAreaView, View, Text, StyleSheet, Pressable, Animated, ScrollView, Modal, Image } from "react-native";
 import { useNavigation, useRoute } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
@@ -10,6 +10,8 @@ import { RewardsSummary, fetchRewardsSummary } from "../lib/rewards";
 import { apiFetch } from "../lib/api";
 import { logWarn } from "../lib/logger";
 import RemoteImage from "./components/RemoteImage";
+import AppTabBar from "./components/AppTabBar";
+import { colors } from "./ui/theme";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 type NewsItem = {
@@ -167,35 +169,39 @@ export default function ValuePropositionScreen() {
         </View>
 
         <Animated.View style={[styles.heroCard, { transform: [{ scale: heroScale }] }]}>
-          <Text style={styles.logo}>DripMaxx</Text>
-          <Text style={styles.title}>Your outfit rating room.</Text>
-          <Text style={styles.subtitle}>
-            Scan once. Get a score, strengths, fixes, XP, and your next style move.
-          </Text>
-          <View style={styles.heroPreview}>
-            <View style={styles.heroScoreRing}>
-              <Text style={styles.heroScore}>92</Text>
-              <Text style={styles.heroScoreLabel}>Target</Text>
-            </View>
-            <View style={styles.heroMetricList}>
-              {["Color", "Fit", "Streetwear"].map((label, index) => (
-                <View key={label} style={styles.heroMetricRow}>
-                  <Text style={styles.heroMetricLabel}>{label}</Text>
-                  <View style={styles.heroMetricTrack}>
-                    <View style={[styles.heroMetricFill, { width: `${92 - index * 12}%` }]} />
-                  </View>
-                </View>
-              ))}
-            </View>
+          <Image
+            source={require("../assets/editorial/hero-home.jpg")}
+            style={styles.heroImage}
+            resizeMode="cover"
+            accessibilityLabel="A styled full-body outfit"
+          />
+          <View style={styles.heroShade} />
+          <View style={styles.heroContent}>
+            <Text style={styles.logo}>DRIPMAXX · AI STYLE COACH</Text>
+            <Text style={styles.title}>Know why your outfit works.</Text>
+            <Text style={styles.subtitle}>One photo. A clear score, your strongest move, and the fix that matters most.</Text>
+            <Pressable style={styles.heroButton} onPress={() => navigation.navigate("StylePreference")}>
+              <Text style={styles.heroButtonText}>Personalize & rate</Text>
+              <Text style={styles.heroButtonArrow}>→</Text>
+            </Pressable>
           </View>
         </Animated.View>
+
+        <View style={styles.proofRow}>
+          <View style={styles.proofItem}><Text style={styles.proofValue}>5</Text><Text style={styles.proofLabel}>style signals</Text></View>
+          <View style={styles.proofDivider} />
+          <View style={styles.proofItem}><Text style={styles.proofValue}>1</Text><Text style={styles.proofLabel}>priority fix</Text></View>
+          <View style={styles.proofDivider} />
+          <View style={styles.proofItem}><Text style={styles.proofValue}>∞</Text><Text style={styles.proofLabel}>room to level up</Text></View>
+        </View>
 
         {rewards ? (
           <Pressable style={styles.rewardsCard} onPress={() => navigation.navigate("Profile")}>
             <View style={styles.rewardsTopRow}>
               <View>
-                <Text style={styles.rewardsLabel}>XP & Rewards</Text>
-                <Text style={styles.rewardsMeta}>{rewards.xp_until_next_reward} XP to 10 free scans</Text>
+                <Text style={styles.rewardsLabel}>YOUR MOMENTUM</Text>
+                <Text style={styles.rewardsTitle}>Keep the streak moving</Text>
+                <Text style={styles.rewardsMeta}>{rewards.xp_until_next_reward} XP until your next scan reward</Text>
               </View>
               <Text style={styles.rewardsValue}>{rewards.xp} XP</Text>
             </View>
@@ -229,7 +235,7 @@ export default function ValuePropositionScreen() {
               </Text>
             ) : null}
             <Pressable style={styles.challengeButton} onPress={() => navigation.navigate("Challenge")}>
-              <Text style={styles.challengeButtonText}>View Entries & Vote</Text>
+            <Text style={styles.challengeButtonText}>See the looks</Text>
             </Pressable>
           </View>
         ) : null}
@@ -241,33 +247,11 @@ export default function ValuePropositionScreen() {
           </Animated.View>
         ) : null}
 
-        <View style={styles.actions}>
-          <Pressable style={styles.primaryButton} onPress={() => navigation.navigate("StylePreference")}>
-            <Text style={styles.primaryButtonText}>Start a drip scan</Text>
-          </Pressable>
-          <Pressable style={styles.secondaryButton} onPress={() => navigation.navigate("ScanExample")}>
-            <Text style={styles.secondaryButtonText}>Preview results</Text>
-          </Pressable>
-        </View>
-
-        <View style={styles.bottomNav}>
-          <Pressable style={styles.navItem} onPress={() => navigation.navigate("Scan")}>
-            <Text style={styles.navIcon}>S</Text>
-            <Text style={styles.navText}>Scan</Text>
-          </Pressable>
-          <Pressable style={styles.navItem} onPress={() => navigation.navigate("Leaderboard")}>
-            <Text style={styles.navIcon}>L</Text>
-            <Text style={styles.navText}>Ranks</Text>
-          </Pressable>
-          <Pressable style={styles.navItem} onPress={() => navigation.navigate("Challenge")}>
-            <Text style={styles.navIcon}>C</Text>
-            <Text style={styles.navText}>Challenge</Text>
-          </Pressable>
-          <Pressable style={styles.navItem} onPress={() => navigation.navigate("Profile")}>
-            <Text style={styles.navIcon}>P</Text>
-            <Text style={styles.navText}>Profile</Text>
-          </Pressable>
-        </View>
+        <Pressable style={styles.previewLink} onPress={() => navigation.navigate("ScanExample")}>
+          <Text style={styles.previewLinkText}>Not ready for a photo? Preview a real result</Text>
+          <Text style={styles.previewLinkArrow}>→</Text>
+        </Pressable>
+        <AppTabBar active="home" />
       </ScrollView>
       <Modal
         transparent
@@ -346,12 +330,12 @@ export default function ValuePropositionScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: "#020617" },
+  safeArea: { flex: 1, backgroundColor: colors.ink },
   container: {
     flexGrow: 1,
     paddingHorizontal: 20,
     paddingTop: 18,
-    paddingBottom: 34,
+    paddingBottom: 28,
     gap: 16,
   },
   backgroundLayer: {
@@ -365,7 +349,7 @@ const styles = StyleSheet.create({
     width: 240,
     height: 240,
     borderRadius: 120,
-    backgroundColor: "#22C55E",
+    backgroundColor: colors.lime,
   },
   topBar: {
     flexDirection: "row",
@@ -379,69 +363,77 @@ const styles = StyleSheet.create({
     width: 46,
     height: 46,
     borderRadius: 18,
-    backgroundColor: "#111827",
+    backgroundColor: colors.surfaceRaised,
     alignItems: "center",
     justifyContent: "center",
     borderWidth: 1,
-    borderColor: "#263449",
+    borderColor: colors.line,
   },
   avatarText: { color: "#F9FAFB", fontSize: 18, fontWeight: "900" },
   userName: { color: "#E5E7EB", fontSize: 15, fontWeight: "900" },
-  userEmail: { color: "#94A3B8", fontSize: 12, marginTop: 2 },
+  userEmail: { color: colors.textMuted, fontSize: 12, marginTop: 2 },
   profilePill: {
     borderWidth: 1,
-    borderColor: "#334155",
+    borderColor: colors.line,
     borderRadius: 999,
     paddingHorizontal: 14,
     paddingVertical: 9,
-    backgroundColor: "#0F172A",
+    backgroundColor: colors.surface,
   },
   profilePillText: { color: "#E5E7EB", fontSize: 12, fontWeight: "900" },
   heroCard: {
-    borderWidth: 1,
-    borderColor: "#204B3A",
-    borderRadius: 24,
-    padding: 20,
-    backgroundColor: "#061A14",
-    gap: 14,
+    minHeight: 480,
+    borderRadius: 30,
+    backgroundColor: colors.surface,
+    overflow: "hidden",
+    justifyContent: "flex-end",
   },
+  heroImage: { ...StyleSheet.absoluteFillObject, width: "100%", height: "100%" },
+  heroArt: { ...StyleSheet.absoluteFillObject, backgroundColor: "#252921", alignItems: "center", justifyContent: "center" },
+  heroArtRing: { position: "absolute", width: 270, height: 270, borderRadius: 135, borderWidth: 1, borderColor: "#C7FF4A55" },
+  heroArtMonogram: { color: "#F7F5F022", fontSize: 136, fontWeight: "900", letterSpacing: -12 },
+  heroArtCaption: { position: "absolute", top: 28, right: 22, color: colors.textMuted, fontSize: 10, fontWeight: "800", letterSpacing: 1.4 },
+  heroShade: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(4,5,6,0.38)" },
+  heroContent: { padding: 22, paddingTop: 130, gap: 12 },
   logo: {
     fontSize: 13,
     fontWeight: "900",
-    color: "#86EFAC",
+    color: colors.lime,
     letterSpacing: 1.5,
     textTransform: "uppercase",
   },
   title: {
-    fontSize: 34,
+    fontSize: 39,
     fontWeight: "900",
     color: "#F9FAFB",
     letterSpacing: 0,
-    lineHeight: 39,
+    lineHeight: 43,
   },
   subtitle: {
     fontSize: 15,
-    color: "#D1FAE5",
+    color: colors.cream,
     lineHeight: 22,
   },
-  heroPreview: {
-    marginTop: 4,
-    flexDirection: "row",
-    gap: 14,
-    alignItems: "center",
-  },
+  heroButton: { marginTop: 8, minHeight: 54, borderRadius: 18, paddingHorizontal: 18, backgroundColor: colors.lime, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  heroButtonText: { color: colors.limeInk, fontSize: 16, fontWeight: "900" },
+  heroButtonArrow: { color: colors.limeInk, fontSize: 24 },
+  proofRow: { flexDirection: "row", alignItems: "center", backgroundColor: colors.surface, borderRadius: 20, paddingVertical: 15, paddingHorizontal: 10 },
+  proofItem: { flex: 1, alignItems: "center", gap: 2 },
+  proofValue: { color: colors.text, fontSize: 19, fontWeight: "900" },
+  proofLabel: { color: colors.textSoft, fontSize: 9, fontWeight: "700", textTransform: "uppercase" },
+  proofDivider: { width: 1, height: 28, backgroundColor: colors.line },
   heroScoreRing: {
     width: 96,
     height: 96,
     borderRadius: 48,
     borderWidth: 8,
-    borderColor: "#22C55E",
+    borderColor: colors.lime,
     backgroundColor: "#020617",
     alignItems: "center",
     justifyContent: "center",
   },
   heroScore: { color: "#F8FAFC", fontSize: 28, fontWeight: "900" },
-  heroScoreLabel: { color: "#86EFAC", fontSize: 11, fontWeight: "900", textTransform: "uppercase" },
+  heroScoreLabel: { color: colors.lime, fontSize: 11, fontWeight: "900", textTransform: "uppercase" },
   heroMetricList: { flex: 1, gap: 10 },
   heroMetricRow: { gap: 5 },
   heroMetricLabel: { color: "#D1FAE5", fontSize: 12, fontWeight: "800" },
@@ -449,13 +441,13 @@ const styles = StyleSheet.create({
     height: 9,
     borderRadius: 999,
     overflow: "hidden",
-    backgroundColor: "#123027",
+    backgroundColor: colors.surfaceSoft,
   },
   heroMetricFill: { height: "100%", borderRadius: 999, backgroundColor: "#38BDF8" },
   rewardsCard: {
-    backgroundColor: "#0F172A",
+    backgroundColor: colors.surface,
     borderWidth: 1,
-    borderColor: "#1F2937",
+    borderColor: colors.line,
     borderRadius: 18,
     padding: 14,
     gap: 10,
@@ -466,7 +458,8 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     gap: 12,
   },
-  rewardsLabel: { color: "#C4B5FD", fontSize: 12, fontWeight: "900", textTransform: "uppercase" },
+  rewardsLabel: { color: colors.lime, fontSize: 10, fontWeight: "900", letterSpacing: 1.1 },
+  rewardsTitle: { color: colors.text, fontSize: 17, fontWeight: "900", marginTop: 3 },
   rewardsValue: { color: "#F9FAFB", fontSize: 18, fontWeight: "900" },
   rewardsTrack: {
     height: 10,
@@ -474,7 +467,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#111827",
     overflow: "hidden",
   },
-  rewardsFill: { height: "100%", borderRadius: 999, backgroundColor: "#A78BFA" },
+  rewardsFill: { height: "100%", borderRadius: 999, backgroundColor: colors.lime },
   rewardsMeta: { color: "#CBD5E1", fontSize: 12, fontWeight: "700", marginTop: 4 },
   rewardStatsRow: { flexDirection: "row", justifyContent: "space-between", gap: 10 },
   rewardStat: { color: "#94A3B8", fontSize: 12, fontWeight: "800" },
@@ -489,8 +482,8 @@ const styles = StyleSheet.create({
   challengeHeaderRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
   challengeEyebrow: { color: "#38BDF8", fontSize: 12, fontWeight: "900", textTransform: "uppercase" },
   challengeChip: {
-    color: "#022C22",
-    backgroundColor: "#22C55E",
+    color: colors.limeInk,
+    backgroundColor: colors.lime,
     borderRadius: 999,
     paddingHorizontal: 10,
     paddingVertical: 4,
@@ -503,12 +496,12 @@ const styles = StyleSheet.create({
   challengeReward: { color: "#E5E7EB", fontSize: 13, fontWeight: "800" },
   challengeButton: {
     marginTop: 4,
-    backgroundColor: "#22C55E",
+    backgroundColor: colors.lime,
     borderRadius: 13,
     paddingVertical: 12,
     alignItems: "center",
   },
-  challengeButtonText: { color: "#022C22", fontSize: 14, fontWeight: "900" },
+  challengeButtonText: { color: colors.limeInk, fontSize: 14, fontWeight: "900" },
   toastCard: {
     flexDirection: "row",
     alignItems: "center",
@@ -523,8 +516,8 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 10,
-    backgroundColor: "#22C55E",
-    color: "#022C22",
+    backgroundColor: colors.lime,
+    color: colors.limeInk,
     textAlign: "center",
     textAlignVertical: "center",
     fontSize: 11,
@@ -534,13 +527,13 @@ const styles = StyleSheet.create({
   toastText: { color: "#E5E7EB", fontWeight: "800", fontSize: 14, flex: 1 },
   actions: { gap: 10 },
   primaryButton: {
-    backgroundColor: "#22C55E",
+    backgroundColor: colors.lime,
     paddingVertical: 15,
     borderRadius: 16,
     alignItems: "center",
     justifyContent: "center",
   },
-  primaryButtonText: { color: "#022C22", fontSize: 16, fontWeight: "900" },
+  primaryButtonText: { color: colors.limeInk, fontSize: 16, fontWeight: "900" },
   secondaryButton: {
     borderWidth: 1,
     borderColor: "#334155",
@@ -551,15 +544,9 @@ const styles = StyleSheet.create({
     justifyContent: "center",
   },
   secondaryButtonText: { color: "#E5E7EB", fontSize: 15, fontWeight: "900" },
-  bottomNav: {
-    flexDirection: "row",
-    gap: 8,
-    borderWidth: 1,
-    borderColor: "#1F2937",
-    backgroundColor: "#07111F",
-    borderRadius: 18,
-    padding: 8,
-  },
+  previewLink: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", paddingHorizontal: 4, paddingVertical: 8 },
+  previewLinkText: { flex: 1, color: colors.textMuted, fontSize: 13, fontWeight: "700" },
+  previewLinkArrow: { color: colors.lime, fontSize: 20 },
   navItem: {
     flex: 1,
     alignItems: "center",
@@ -590,7 +577,7 @@ const styles = StyleSheet.create({
     maxHeight: "88%",
     backgroundColor: "#07111F",
     borderWidth: 1,
-    borderColor: "#22C55E",
+    borderColor: colors.lime,
     borderRadius: 24,
     overflow: "hidden",
   },
@@ -599,9 +586,9 @@ const styles = StyleSheet.create({
     justifyContent: "space-between",
     paddingHorizontal: 18,
     paddingVertical: 14,
-    backgroundColor: "#061A14",
+    backgroundColor: colors.surface,
   },
-  newsEyebrow: { color: "#86EFAC", fontSize: 12, fontWeight: "900", letterSpacing: 0.8 },
+  newsEyebrow: { color: colors.lime, fontSize: 12, fontWeight: "900", letterSpacing: 0.8 },
   newsCount: { color: "#94A3B8", fontSize: 12, fontWeight: "800" },
   newsImage: { width: "100%", aspectRatio: 4 / 3, backgroundColor: "#0F172A" },
   glowUpImages: { flexDirection: "row", gap: 2, backgroundColor: "#020617" },
@@ -632,12 +619,12 @@ const styles = StyleSheet.create({
   },
   podiumRank: { fontSize: 19 },
   podiumName: { flex: 1, color: "#F8FAFC", fontSize: 14, fontWeight: "800" },
-  podiumScore: { color: "#86EFAC", fontSize: 14, fontWeight: "900" },
+  podiumScore: { color: colors.lime, fontSize: 14, fontWeight: "900" },
   newsCaption: { color: "#CBD5E1", fontSize: 14, lineHeight: 21 },
   newsActions: { flexDirection: "row", borderTopWidth: 1, borderTopColor: "#1E293B" },
   newsLike: { paddingVertical: 14, paddingHorizontal: 16, alignItems: "center", backgroundColor: "#0F172A" },
   newsLikeText: { color: "#FCA5A5", fontSize: 13, fontWeight: "900" },
-  newsClose: { flex: 1, backgroundColor: "#22C55E", paddingVertical: 14, alignItems: "center" },
+  newsClose: { flex: 1, backgroundColor: colors.lime, paddingVertical: 14, alignItems: "center" },
   newsCloseDisabled: { opacity: 0.6 },
-  newsCloseText: { color: "#052E16", fontSize: 14, fontWeight: "900" },
+  newsCloseText: { color: colors.limeInk, fontSize: 14, fontWeight: "900" },
 });

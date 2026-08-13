@@ -10,6 +10,7 @@ import {
   Platform,
   KeyboardAvoidingView,
   ScrollView,
+  Image,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -21,6 +22,7 @@ import { startOAuthSignIn, type OAuthProvider } from "../lib/oauth";
 import { logWarn } from "../lib/logger";
 import { supabase } from "../lib/supabase";
 import { useStore } from "../store";
+import { colors } from "./ui/theme";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -140,6 +142,11 @@ export default function AuthScreen() {
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
+        <View style={styles.onboardingVisual}>
+          <Image source={require("../assets/editorial/hero-onboarding.jpg")} style={styles.onboardingImage} resizeMode="cover" />
+          <View style={styles.onboardingShade} />
+          <Text style={styles.onboardingLabel}>YOUR STYLE, MADE CLEAR</Text>
+        </View>
         <View style={styles.brandPanel}>
           <Text style={styles.brandKicker}>DripMaxx</Text>
           <Text style={styles.title}>Step into your style lab.</Text>
@@ -238,7 +245,7 @@ export default function AuthScreen() {
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: "#020617" },
+  safeArea: { flex: 1, backgroundColor: colors.ink },
   keyboardView: { flex: 1 },
   authGlow: {
     position: "absolute",
@@ -256,6 +263,10 @@ const styles = StyleSheet.create({
     gap: 14,
     justifyContent: "center",
   },
+  onboardingVisual: { width: "100%", height: 260, borderRadius: 28, overflow: "hidden", position: "relative", backgroundColor: colors.surface },
+  onboardingImage: { width: "100%", height: "100%" },
+  onboardingShade: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(8,10,12,0.16)" },
+  onboardingLabel: { position: "absolute", left: 14, bottom: 14, color: colors.ink, backgroundColor: colors.lime, borderRadius: 999, paddingHorizontal: 11, paddingVertical: 7, fontSize: 9, fontWeight: "900", letterSpacing: 1 },
   brandPanel: {
     borderWidth: 1,
     borderColor: "#204B3A",

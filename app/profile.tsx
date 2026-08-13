@@ -10,6 +10,8 @@ import { logWarn } from "../lib/logger";
 import { ensureRevenueCatConfigured, hasRevenueCatEntitlement } from "../lib/revenueCat";
 import { supabase } from "../lib/supabase";
 import { useStore } from "../store";
+import AppTabBar from "./components/AppTabBar";
+import { colors } from "./ui/theme";
 import { bodyTypeLabel, genderStyleLabel } from "../lib/profileEnums";
 import RankingsCard from "./components/RankingsCard";
 import RemoteImage from "./components/RemoteImage";
@@ -217,7 +219,8 @@ export default function ProfileScreen() {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        <Text style={styles.title}>Profile</Text>
+        <Text style={styles.eyebrow}>YOUR STYLE</Text>
+        <Text style={styles.title}>Progress, preferences and looks</Text>
         <View style={styles.card}>
           <Text style={styles.label}>User</Text>
           <View style={styles.row}>
@@ -231,10 +234,6 @@ export default function ProfileScreen() {
               <Text style={styles.muted}>{userEmail || "No email"}</Text>
             </View>
           </View>
-          <Text style={styles.label}>User ID</Text>
-          <Text style={styles.value}>{userId || "Not signed in"}</Text>
-          <Text style={styles.label}>Email</Text>
-          <Text style={styles.value}>{userEmail || "Not signed in"}</Text>
         </View>
         <View style={styles.card}>
           <Text style={styles.label}>Plan</Text>
@@ -479,15 +478,18 @@ export default function ProfileScreen() {
           </Pressable>
         </View>
       </ScrollView>
+      <View style={styles.tabDock}><AppTabBar active="profile" /></View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: "#020617" },
+  safeArea: { flex: 1, backgroundColor: colors.ink },
+  tabDock: { paddingHorizontal: 16, paddingTop: 6, paddingBottom: 8, backgroundColor: "#020617" },
   scroll: { flex: 1 },
   content: { padding: 24, paddingBottom: 48, gap: 14 },
-  title: { color: "#F9FAFB", fontSize: 22, fontWeight: "800" },
+  eyebrow: { color: colors.lime, fontSize: 10, fontWeight: "900", letterSpacing: 1.6 },
+  title: { color: colors.text, fontSize: 32, lineHeight: 37, fontWeight: "900", letterSpacing: -0.8 },
   card: {
     backgroundColor: "#0F172A",
     borderWidth: 1,
@@ -510,20 +512,20 @@ const styles = StyleSheet.create({
   },
   avatarText: { color: "#F9FAFB", fontSize: 18, fontWeight: "800" },
   primary: {
-    backgroundColor: "#22C55E",
+    backgroundColor: colors.lime,
     paddingVertical: 12,
     borderRadius: 12,
     alignItems: "center",
   },
-  primaryText: { color: "#022C22", fontWeight: "800", fontSize: 15 },
+  primaryText: { color: colors.limeInk, fontWeight: "800", fontSize: 15 },
   upgradeButton: {
     marginTop: 10,
-    backgroundColor: "#22C55E",
+    backgroundColor: colors.lime,
     borderRadius: 12,
     paddingVertical: 12,
     alignItems: "center",
   },
-  upgradeButtonText: { color: "#022C22", fontWeight: "800", fontSize: 14 },
+  upgradeButtonText: { color: colors.limeInk, fontWeight: "800", fontSize: 14 },
   upgradeButtonDisabled: { backgroundColor: "#64748B", opacity: 0.75 },
   secondary: {
     borderWidth: 1,
@@ -579,9 +581,9 @@ const styles = StyleSheet.create({
   scoreTrendCard: {
     width: 280,
     borderWidth: 1,
-    borderColor: "#204B3A",
+    borderColor: colors.line,
     borderRadius: 18,
-    backgroundColor: "#061A14",
+    backgroundColor: colors.surface,
     overflow: "hidden",
   },
   scoreTrendImageWrap: {
@@ -613,11 +615,11 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     paddingHorizontal: 12,
     paddingVertical: 7,
-    backgroundColor: "#22C55E",
+    backgroundColor: colors.lime,
     alignItems: "center",
   },
   scoreTrendBadgeText: {
-    color: "#022C22",
+    color: colors.limeInk,
     fontSize: 17,
     fontWeight: "900",
   },
@@ -637,7 +639,7 @@ const styles = StyleSheet.create({
     fontWeight: "900",
   },
   scoreTrendDate: {
-    color: "#86EFAC",
+    color: colors.lime,
     fontSize: 11,
     fontWeight: "800",
     marginTop: 2,
@@ -656,12 +658,12 @@ const styles = StyleSheet.create({
     height: 10,
     borderRadius: 999,
     overflow: "hidden",
-    backgroundColor: "#123027",
+    backgroundColor: colors.surfaceSoft,
   },
   scoreTrendMeterFill: {
     height: "100%",
     borderRadius: 999,
-    backgroundColor: "#22C55E",
+    backgroundColor: colors.lime,
   },
   scoreTrendMetrics: {
     gap: 8,
@@ -710,7 +712,7 @@ const styles = StyleSheet.create({
   },
   bar: {
     width: 12,
-    backgroundColor: "#22C55E",
+    backgroundColor: colors.lime,
     borderRadius: 6,
   },
   barLabel: {
@@ -734,9 +736,9 @@ const styles = StyleSheet.create({
     borderRadius: 999,
     backgroundColor: "#1F2937",
   },
-  visibilityChipActive: { backgroundColor: "#22C55E" },
+  visibilityChipActive: { backgroundColor: colors.lime },
   visibilityChipText: { color: "#9CA3AF", fontSize: 13, fontWeight: "600" },
-  visibilityChipTextActive: { color: "#022C22", fontWeight: "700" },
+  visibilityChipTextActive: { color: colors.limeInk, fontWeight: "700" },
   footerLinks: { paddingBottom: 6 },
   rewardMeter: {
     height: 10,
@@ -748,6 +750,6 @@ const styles = StyleSheet.create({
   rewardMeterFill: {
     height: "100%",
     borderRadius: 999,
-    backgroundColor: "#22C55E",
+    backgroundColor: colors.lime,
   },
 });

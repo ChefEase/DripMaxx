@@ -13,6 +13,7 @@ import {
   REVENUECAT_ENTITLEMENT_ID,
 } from "../lib/revenueCat";
 import { useStore } from "../store";
+import { colors } from "./ui/theme";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -34,23 +35,20 @@ function PaywallShell({ priceLabel, metaText, diagnostics, onBuy, onRestore, bus
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
         <View>
-          <Text style={styles.kicker}>Upgrade Plan</Text>
-          <Text style={styles.title}>DripMaxx Monthly</Text>
-          <Text style={styles.subtitle}>Free users get 5 scans to start, then 1 free scan every 3 days.</Text>
+          <Text style={styles.kicker}>DRIPMAXX+</Text>
+          <Text style={styles.title}>More looks. More progress.</Text>
+          <Text style={styles.subtitle}>Keep improving without waiting for your next free scan.</Text>
         </View>
         <View style={styles.card}>
-          <Text style={styles.cardTitle}>Plan details</Text>
-          <Text style={styles.bullet}>- {priceLabel} per month</Text>
-          <Text style={styles.bullet}>- Unlimited scans</Text>
-          <Text style={styles.bullet}>- AI score breakdown + suggestions</Text>
-          <Text style={styles.bullet}>- Save and compare outfits</Text>
+          <Text style={styles.price}>{priceLabel}<Text style={styles.priceUnit}> / month</Text></Text>
+          <Text style={styles.cardTitle}>Everything you need to level up</Text>
+          <Text style={styles.bullet}>✓ Unlimited outfit scans</Text>
+          <Text style={styles.bullet}>✓ Full score breakdown and priority fixes</Text>
+          <Text style={styles.bullet}>✓ Save, compare and track your best looks</Text>
           <Text style={styles.meta}>{metaText}</Text>
-          <View style={styles.diagnosticsBox}>
-            {diagnostics.map((line) => <Text key={line} style={styles.diagnosticsText}>{line}</Text>)}
-          </View>
         </View>
         <Pressable style={[styles.primary, (busy || premiumActive) && styles.primaryDisabled]} onPress={onBuy} disabled={busy || premiumActive}>
-          {busy ? <ActivityIndicator color="#022C22" /> : <Text style={styles.primaryText}>{premiumActive ? "Premium Active" : "Upgrade to Premium"}</Text>}
+          {busy ? <ActivityIndicator color={colors.limeInk} /> : <Text style={styles.primaryText}>{premiumActive ? "Premium Active" : "Upgrade to Premium"}</Text>}
         </Pressable>
         <Pressable style={styles.secondary} onPress={onRestore} disabled={busy}>
           <Text style={styles.secondaryText}>Restore Purchases</Text>
@@ -205,11 +203,12 @@ function NativePaywall() {
 export default function PaywallScreen() { return Platform.OS === "web" ? <WebPaywall /> : <NativePaywall />; }
 
 const styles = StyleSheet.create({
-  safeArea: { flex: 1, backgroundColor: "#020617" }, container: { flex: 1, padding: 24, gap: 16 },
-  kicker: { color: "#A5B4FC", fontSize: 13, fontWeight: "700" }, title: { color: "#F9FAFB", fontSize: 26, fontWeight: "800", marginTop: 4 },
-  subtitle: { color: "#9CA3AF", fontSize: 14, marginTop: 4 }, card: { backgroundColor: "#0F172A", borderWidth: 1, borderColor: "#1F2937", borderRadius: 16, padding: 16, gap: 8 },
+  safeArea: { flex: 1, backgroundColor: colors.ink }, container: { flex: 1, padding: 24, gap: 18, justifyContent: "center" },
+  kicker: { color: colors.lime, fontSize: 11, fontWeight: "900", letterSpacing: 1.6 }, title: { color: colors.text, fontSize: 36, lineHeight: 40, fontWeight: "900", marginTop: 8, letterSpacing: -1 },
+  subtitle: { color: colors.textMuted, fontSize: 15, lineHeight: 22, marginTop: 8 }, card: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: 26, padding: 20, gap: 12 },
+  price: { color: colors.text, fontSize: 32, fontWeight: "900" }, priceUnit: { color: colors.textMuted, fontSize: 14, fontWeight: "600" },
   cardTitle: { color: "#E5E7EB", fontSize: 15, fontWeight: "800" }, bullet: { color: "#E5E7EB", fontSize: 14 }, meta: { color: "#9CA3AF", fontSize: 12, marginTop: 6 },
   diagnosticsBox: { marginTop: 8, borderWidth: 1, borderColor: "#1F2937", borderRadius: 12, backgroundColor: "#07111F", padding: 10, gap: 4 }, diagnosticsText: { color: "#94A3B8", fontSize: 11 },
-  primary: { backgroundColor: "#22C55E", paddingVertical: 14, borderRadius: 12, alignItems: "center", minHeight: 52, justifyContent: "center" }, primaryDisabled: { opacity: 0.7 },
-  primaryText: { color: "#022C22", fontSize: 15, fontWeight: "800" }, secondary: { alignItems: "center", paddingVertical: 10 }, secondaryText: { color: "#9CA3AF", fontSize: 14, fontWeight: "700" },
+  primary: { backgroundColor: colors.lime, paddingVertical: 14, borderRadius: 18, alignItems: "center", minHeight: 56, justifyContent: "center" }, primaryDisabled: { opacity: 0.7 },
+  primaryText: { color: colors.limeInk, fontSize: 15, fontWeight: "900" }, secondary: { alignItems: "center", paddingVertical: 10 }, secondaryText: { color: colors.textMuted, fontSize: 14, fontWeight: "700" },
 });

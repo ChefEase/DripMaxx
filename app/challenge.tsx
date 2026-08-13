@@ -8,6 +8,7 @@ import {
   StyleSheet,
   Text,
   View,
+  Image,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -23,6 +24,8 @@ import {
 import { logWarn } from "../lib/logger";
 import { useStore } from "../store";
 import RemoteImage from "./components/RemoteImage";
+import AppTabBar from "./components/AppTabBar";
+import { colors } from "./ui/theme";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -210,7 +213,7 @@ export default function ChallengeScreen() {
 
         {loading ? (
           <View style={styles.loadingBox}>
-            <ActivityIndicator color="#22C55E" />
+            <ActivityIndicator color={colors.lime} />
             <Text style={styles.muted}>Loading challenge...</Text>
           </View>
         ) : !challenge ? (
@@ -284,7 +287,13 @@ export default function ChallengeScreen() {
             <View style={styles.card}>
               <Text style={styles.sectionTitle}>Entries</Text>
               {rankedSubmissions.length === 0 ? (
-                <Text style={styles.muted}>No submissions yet.</Text>
+                <View style={styles.emptyLooks}>
+                  <Text style={styles.muted}>No submissions yet. Here is the level of styling to aim for.</Text>
+                  <View style={styles.exampleLooksRow}>
+                    <View style={styles.exampleLook}><Image source={require("../assets/editorial/challenge-look-01.jpg")} style={styles.exampleLookImage} resizeMode="cover" /><Text style={styles.exampleLookLabel}>STYLE REFERENCE 01</Text></View>
+                    <View style={styles.exampleLook}><Image source={require("../assets/editorial/challenge-look-02.jpg")} style={styles.exampleLookImage} resizeMode="cover" /><Text style={styles.exampleLookLabel}>STYLE REFERENCE 02</Text></View>
+                  </View>
+                </View>
               ) : (
                 rankedSubmissions.map((item, index) => (
                   <View key={item.id} style={styles.entry}>
@@ -358,12 +367,14 @@ export default function ChallengeScreen() {
           </>
         )}
       </ScrollView>
+      <View style={styles.tabDock}><AppTabBar active="challenge" /></View>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: "#020617" },
+  tabDock: { paddingHorizontal: 16, paddingTop: 6, paddingBottom: 8, backgroundColor: "#020617" },
   content: { padding: 24, paddingBottom: 48, gap: 14 },
   headerRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center" },
   backButton: {
@@ -375,8 +386,8 @@ const styles = StyleSheet.create({
   },
   backButtonText: { color: "#E5E7EB", fontWeight: "700" },
   adminBadge: {
-    color: "#022C22",
-    backgroundColor: "#22C55E",
+    color: colors.limeInk,
+    backgroundColor: colors.lime,
     borderRadius: 999,
     overflow: "hidden",
     paddingHorizontal: 12,
@@ -400,7 +411,7 @@ const styles = StyleSheet.create({
     padding: 14,
     gap: 12,
   },
-  eyebrow: { color: "#22C55E", fontSize: 12, fontWeight: "900", textTransform: "uppercase" },
+  eyebrow: { color: colors.lime, fontSize: 12, fontWeight: "900", textTransform: "uppercase" },
   title: { color: "#F9FAFB", fontSize: 24, fontWeight: "900" },
   subtitle: { color: "#CBD5E1", fontSize: 14, lineHeight: 20 },
   muted: { color: "#9CA3AF", fontSize: 13, lineHeight: 18 },
@@ -424,10 +435,10 @@ const styles = StyleSheet.create({
     borderBottomColor: "#1F2937",
     paddingBottom: 8,
   },
-  slotLabel: { color: "#22C55E", fontWeight: "900" },
+  slotLabel: { color: colors.lime, fontWeight: "900" },
   slotValue: { color: "#E5E7EB", fontWeight: "700" },
-  primaryButton: { backgroundColor: "#22C55E", borderRadius: 12, paddingVertical: 12, alignItems: "center" },
-  primaryButtonText: { color: "#022C22", fontWeight: "900" },
+  primaryButton: { backgroundColor: colors.lime, borderRadius: 12, paddingVertical: 12, alignItems: "center" },
+  primaryButtonText: { color: colors.limeInk, fontWeight: "900" },
   entry: {
     borderWidth: 1,
     borderColor: "#1F2937",
@@ -437,7 +448,7 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   entryHeader: { flexDirection: "row", gap: 10, alignItems: "center" },
-  rankText: { color: "#22C55E", fontSize: 18, fontWeight: "900", minWidth: 38 },
+  rankText: { color: colors.lime, fontSize: 18, fontWeight: "900", minWidth: 38 },
   entryTitleWrap: { flex: 1 },
   entryName: { color: "#F9FAFB", fontSize: 15, fontWeight: "900" },
   scoreLine: { color: "#9CA3AF", fontSize: 12, marginTop: 2 },
@@ -451,15 +462,15 @@ const styles = StyleSheet.create({
   },
   actionRow: { flexDirection: "row", flexWrap: "wrap", gap: 8 },
   voteButton: {
-    backgroundColor: "#22C55E",
+    backgroundColor: colors.lime,
     borderRadius: 10,
     paddingHorizontal: 14,
     paddingVertical: 10,
   },
-  voteButtonActive: { backgroundColor: "#86EFAC" },
+  voteButtonActive: { backgroundColor: colors.lime },
   voteButtonDisabled: { opacity: 0.55 },
-  voteButtonText: { color: "#022C22", fontWeight: "900" },
-  voteButtonTextActive: { color: "#052E16" },
+  voteButtonText: { color: colors.limeInk, fontWeight: "900" },
+  voteButtonTextActive: { color: colors.limeInk },
   rankButton: {
     width: 40,
     borderWidth: 1,
@@ -468,9 +479,9 @@ const styles = StyleSheet.create({
     alignItems: "center",
     justifyContent: "center",
   },
-  rankButtonActive: { backgroundColor: "#22C55E", borderColor: "#22C55E" },
+  rankButtonActive: { backgroundColor: colors.lime, borderColor: colors.lime },
   rankButtonText: { color: "#E5E7EB", fontWeight: "900" },
-  rankButtonTextActive: { color: "#022C22" },
+  rankButtonTextActive: { color: colors.limeInk },
   winnerButton: {
     borderWidth: 1,
     borderColor: "#FCD34D",
@@ -482,13 +493,13 @@ const styles = StyleSheet.create({
   winnerCard: {
     backgroundColor: "#102014",
     borderWidth: 1,
-    borderColor: "#22C55E",
+    borderColor: colors.lime,
     borderRadius: 8,
     padding: 14,
     gap: 10,
   },
   winnerEyebrow: {
-    color: "#86EFAC",
+    color: colors.lime,
     fontSize: 12,
     fontWeight: "900",
     textTransform: "uppercase",
@@ -499,7 +510,7 @@ const styles = StyleSheet.create({
     fontWeight: "900",
   },
   winnerMeta: {
-    color: "#BBF7D0",
+    color: colors.cream,
     fontSize: 13,
     fontWeight: "800",
   },
@@ -508,7 +519,7 @@ const styles = StyleSheet.create({
     aspectRatio: 3 / 4,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: "#166534",
+    borderColor: colors.line,
     backgroundColor: "#111827",
   },
   winnerCopy: {
@@ -516,4 +527,9 @@ const styles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 19,
   },
+  emptyLooks: { gap: 12 },
+  exampleLooksRow: { flexDirection: "row", gap: 8 },
+  exampleLook: { flex: 1, borderRadius: 16, overflow: "hidden", backgroundColor: colors.surfaceSoft, position: "relative" },
+  exampleLookImage: { width: "100%", aspectRatio: 4 / 5 },
+  exampleLookLabel: { position: "absolute", left: 6, right: 6, bottom: 6, color: colors.text, backgroundColor: "rgba(8,10,12,0.78)", borderRadius: 999, textAlign: "center", paddingVertical: 5, fontSize: 8, fontWeight: "900", letterSpacing: 0.7 },
 });

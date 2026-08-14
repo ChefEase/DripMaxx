@@ -13,7 +13,7 @@ import {
   REVENUECAT_ENTITLEMENT_ID,
 } from "../lib/revenueCat";
 import { useStore } from "../store";
-import { colors } from "./ui/theme";
+import { colors, useAppTheme, useThemedStyles } from "./ui/theme";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -31,6 +31,8 @@ function PaywallShell({ priceLabel, metaText, diagnostics, onBuy, onRestore, bus
   premiumActive?: boolean;
 }) {
   const nav = useNavigation<Nav>();
+  const styles = useThemedStyles(baseStyles);
+  const { theme } = useAppTheme();
   return (
     <SafeAreaView style={styles.safeArea}>
       <View style={styles.container}>
@@ -48,7 +50,7 @@ function PaywallShell({ priceLabel, metaText, diagnostics, onBuy, onRestore, bus
           <Text style={styles.meta}>{metaText}</Text>
         </View>
         <Pressable style={[styles.primary, (busy || premiumActive) && styles.primaryDisabled]} onPress={onBuy} disabled={busy || premiumActive}>
-          {busy ? <ActivityIndicator color={colors.limeInk} /> : <Text style={styles.primaryText}>{premiumActive ? "Premium Active" : "Upgrade to Premium"}</Text>}
+          {busy ? <ActivityIndicator color={theme.colors.limeInk} /> : <Text style={styles.primaryText}>{premiumActive ? "Premium Active" : "Upgrade to Premium"}</Text>}
         </Pressable>
         <Pressable style={styles.secondary} onPress={onRestore} disabled={busy}>
           <Text style={styles.secondaryText}>Restore Purchases</Text>
@@ -202,7 +204,7 @@ function NativePaywall() {
 
 export default function PaywallScreen() { return Platform.OS === "web" ? <WebPaywall /> : <NativePaywall />; }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.ink }, container: { flex: 1, padding: 24, gap: 18, justifyContent: "center" },
   kicker: { color: colors.lime, fontSize: 11, fontWeight: "900", letterSpacing: 1.6 }, title: { color: colors.text, fontSize: 36, lineHeight: 40, fontWeight: "900", marginTop: 8, letterSpacing: -1 },
   subtitle: { color: colors.textMuted, fontSize: 15, lineHeight: 22, marginTop: 8 }, card: { backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, borderRadius: 26, padding: 20, gap: 12 },

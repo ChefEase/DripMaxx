@@ -22,11 +22,12 @@ import { startOAuthSignIn, type OAuthProvider } from "../lib/oauth";
 import { logWarn } from "../lib/logger";
 import { supabase } from "../lib/supabase";
 import { useStore } from "../store";
-import { colors } from "./ui/theme";
+import { colors, useThemedStyles } from "./ui/theme";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 export default function AuthScreen() {
+  const styles = useThemedStyles(baseStyles);
   const nav = useNavigation<Nav>();
   const { setUserId, setUserEmail, setUsername, setDisplayName, setAvatarUrl } = useStore();
   const [email, setEmail] = useState("");
@@ -244,7 +245,7 @@ export default function AuthScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.ink },
   keyboardView: { flex: 1 },
   authGlow: {

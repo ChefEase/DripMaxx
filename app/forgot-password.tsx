@@ -5,10 +5,12 @@ import * as Linking from "expo-linking";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../App";
+import { useThemedStyles } from "./ui/theme";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 export default function ForgotPasswordScreen() {
+  const styles = useThemedStyles(baseStyles);
   const nav = useNavigation<Nav>();
   const [email, setEmail] = useState("");
   const [loading, setLoading] = useState(false);
@@ -58,7 +60,7 @@ export default function ForgotPasswordScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: "#020617" },
   container: { flex: 1, padding: 24, gap: 14, justifyContent: "center" },
   title: { color: "#F9FAFB", fontSize: 22, fontWeight: "800" },

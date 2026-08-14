@@ -25,7 +25,7 @@ import { logWarn } from "../lib/logger";
 import { useStore } from "../store";
 import RemoteImage from "./components/RemoteImage";
 import AppTabBar from "./components/AppTabBar";
-import { colors } from "./ui/theme";
+import { colors, useThemedStyles } from "./ui/theme";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -42,6 +42,7 @@ const formatTimeLeft = (endsAt: string) => {
 };
 
 export default function ChallengeScreen() {
+  const styles = useThemedStyles(baseStyles);
   const nav = useNavigation<Nav>();
   const { userEmail } = useStore();
   const isAdmin = (userEmail || "").trim().toLowerCase() === ADMIN_EMAIL;
@@ -372,7 +373,7 @@ export default function ChallengeScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: "#020617" },
   tabDock: { paddingHorizontal: 16, paddingTop: 6, paddingBottom: 8, backgroundColor: "#020617" },
   content: { padding: 24, paddingBottom: 48, gap: 14 },

@@ -17,7 +17,7 @@ import { apiFetch, getApiBase } from "../lib/api";
 import { logWarn } from "../lib/logger";
 import { useStore } from "../store";
 import AppTabBar from "./components/AppTabBar";
-import { colors } from "./ui/theme";
+import { colors, useThemedStyles } from "./ui/theme";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -43,6 +43,7 @@ const SCOPES = (country: string | null) => [
 ];
 
 export default function LeaderboardScreen() {
+  const styles = useThemedStyles(baseStyles);
   const nav = useNavigation<Nav>();
   const { country, userId } = useStore();
   const [scope, setScope] = useState("global");
@@ -237,7 +238,7 @@ export default function LeaderboardScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: "#020617" },
   header: { paddingHorizontal: 24, paddingTop: 16, paddingBottom: 8 },
   backBtn: { marginBottom: 8 },

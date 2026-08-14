@@ -11,7 +11,7 @@ import { apiFetch } from "../lib/api";
 import { logWarn } from "../lib/logger";
 import RemoteImage from "./components/RemoteImage";
 import AppTabBar from "./components/AppTabBar";
-import { colors } from "./ui/theme";
+import { colors, useThemedStyles } from "./ui/theme";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 type NewsItem = {
@@ -36,6 +36,7 @@ type NewsItem = {
 };
 
 export default function ValuePropositionScreen() {
+  const styles = useThemedStyles(baseStyles);
   const navigation = useNavigation<Nav>();
   const route = useRoute();
   const { displayName, userEmail, userId } = useStore();
@@ -329,7 +330,7 @@ export default function ValuePropositionScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.ink },
   container: {
     flexGrow: 1,

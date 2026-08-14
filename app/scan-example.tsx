@@ -4,7 +4,7 @@ import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 import type { RootStackParamList } from "../App";
-import { colors } from "./ui/theme";
+import { colors, useThemedStyles } from "./ui/theme";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -35,6 +35,7 @@ const exampleSuggestions = [
 ];
 
 export default function ScanExampleScreen() {
+  const styles = useThemedStyles(baseStyles);
   const navigation = useNavigation<Nav>();
 
   return (
@@ -115,7 +116,7 @@ export default function ScanExampleScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: colors.ink,

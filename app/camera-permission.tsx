@@ -12,11 +12,12 @@ import type { RootStackParamList } from "../App";
 import * as ImagePicker from "expo-image-picker";
 import { trackEvent } from "../lib/analytics";
 import { useStore } from "../store";
-import { colors } from "./ui/theme";
+import { colors, useThemedStyles } from "./ui/theme";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 export default function CameraPermissionScreen() {
+  const styles = useThemedStyles(baseStyles);
   const navigation = useNavigation<Nav>();
   const { userId } = useStore();
 
@@ -104,7 +105,7 @@ export default function CameraPermissionScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: colors.ink,

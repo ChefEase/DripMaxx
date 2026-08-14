@@ -11,11 +11,13 @@ import {
 import { supabase } from "../lib/supabase";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../App";
+import { useThemedStyles } from "./ui/theme";
 import { useNavigation } from "@react-navigation/native";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 export default function ResetPasswordScreen() {
+  const styles = useThemedStyles(baseStyles);
   const nav = useNavigation<Nav>();
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
@@ -88,7 +90,7 @@ export default function ResetPasswordScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: "#020617" },
   container: { flex: 1, padding: 24, gap: 12, justifyContent: "center" },
   title: { color: "#F9FAFB", fontSize: 24, fontWeight: "800" },

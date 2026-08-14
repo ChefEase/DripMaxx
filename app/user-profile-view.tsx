@@ -13,6 +13,7 @@ import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 import type { RootStackParamList } from "../App";
+import { useThemedStyles } from "./ui/theme";
 import { apiFetch } from "../lib/api";
 import { logWarn } from "../lib/logger";
 import { useStore } from "../store";
@@ -35,6 +36,7 @@ const scopeLabel = (scope: string) => {
 };
 
 export default function UserProfileViewScreen() {
+  const styles = useThemedStyles(baseStyles);
   const nav = useNavigation<Nav>();
   const route = useRoute<UserProfileRoute>();
   const userId = route.params?.userId;
@@ -206,7 +208,7 @@ export default function UserProfileViewScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: "#020617" },
   loading: { flex: 1, alignItems: "center", justifyContent: "center", gap: 12 },
   scroll: { flex: 1 },

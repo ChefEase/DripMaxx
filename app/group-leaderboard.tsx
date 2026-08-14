@@ -4,6 +4,7 @@ import { useNavigation, useRoute, RouteProp } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 import type { RootStackParamList } from "../App";
+import { useThemedStyles } from "./ui/theme";
 import { apiFetch } from "../lib/api";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -18,6 +19,7 @@ type GroupMember = {
 };
 
 export default function GroupLeaderboardScreen() {
+  const styles = useThemedStyles(baseStyles);
   const nav = useNavigation<Nav>();
   const route = useRoute<GroupRoute>();
   const { groupId, groupName } = route.params;
@@ -91,7 +93,7 @@ export default function GroupLeaderboardScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: "#020617" },
   header: { padding: 24, gap: 6 },
   back: { color: "#A5B4FC", fontWeight: "700", fontSize: 14 },

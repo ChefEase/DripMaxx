@@ -15,6 +15,7 @@ import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 import type { RootStackParamList } from "../App";
+import { useThemedStyles } from "./ui/theme";
 import { apiFetch, apiJsonHeaders } from "../lib/api";
 import { logWarn } from "../lib/logger";
 import { useStore } from "../store";
@@ -22,6 +23,7 @@ import { useStore } from "../store";
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 export default function RankingGroupsScreen() {
+  const styles = useThemedStyles(baseStyles);
   const nav = useNavigation<Nav>();
   const { userId } = useStore();
   const [tab, setTab] = useState<"create" | "join">("create");
@@ -189,7 +191,7 @@ export default function RankingGroupsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: "#020617" },
   header: { paddingHorizontal: 24, paddingTop: 16 },
   backBtn: { marginBottom: 8 },

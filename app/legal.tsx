@@ -3,6 +3,7 @@ import { SafeAreaView, ScrollView, StyleSheet, Text, View } from "react-native";
 import { RouteProp, useRoute } from "@react-navigation/native";
 
 import type { RootStackParamList } from "../App";
+import { useThemedStyles } from "./ui/theme";
 
 type LegalRoute = RouteProp<RootStackParamList, "Legal">;
 
@@ -118,6 +119,7 @@ const PRIVACY_SECTIONS = [
 ];
 
 export default function LegalScreen() {
+  const styles = useThemedStyles(baseStyles);
   const route = useRoute<LegalRoute>();
   const isTerms = route.params.doc === "terms";
   const title = isTerms ? "Terms of Service" : "Privacy Policy";
@@ -140,7 +142,7 @@ export default function LegalScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: "#020617" },
   content: { padding: 24, gap: 14, paddingBottom: 40 },
   kicker: { color: "#A5B4FC", fontSize: 13, fontWeight: "700" },

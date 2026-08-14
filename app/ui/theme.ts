@@ -1,5 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
+import { StyleSheet } from "react-native";
 
 export const THEME_STORAGE_KEY = "dripmaxx:appearance";
 
@@ -75,8 +76,11 @@ export const themes = Object.fromEntries(
   seeds.map((seed) => [seed.name, { ...seed, colors: toColors(seed) }])
 ) as Record<ThemeName, ThemeSeed & { colors: AppColors }>;
 
-// Legacy export. New and migrated components should use useAppTheme() so changes are live.
-export const colors = themes.dripmaxx.colors;
+// Compatibility proxy: existing inline color reads stay live while screens migrate.
+let currentColors: AppColors = themes.dripmaxx.colors;
+export const colors = new Proxy({} as AppColors, {
+  get: (_target, property: keyof AppColors) => currentColors[property],
+});
 
 type ThemeContextValue = {
   themeName: ThemeName;
@@ -105,6 +109,7 @@ export function AppThemeProvider({ children }: { children: React.ReactNode }) {
   };
 
   const value = useMemo(() => ({ themeName, theme: themes[themeName], setThemeName, hydrated }), [themeName, hydrated]);
+  currentColors = themes[themeName].colors;
   return React.createElement(ThemeContext.Provider, { value }, children);
 }
 
@@ -112,6 +117,40 @@ export function useAppTheme() {
   const value = useContext(ThemeContext);
   if (!value) throw new Error("useAppTheme must be used within AppThemeProvider");
   return value;
+}
+
+const paletteRoles: Record<string, keyof AppColors> = {
+  "#020617": "ink", "#090909": "ink", "#080a0c": "ink",
+  "#0f172a": "surface", "#0b1224": "surface", "#0b1220": "surface", "#07111f": "surface",
+  "#151515": "surface", "#111418": "surface",
+  "#111827": "surfaceSoft", "#1f2937": "surfaceSoft", "#181c21": "surfaceRaised", "#112030": "surfaceRaised",
+  "#374151": "line", "#334155": "line", "#1e293b": "line", "#273042": "line", "#243247": "line", "#263449": "line", "#2a3037": "line",
+  "#f9fafb": "text", "#f8fafc": "text", "#f7f5f0": "text", "#e5e7eb": "text", "#e2e8f0": "text", "#d1fae5": "text",
+  "#cbd5e1": "textMuted", "#9ca3af": "textMuted", "#94a3b8": "textMuted", "#6b7280": "textSoft", "#64748b": "textSoft",
+  "#a5b4fc": "lime", "#22c55e": "lime", "#c7ff4a": "lime", "#b6ff00": "lime",
+  "#86efac": "lime", "#bbf7d0": "lime", "#38bdf8": "lime",
+  "#022c22": "limeInk", "#052e16": "limeInk", "#172100": "limeInk",
+  "#f7f7f5": "ink", "#ffffff": "surface", "#111111": "text",
+  "#14532d": "surfaceRaised", "#061a14": "surface", "#204b3a": "line", "#123027": "line", "#0b1424": "surface",
+};
+
+const themedValue = (value: unknown, colors: AppColors, property?: string): unknown => {
+  if (typeof value === "string") {
+    if (property === "color" && value.toLowerCase() === "#ffffff") return colors.text;
+    const role = paletteRoles[value.toLowerCase()];
+    return role ? colors[role] : value;
+  }
+  if (Array.isArray(value)) return value.map((item) => themedValue(item, colors, property));
+  if (value && typeof value === "object") {
+    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, themedValue(item, colors, key)]));
+  }
+  return value;
+};
+
+/** Converts legacy fixed palette styles into live theme roles without changing layout. */
+export function useThemedStyles<T extends Record<string, any>>(baseStyles: T): T {
+  const { theme } = useAppTheme();
+  return useMemo(() => StyleSheet.create(themedValue(baseStyles, theme.colors) as T) as T, [baseStyles, theme.colors]);
 }
 
 export const radius = { sm: 12, md: 18, lg: 26, pill: 999 } as const;

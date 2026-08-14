@@ -16,6 +16,7 @@ import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 import type { RootStackParamList } from "../App";
+import { useThemedStyles } from "./ui/theme";
 import { apiFetch, apiJsonHeaders } from "../lib/api";
 import { logWarn } from "../lib/logger";
 import { startOAuthSignIn, type OAuthProvider } from "../lib/oauth";
@@ -25,6 +26,7 @@ import { useStore } from "../store";
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 export default function SignUpScreen() {
+  const styles = useThemedStyles(baseStyles);
   const nav = useNavigation<Nav>();
   const { setUserId, setUserEmail, setUsername, setDisplayName } = useStore();
   const [username, setUsernameInput] = useState("");
@@ -222,7 +224,7 @@ export default function SignUpScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: "#020617" },
   keyboardView: { flex: 1 },
   authGlow: {

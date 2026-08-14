@@ -22,7 +22,7 @@ import RankingsCard from "./components/RankingsCard";
 import AnimatedNumber from "./components/AnimatedNumber";
 import RemoteImage from "./components/RemoteImage";
 import AppTabBar from "./components/AppTabBar";
-import { colors } from "./ui/theme";
+import { colors, useThemedStyles } from "./ui/theme";
 import { apiFetch, apiJsonHeaders } from "../lib/api";
 import { trackEvent } from "../lib/analytics";
 import { logWarn } from "../lib/logger";
@@ -112,6 +112,7 @@ const scanErrorMessage = (statusCode: number, bodyText: string) => {
 };
 
 export default function ScanStubScreen() {
+  const styles = useThemedStyles(baseStyles);
   const navigation = useNavigation<Nav>();
   const {
     stylePreferences,
@@ -1138,7 +1139,7 @@ export default function ScanStubScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: colors.ink,

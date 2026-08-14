@@ -1,4 +1,5 @@
 import React, { useEffect, useState } from "react";
+import { useThemedStyles } from "../ui/theme";
 import { View, Text, StyleSheet, ActivityIndicator, Pressable } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -47,6 +48,7 @@ interface RankingsCardProps {
 }
 
 export default function RankingsCard({ userId, compact = false, refreshTrigger, onRankingsPress }: RankingsCardProps) {
+  const styles = useThemedStyles(baseStyles);
   const nav = useNavigation<Nav>();
   const [data, setData] = useState<RankingsData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -161,7 +163,7 @@ export default function RankingsCard({ userId, compact = false, refreshTrigger, 
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   card: {
     backgroundColor: "#0F172A",
     borderWidth: 1,

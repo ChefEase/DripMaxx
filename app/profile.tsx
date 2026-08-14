@@ -11,7 +11,7 @@ import { ensureRevenueCatConfigured, hasRevenueCatEntitlement } from "../lib/rev
 import { supabase } from "../lib/supabase";
 import { useStore } from "../store";
 import AppTabBar from "./components/AppTabBar";
-import { AppColors, colors, themes, themeNames, useAppTheme } from "./ui/theme";
+import { AppColors, colors, themes, themeNames, useAppTheme, useThemedStyles } from "./ui/theme";
 import { bodyTypeLabel, genderStyleLabel } from "../lib/profileEnums";
 import RankingsCard from "./components/RankingsCard";
 import RemoteImage from "./components/RemoteImage";
@@ -19,6 +19,7 @@ import RemoteImage from "./components/RemoteImage";
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 export default function ProfileScreen() {
+  const styles = useThemedStyles(baseStyles);
   const nav = useNavigation<Nav>();
   const { theme, themeName, setThemeName } = useAppTheme();
   const colors = theme.colors;
@@ -292,7 +293,6 @@ export default function ProfileScreen() {
           <Pressable
             style={[styles.upgradeButton, billingStatus?.plan === "monthly" && styles.upgradeButtonDisabled]}
             onPress={() => nav.navigate("Paywall")}
-            disabled={billingStatus?.plan === "monthly"}
           >
             <Text style={styles.upgradeButtonText}>
               {billingStatus?.plan === "monthly" ? "Premium Active" : "Upgrade to Premium"}
@@ -529,7 +529,7 @@ export default function ProfileScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   safeArea: { flex: 1, backgroundColor: colors.ink },
   tabDock: { paddingHorizontal: 16, paddingTop: 6, paddingBottom: 8, backgroundColor: "#020617" },
   scroll: { flex: 1 },

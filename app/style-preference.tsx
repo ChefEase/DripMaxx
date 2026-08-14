@@ -12,7 +12,7 @@ import {
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../App";
-import { colors } from "./ui/theme";
+import { colors, useThemedStyles } from "./ui/theme";
 import { useStore } from "../store";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
@@ -27,6 +27,7 @@ const STYLE_IMAGES: Record<string, any> = {
 };
 
 export default function StylePreferenceScreen() {
+  const styles = useThemedStyles(baseStyles);
   const navigation = useNavigation<Nav>();
   const {
     stylePreferences,
@@ -163,7 +164,7 @@ export default function StylePreferenceScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: colors.ink,

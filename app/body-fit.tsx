@@ -11,13 +11,14 @@ import {
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../App";
-import { colors } from "./ui/theme";
+import { colors, useThemedStyles } from "./ui/theme";
 import { useStore } from "../store";
 import { BODY_TYPE_OPTIONS, GENDER_STYLE_OPTIONS } from "../lib/profileEnums";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 export default function BodyFitScreen() {
+  const styles = useThemedStyles(baseStyles);
   const navigation = useNavigation<Nav>();
   const {
     userHeight,
@@ -169,7 +170,7 @@ export default function BodyFitScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   safeArea: {
     flex: 1,
     backgroundColor: colors.ink,

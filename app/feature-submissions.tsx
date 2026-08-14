@@ -14,6 +14,7 @@ import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 import type { RootStackParamList } from "../App";
+import { useThemedStyles } from "./ui/theme";
 import { apiFetch } from "../lib/api";
 import { useStore } from "../store";
 import RemoteImage from "./components/RemoteImage";
@@ -36,6 +37,7 @@ type Submission = {
 const DEVELOPER_EMAIL = "onyiakamsy74@gmail.com";
 
 export default function FeatureSubmissionsScreen() {
+  const styles = useThemedStyles(baseStyles);
   const navigation = useNavigation<Nav>();
   const { userEmail } = useStore();
   const [submissions, setSubmissions] = useState<Submission[]>([]);
@@ -140,7 +142,7 @@ export default function FeatureSubmissionsScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: "#020617" },
   content: { padding: 24, paddingBottom: 48, gap: 16 },
   back: { color: "#A5B4FC", fontSize: 16, fontWeight: "800" },

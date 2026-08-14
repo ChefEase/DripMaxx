@@ -4,11 +4,12 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import { useNavigation } from "@react-navigation/native";
 import type { RootStackParamList } from "../App";
 import { supabase } from "../lib/supabase";
-import { colors } from "./ui/theme";
+import { colors, useThemedStyles } from "./ui/theme";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
 export default function IntroScreen() {
+  const styles = useThemedStyles(baseStyles);
   const nav = useNavigation<Nav>();
   const opacity = useRef(new Animated.Value(0)).current;
   const slide = useRef(new Animated.Value(20)).current;
@@ -65,7 +66,7 @@ export default function IntroScreen() {
   );
 }
 
-const styles = StyleSheet.create({
+const baseStyles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.ink },
   container: {
     flex: 1,

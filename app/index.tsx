@@ -39,7 +39,7 @@ export default function ValuePropositionScreen() {
   const styles = useThemedStyles(baseStyles);
   const navigation = useNavigation<Nav>();
   const route = useRoute();
-  const { displayName, userEmail, userId } = useStore();
+  const { displayName, userEmail, userId, communityFeedEnabled, privacyOnboardingCompleted } = useStore();
   const [showToast, setShowToast] = useState(Boolean((route.params as any)?.celebrate));
   const [activeChallenge, setActiveChallenge] = useState<ActiveChallengePayload | null>(null);
   const [rewards, setRewards] = useState<RewardsSummary | null>(null);
@@ -51,15 +51,19 @@ export default function ValuePropositionScreen() {
   const pulse = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
+    if (!privacyOnboardingCompleted || communityFeedEnabled !== true) {
+      setActiveChallenge(null);
+      return;
+    }
     fetchActiveChallenge().then(setActiveChallenge);
-  }, []);
+  }, [communityFeedEnabled, privacyOnboardingCompleted]);
 
   useEffect(() => {
     fetchRewardsSummary(userId).then(setRewards);
   }, [userId]);
 
   useEffect(() => {
-    if (!userId) {
+    if (!userId || !privacyOnboardingCompleted || communityFeedEnabled !== true) {
       setNewsItems([]);
       return;
     }
@@ -70,7 +74,7 @@ export default function ValuePropositionScreen() {
         setNewsItems(body?.items || []);
       })
       .catch((error) => logWarn("[CommunityNews] feed failed", error));
-  }, [userId]);
+  }, [communityFeedEnabled, privacyOnboardingCompleted, userId]);
 
   const dismissCurrentNews = async () => {
     const current = newsItems[0];
@@ -178,9 +182,11 @@ export default function ValuePropositionScreen() {
           />
           <View style={styles.heroShade} />
           <View style={styles.heroContent}>
-            <Text style={styles.logo}>DRIPMAXX · AI STYLE COACH</Text>
-            <Text style={styles.title}>Know why your outfit works.</Text>
-            <Text style={styles.subtitle}>One photo. A clear score, your strongest move, and the fix that matters most.</Text>
+            <View style={styles.heroCopyPanel}>
+              <Text style={styles.logo}>DRIPMAXX · AI STYLE COACH</Text>
+              <Text style={styles.title}>Know why your outfit works.</Text>
+              <Text style={styles.subtitle}>One photo. A clear score, your strongest move, and the fix that matters most.</Text>
+            </View>
             <Pressable style={styles.heroButton} onPress={() => navigation.navigate("StylePreference")}>
               <Text style={styles.heroButtonText}>Personalize & rate</Text>
               <Text style={styles.heroButtonArrow}>→</Text>
@@ -216,7 +222,7 @@ export default function ValuePropositionScreen() {
           </Pressable>
         ) : null}
 
-        {activeChallenge?.announcement || activeChallenge?.challenge ? (
+        {privacyOnboardingCompleted && communityFeedEnabled === true && (activeChallenge?.announcement || activeChallenge?.challenge) ? (
           <View style={styles.challengeCard}>
             <View style={styles.challengeHeaderRow}>
               <Text style={styles.challengeEyebrow}>Today's Challenge</Text>
@@ -256,7 +262,7 @@ export default function ValuePropositionScreen() {
       </ScrollView>
       <Modal
         transparent
-        visible={newsItems.length > 0}
+        visible={privacyOnboardingCompleted && communityFeedEnabled === true && newsItems.length > 0}
         animationType="fade"
         onRequestClose={() => void dismissCurrentNews()}
       >
@@ -396,6 +402,13 @@ const baseStyles = StyleSheet.create({
   heroArtCaption: { position: "absolute", top: 28, right: 22, color: "#FEFEFE", backgroundColor: "rgba(4,5,6,0.78)", borderRadius: 999, paddingHorizontal: 9, paddingVertical: 5, fontSize: 10, fontWeight: "800", letterSpacing: 1.4 },
   heroShade: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(4,5,6,0.58)" },
   heroContent: { padding: 22, paddingTop: 130, gap: 12 },
+  heroCopyPanel: {
+    gap: 12,
+    backgroundColor: "rgba(4,5,6,0.82)",
+    borderRadius: 18,
+    paddingHorizontal: 16,
+    paddingVertical: 15,
+  },
   logo: {
     fontSize: 13,
     fontWeight: "900",
@@ -412,7 +425,7 @@ const baseStyles = StyleSheet.create({
   },
   subtitle: {
     fontSize: 15,
-    color: "#E2E8F0",
+    color: "#F0F0F0",
     lineHeight: 22,
   },
   heroButton: { marginTop: 8, minHeight: 54, borderRadius: 18, paddingHorizontal: 18, backgroundColor: colors.lime, flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
@@ -600,7 +613,7 @@ const baseStyles = StyleSheet.create({
     left: 6,
     right: 6,
     bottom: 7,
-    color: "#F8FAFC",
+    color: "#FEFEFE",
     backgroundColor: "rgba(2, 6, 23, 0.82)",
     paddingVertical: 5,
     textAlign: "center",

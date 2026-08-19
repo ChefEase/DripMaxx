@@ -36,12 +36,15 @@ export default function ProfileScreen() {
     setUserId,
     setUserEmail,
     setUsername,
+    profileVisibility,
+    communityFeedEnabled,
+    leaderboardEnabled,
+    updatePrivacySocialPreferences,
   } = useStore();
   const [recent, setRecent] = useState<any[]>([]);
   const [history, setHistory] = useState<any[]>([]);
   const [scoreCards, setScoreCards] = useState<any[]>([]);
   const [dna, setDna] = useState<{ label: string; description: string; tags: string[] } | null>(null);
-  const [profileVisibility, setProfileVisibility] = useState<"public" | "friends_only" | "private">("public");
   const [billingStatus, setBillingStatus] = useState<null | { plan: string; used: number; remaining: number; limit_type: string }>(null);
   const [rewards, setRewards] = useState<null | {
     xp: number;
@@ -97,7 +100,6 @@ export default function ProfileScreen() {
           setRecent(data.recent_outfits || []);
           setHistory(data.history || []);
           setScoreCards(data.score_cards || []);
-          if (data.profile_visibility) setProfileVisibility(data.profile_visibility);
         }
       } catch (err) {
         logWarn("history fetch failed", err);
@@ -332,24 +334,58 @@ export default function ProfileScreen() {
           )}
         </View>
         <View style={[styles.card, themed.card]}>
-          <Text style={[styles.label, themed.muted]}>Profile visibility</Text>
-          <Text style={[styles.muted, themed.muted]}>Who can see your outfits when viewing your profile from the leaderboard</Text>
+          <Text style={[styles.label, themed.muted]}>Privacy & Social</Text>
+          <Text style={[styles.value, themed.text]}>Profile Visibility</Text>
+          <Text style={[styles.muted, themed.muted]}>Choose whether other people can see outfits on your profile.</Text>
           <View style={styles.visibilityRow}>
-            {(["public", "friends_only", "private"] as const).map((v) => (
+            {(["private", "public"] as const).map((v) => (
               <Pressable
                 key={v}
-                style={[styles.visibilityChip, profileVisibility === v && styles.visibilityChipActive]}
-                onPress={() => {
-                  setProfileVisibility(v);
-                  apiFetch("/v1/profile/sync", {
-                    method: "POST",
-                    headers: apiJsonHeaders(),
-                    body: JSON.stringify({ user_id: userId, profile_visibility: v }),
-                  }).catch((e) => logWarn("visibility sync failed", e));
-                }}
+                accessibilityRole="radio"
+                accessibilityState={{ checked: (profileVisibility === "undecided" ? "private" : profileVisibility) === v }}
+                style={[styles.visibilityChip, (profileVisibility === "undecided" ? "private" : profileVisibility) === v && styles.visibilityChipActive]}
+                onPress={() => void updatePrivacySocialPreferences({ profileVisibility: v }).catch((e) => logWarn("visibility sync failed", e))}
               >
-                <Text style={[styles.visibilityChipText, profileVisibility === v && styles.visibilityChipTextActive]}>
-                  {v === "public" ? "Public" : v === "friends_only" ? "Friends only" : "Private"}
+                <Text style={[styles.visibilityChipText, (profileVisibility === "undecided" ? "private" : profileVisibility) === v && styles.visibilityChipTextActive]}>
+                  {v === "public" ? "Public" : "Private"}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+
+          <View style={styles.settingDivider} />
+          <Text style={[styles.value, themed.text]}>Community Feed</Text>
+          <Text style={[styles.muted, themed.muted]}>Show community outfits and stories on Home.</Text>
+          <View style={styles.visibilityRow}>
+            {([false, true] as const).map((enabled) => (
+              <Pressable
+                key={`${enabled}`}
+                accessibilityRole="radio"
+                accessibilityState={{ checked: (communityFeedEnabled === "undecided" ? false : communityFeedEnabled) === enabled }}
+                style={[styles.visibilityChip, (communityFeedEnabled === "undecided" ? false : communityFeedEnabled) === enabled && styles.visibilityChipActive]}
+                onPress={() => void updatePrivacySocialPreferences({ communityFeedEnabled: enabled }).catch((e) => logWarn("community preference sync failed", e))}
+              >
+                <Text style={[styles.visibilityChipText, (communityFeedEnabled === "undecided" ? false : communityFeedEnabled) === enabled && styles.visibilityChipTextActive]}>
+                  {enabled ? "On" : "Off"}
+                </Text>
+              </Pressable>
+            ))}
+          </View>
+
+          <View style={styles.settingDivider} />
+          <Text style={[styles.value, themed.text]}>Leaderboards</Text>
+          <Text style={[styles.muted, themed.muted]}>Show leaderboard rankings and navigation.</Text>
+          <View style={styles.visibilityRow}>
+            {([false, true] as const).map((enabled) => (
+              <Pressable
+                key={`${enabled}`}
+                accessibilityRole="radio"
+                accessibilityState={{ checked: (leaderboardEnabled === "undecided" ? false : leaderboardEnabled) === enabled }}
+                style={[styles.visibilityChip, (leaderboardEnabled === "undecided" ? false : leaderboardEnabled) === enabled && styles.visibilityChipActive]}
+                onPress={() => void updatePrivacySocialPreferences({ leaderboardEnabled: enabled }).catch((e) => logWarn("leaderboard preference sync failed", e))}
+              >
+                <Text style={[styles.visibilityChipText, (leaderboardEnabled === "undecided" ? false : leaderboardEnabled) === enabled && styles.visibilityChipTextActive]}>
+                  {enabled ? "On" : "Off"}
                 </Text>
               </Pressable>
             ))}
@@ -371,13 +407,13 @@ export default function ProfileScreen() {
         <Pressable style={styles.primary} onPress={() => nav.navigate("Scan")}>
           <Text style={styles.primaryText}>Back to Scan</Text>
         </Pressable>
-        <Pressable style={styles.secondary} onPress={() => nav.navigate("Challenge")}>
+        {communityFeedEnabled === true ? <Pressable style={styles.secondary} onPress={() => nav.navigate("Challenge")}>
           <Text style={styles.secondaryText}>
             {(userEmail || "").toLowerCase() === "onyiakamsy74@gmail.com"
               ? "Challenge Admin & Voting"
               : "Challenge Voting"}
           </Text>
-        </Pressable>
+        </Pressable> : null}
         {(userEmail || "").toLowerCase() === "onyiakamsy74@gmail.com" && (
           <Pressable style={styles.secondary} onPress={() => nav.navigate("FeatureSubmissions")}>
             <Text style={styles.secondaryText}>Feature Submissions</Text>
@@ -776,6 +812,7 @@ const baseStyles = StyleSheet.create({
   },
   tagText: { color: "#A5B4FC", fontWeight: "700", fontSize: 12 },
   visibilityRow: { flexDirection: "row", flexWrap: "wrap", gap: 8, marginTop: 8 },
+  settingDivider: { height: 1, backgroundColor: colors.line, marginVertical: 10 },
   visibilityChip: {
     paddingHorizontal: 12,
     paddingVertical: 8,

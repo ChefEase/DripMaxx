@@ -5,6 +5,7 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
 import type { RootStackParamList } from "../../App";
 import { AppColors, radius, useAppTheme } from "../ui/theme";
+import { useStore } from "../../store";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 type Tab = "home" | "scan" | "challenge" | "ranks" | "profile";
@@ -20,10 +21,16 @@ const tabs: { key: Tab; label: string; symbol: string; route: keyof RootStackPar
 export default function AppTabBar({ active }: { active: Tab }) {
   const navigation = useNavigation<Nav>();
   const { theme } = useAppTheme();
+  const { communityFeedEnabled, leaderboardEnabled, privacyOnboardingCompleted } = useStore();
   const styles = useMemo(() => createStyles(theme.colors), [theme.colors]);
+  const visibleTabs = tabs.filter(
+    (tab) =>
+      (tab.key !== "ranks" || (privacyOnboardingCompleted && leaderboardEnabled === true)) &&
+      (tab.key !== "challenge" || (privacyOnboardingCompleted && communityFeedEnabled === true))
+  );
   return (
     <View style={styles.shell} accessibilityRole="tablist">
-      {tabs.map((tab) => {
+      {visibleTabs.map((tab) => {
         const selected = tab.key === active;
         const isScan = tab.key === "scan";
         return (

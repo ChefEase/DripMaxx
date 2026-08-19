@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useRef, useState } from "react";
 import { NavigationContainer, createNavigationContainerRef } from "@react-navigation/native";
 import { createNativeStackNavigator } from "@react-navigation/native-stack";
-import { AppState, LogBox } from "react-native";
+import { ActivityIndicator, AppState, LogBox, View } from "react-native";
 import * as Linking from "expo-linking";
 
 import ValuePropositionScreen from "./app/index";
@@ -26,6 +26,7 @@ import GroupLeaderboardScreen from "./app/group-leaderboard";
 import LegalScreen from "./app/legal";
 import ChallengeScreen from "./app/challenge";
 import FeatureSubmissionsScreen from "./app/feature-submissions";
+import PrivacySocialOnboardingScreen from "./app/privacy-social-onboarding";
 import 'react-native-url-polyfill/auto';
 import { syncAuthenticatedUser } from "./lib/authProfile";
 import { logWarn } from "./lib/logger";
@@ -55,10 +56,25 @@ export type RootStackParamList = {
   Legal: { doc: "terms" | "privacy" };
   Challenge: undefined;
   FeatureSubmissions: undefined;
+  PrivacySocialOnboarding: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
 const navigationRef = createNavigationContainerRef<RootStackParamList>();
+
+function HomeEntryScreen() {
+  const { theme } = useAppTheme();
+  const { userId, privacyOnboardingCompleted, privacyPreferencesHydrated } = useStore();
+  if (userId && !privacyPreferencesHydrated) {
+    return (
+      <View style={{ flex: 1, alignItems: "center", justifyContent: "center", backgroundColor: theme.background }}>
+        <ActivityIndicator size="large" color={theme.colors.limeText} />
+      </View>
+    );
+  }
+  if (userId && !privacyOnboardingCompleted) return <PrivacySocialOnboardingScreen />;
+  return <ValuePropositionScreen />;
+}
 
 function AppShell() {
   const { theme } = useAppTheme();
@@ -69,6 +85,8 @@ function AppShell() {
     setUsername,
     setDisplayName,
     setAvatarUrl,
+    privacyOnboardingCompleted,
+    privacyPreferencesHydrated,
   } = useStore();
   const appState = useRef(AppState.currentState);
   const passwordRecoveryInProgress = useRef(false);
@@ -112,6 +130,10 @@ function AppShell() {
   );
 
   const handleNavigationReady = useCallback(() => {
+    if (userId && privacyPreferencesHydrated && !privacyOnboardingCompleted && navigationRef.isReady()) {
+      navigationRef.reset({ index: 0, routes: [{ name: "PrivacySocialOnboarding" }] });
+      return;
+    }
     if (pendingResetNavigation && navigationRef.isReady()) {
       navigationRef.navigate("ResetPassword");
       setPendingResetNavigation(false);
@@ -121,7 +143,7 @@ function AppShell() {
       navigationRef.navigate("ValueProposition", { celebrate: true });
       setPendingHomeNavigation(false);
     }
-  }, [pendingHomeNavigation, pendingResetNavigation]);
+  }, [pendingHomeNavigation, pendingResetNavigation, privacyOnboardingCompleted, privacyPreferencesHydrated, userId]);
 
   useEffect(() => {
     LogBox.ignoreLogs([
@@ -233,6 +255,12 @@ function AppShell() {
     return () => subscription.remove();
   }, [userId]);
 
+  useEffect(() => {
+    if (!userId || !privacyPreferencesHydrated || privacyOnboardingCompleted || !navigationRef.isReady()) return;
+    if (navigationRef.getCurrentRoute()?.name === "PrivacySocialOnboarding") return;
+    navigationRef.reset({ index: 0, routes: [{ name: "PrivacySocialOnboarding" }] });
+  }, [privacyOnboardingCompleted, privacyPreferencesHydrated, userId]);
+
   return (
     <NavigationContainer ref={navigationRef} linking={linking} onReady={handleNavigationReady}>
       <Stack.Navigator
@@ -250,7 +278,7 @@ function AppShell() {
         <Stack.Screen name="ResetPassword" component={ResetPasswordScreen} />
         <Stack.Screen
           name="ValueProposition"
-          component={ValuePropositionScreen}
+          component={HomeEntryScreen}
         />
         <Stack.Screen
           name="StylePreference"
@@ -276,6 +304,11 @@ function AppShell() {
         <Stack.Screen name="Legal" component={LegalScreen} />
         <Stack.Screen name="Challenge" component={ChallengeScreen} />
         <Stack.Screen name="FeatureSubmissions" component={FeatureSubmissionsScreen} />
+        <Stack.Screen
+          name="PrivacySocialOnboarding"
+          component={PrivacySocialOnboardingScreen}
+          options={{ gestureEnabled: false }}
+        />
       </Stack.Navigator>
     </NavigationContainer>
   );

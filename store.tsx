@@ -4,6 +4,15 @@ import { apiFetch, apiJsonHeaders } from "./lib/api";
 import { getDeviceCountry, getDeviceLocale } from "./lib/deviceLocale";
 import { logWarn } from "./lib/logger";
 
+export type ProfileVisibilityPreference = "private" | "public" | "undecided";
+export type SocialTogglePreference = boolean | "undecided";
+export type PrivacySocialPreferences = {
+  profileVisibility: ProfileVisibilityPreference;
+  communityFeedEnabled: SocialTogglePreference;
+  leaderboardEnabled: SocialTogglePreference;
+  onboardingCompleted: boolean;
+};
+
 type StoreState = {
   stylePreferences: string[];
   customStyle: string;
@@ -18,6 +27,11 @@ type StoreState = {
   displayName: string | null;
   avatarUrl: string | null;
   country: string | null;
+  profileVisibility: ProfileVisibilityPreference;
+  communityFeedEnabled: SocialTogglePreference;
+  leaderboardEnabled: SocialTogglePreference;
+  privacyOnboardingCompleted: boolean;
+  privacyPreferencesHydrated: boolean;
 };
 
 type StoreContextValue = StoreState & {
@@ -34,6 +48,10 @@ type StoreContextValue = StoreState & {
   setDisplayName: React.Dispatch<React.SetStateAction<string | null>>;
   setAvatarUrl: React.Dispatch<React.SetStateAction<string | null>>;
   setCountry: React.Dispatch<React.SetStateAction<string | null>>;
+  updatePrivacySocialPreferences: (
+    updates: Partial<PrivacySocialPreferences>,
+    persist?: boolean
+  ) => Promise<void>;
 };
 
 const StoreContext = createContext<StoreContextValue | undefined>(undefined);
@@ -57,6 +75,48 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [country, setCountry] = useState<string | null>(null);
   const [locale, setLocale] = useState<string | null>(null);
+  const [profileVisibility, setProfileVisibility] = useState<ProfileVisibilityPreference>("undecided");
+  const [communityFeedEnabled, setCommunityFeedEnabled] = useState<SocialTogglePreference>("undecided");
+  const [leaderboardEnabled, setLeaderboardEnabled] = useState<SocialTogglePreference>("undecided");
+  const [privacyOnboardingCompleted, setPrivacyOnboardingCompleted] = useState(false);
+  const [privacyPreferencesHydrated, setPrivacyPreferencesHydrated] = useState(false);
+
+  const applyPrivacyPreferences = (preferences: PrivacySocialPreferences) => {
+    setProfileVisibility(preferences.profileVisibility);
+    setCommunityFeedEnabled(preferences.communityFeedEnabled);
+    setLeaderboardEnabled(preferences.leaderboardEnabled);
+    setPrivacyOnboardingCompleted(preferences.onboardingCompleted);
+  };
+
+  const updatePrivacySocialPreferences = async (
+    updates: Partial<PrivacySocialPreferences>,
+    persist = true
+  ) => {
+    const next: PrivacySocialPreferences = {
+      profileVisibility: updates.profileVisibility ?? profileVisibility,
+      communityFeedEnabled: updates.communityFeedEnabled ?? communityFeedEnabled,
+      leaderboardEnabled: updates.leaderboardEnabled ?? leaderboardEnabled,
+      onboardingCompleted: updates.onboardingCompleted ?? privacyOnboardingCompleted,
+    };
+    applyPrivacyPreferences(next);
+    if (!userId) return;
+    await AsyncStorage.setItem(`dripmaxx:privacy-social:${userId}`, JSON.stringify(next));
+    if (!persist) return;
+    const effectiveVisibility = next.profileVisibility === "public" ? "public" : "private";
+    const response = await apiFetch("/v1/profile/sync", {
+      method: "POST",
+      headers: apiJsonHeaders(),
+      body: JSON.stringify({
+        user_id: userId,
+        profile_visibility: effectiveVisibility,
+        profile_visibility_choice: next.profileVisibility,
+        community_feed_enabled: next.communityFeedEnabled,
+        leaderboard_enabled: next.leaderboardEnabled,
+        onboarding_privacy_completed: next.onboardingCompleted,
+      }),
+    });
+    if (!response.ok) throw new Error((await response.text()) || "Could not save privacy settings");
+  };
 
   useEffect(() => {
     AsyncStorage.multiGet([
@@ -152,6 +212,50 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
     }).catch((e) => logWarn("[Store] locale sync failed", e));
   }, [country, locale, userId]);
 
+  useEffect(() => {
+    let active = true;
+    setPrivacyPreferencesHydrated(false);
+    if (!userId) {
+      applyPrivacyPreferences({
+        profileVisibility: "undecided",
+        communityFeedEnabled: "undecided",
+        leaderboardEnabled: "undecided",
+        onboardingCompleted: false,
+      });
+      return () => { active = false; };
+    }
+
+    const cacheKey = `dripmaxx:privacy-social:${userId}`;
+    AsyncStorage.getItem(cacheKey)
+      .then(async (cached) => {
+        if (cached && active) {
+          try {
+            applyPrivacyPreferences(JSON.parse(cached) as PrivacySocialPreferences);
+            setPrivacyPreferencesHydrated(true);
+          } catch {
+            await AsyncStorage.removeItem(cacheKey);
+          }
+        }
+        const response = await apiFetch("/v1/profile/privacy-social");
+        if (!response.ok) throw new Error(await response.text());
+        const data = await response.json();
+        const preferences: PrivacySocialPreferences = {
+          profileVisibility: data.profile_visibility,
+          communityFeedEnabled: data.community_feed_enabled,
+          leaderboardEnabled: data.leaderboard_enabled,
+          onboardingCompleted: Boolean(data.onboarding_completed),
+        };
+        if (!active) return;
+        applyPrivacyPreferences(preferences);
+        setPrivacyPreferencesHydrated(true);
+        await AsyncStorage.setItem(cacheKey, JSON.stringify(preferences));
+      })
+      .catch((error) => {
+        logWarn("[Store] privacy/social preferences load failed", error);
+      });
+    return () => { active = false; };
+  }, [userId]);
+
   const value = useMemo(
     () => ({
       stylePreferences,
@@ -167,6 +271,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
       displayName,
       avatarUrl,
       country,
+      profileVisibility,
+      communityFeedEnabled,
+      leaderboardEnabled,
+      privacyOnboardingCompleted,
+      privacyPreferencesHydrated,
       locale,
       setStylePreferences,
       setCustomStyle,
@@ -181,6 +290,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
       setDisplayName,
       setAvatarUrl,
       setCountry,
+      updatePrivacySocialPreferences,
     }),
     [
       stylePreferences,
@@ -197,6 +307,11 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
       avatarUrl,
       country,
       locale,
+      profileVisibility,
+      communityFeedEnabled,
+      leaderboardEnabled,
+      privacyOnboardingCompleted,
+      privacyPreferencesHydrated,
     ]
   );
 

@@ -7,6 +7,7 @@ import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 import type { RootStackParamList } from "../../App";
 import { apiFetch } from "../../lib/api";
 import { logWarn } from "../../lib/logger";
+import { useStore } from "../../store";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -50,12 +51,13 @@ interface RankingsCardProps {
 export default function RankingsCard({ userId, compact = false, refreshTrigger, onRankingsPress }: RankingsCardProps) {
   const styles = useThemedStyles(baseStyles);
   const nav = useNavigation<Nav>();
+  const { leaderboardEnabled, privacyOnboardingCompleted } = useStore();
   const [data, setData] = useState<RankingsData | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    if (!userId) {
+    if (!userId || !privacyOnboardingCompleted || leaderboardEnabled !== true) {
       setData(null);
       setLoading(false);
       return;
@@ -88,7 +90,7 @@ export default function RankingsCard({ userId, compact = false, refreshTrigger, 
     return () => {
       cancelled = true;
     };
-  }, [userId, refreshTrigger]);
+  }, [leaderboardEnabled, privacyOnboardingCompleted, userId, refreshTrigger]);
 
   const handlePress = () => {
     if (onRankingsPress) {
@@ -98,7 +100,7 @@ export default function RankingsCard({ userId, compact = false, refreshTrigger, 
     }
   };
 
-  if (!userId) return null;
+  if (!userId || !privacyOnboardingCompleted || leaderboardEnabled !== true) return null;
   if (loading && !data) {
     return (
       <View style={styles.card}>

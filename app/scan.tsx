@@ -124,6 +124,8 @@ export default function ScanStubScreen() {
     setUserId,
     country,
     username,
+    communityFeedEnabled,
+    privacyOnboardingCompleted,
   } = useStore();
   const [imageUri, setImageUri] = useState<string | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
@@ -163,8 +165,12 @@ export default function ScanStubScreen() {
       }
   >(null);
   useEffect(() => {
+    if (!privacyOnboardingCompleted || communityFeedEnabled !== true) {
+      setActiveChallenge(null);
+      return;
+    }
     fetchActiveChallenge().then(setActiveChallenge);
-  }, []);
+  }, [communityFeedEnabled, privacyOnboardingCompleted]);
 
   useEffect(() => {
     fetchRewardsSummary(userId).then(setRewards);
@@ -1440,7 +1446,7 @@ const baseStyles = StyleSheet.create({
     gap: 10,
   },
   loadingOverlayText: {
-    color: "#E5E7EB",
+    color: "#FEFEFE",
     fontSize: 14,
     fontWeight: "600",
   },

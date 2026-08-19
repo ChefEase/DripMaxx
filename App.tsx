@@ -71,6 +71,7 @@ function AppShell() {
     setAvatarUrl,
   } = useStore();
   const appState = useRef(AppState.currentState);
+  const passwordRecoveryInProgress = useRef(false);
   const [pendingHomeNavigation, setPendingHomeNavigation] = useState(false);
   const [pendingResetNavigation, setPendingResetNavigation] = useState(false);
   const appUrlPrefix = Linking.createURL("/", { isTripleSlashed: true });
@@ -130,18 +131,22 @@ function AppShell() {
       if (!url) return;
       const [beforeHash, hash = ""] = url.split("#");
       const query = beforeHash.includes("?") ? beforeHash.split("?").slice(1).join("?") : "";
-      const params = new URLSearchParams(hash || query);
+      const params = new URLSearchParams(query);
+      new URLSearchParams(hash).forEach((value, key) => params.set(key, value));
       const access_token = params.get("access_token");
       const refresh_token = params.get("refresh_token");
       const code = params.get("code");
+      const token_hash = params.get("token_hash");
       const type = params.get("type");
       const isPasswordRecovery = type === "recovery" || beforeHash.includes("reset-password");
-      if ((access_token && refresh_token) || code) {
+      if ((access_token && refresh_token) || code || (token_hash && isPasswordRecovery)) {
+        if (isPasswordRecovery) passwordRecoveryInProgress.current = true;
         try {
-          const { data, error } =
-            access_token && refresh_token
-              ? await supabase.auth.setSession({ access_token, refresh_token })
-              : await supabase.auth.exchangeCodeForSession(code || "");
+          const { data, error } = access_token && refresh_token
+            ? await supabase.auth.setSession({ access_token, refresh_token })
+            : code
+              ? await supabase.auth.exchangeCodeForSession(code)
+              : await supabase.auth.verifyOtp({ token_hash: token_hash || "", type: "recovery" });
           if (error) throw error;
           if (data.user) {
             await syncSession(data.user);
@@ -161,6 +166,8 @@ function AppShell() {
           }
         } catch (e) {
           logWarn("[Linking] OAuth callback failed", e);
+        } finally {
+          if (isPasswordRecovery) passwordRecoveryInProgress.current = false;
         }
       }
     };
@@ -186,7 +193,8 @@ function AppShell() {
         return;
       }
       if ((event === "SIGNED_IN" || event === "INITIAL_SESSION") && session?.user) {
-        syncSession(session.user, event === "SIGNED_IN").catch((e) =>
+        const navigateHome = event === "SIGNED_IN" && !passwordRecoveryInProgress.current;
+        syncSession(session.user, navigateHome).catch((e) =>
           logWarn("[Auth] session sync failed", e)
         );
       }

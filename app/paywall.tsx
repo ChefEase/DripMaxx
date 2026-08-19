@@ -145,8 +145,11 @@ function NativePaywall() {
     }
     setEntitlementActive(true);
     await syncBackend();
-    Alert.alert("Premium unlocked", "Your RevenueCat subscription is active on this account.");
-    nav.navigate("Profile");
+    Alert.alert(
+      action === "restore" ? "Purchase restored" : "Premium unlocked",
+      "Your RevenueCat subscription is active on this account.",
+      [{ text: "OK", onPress: () => nav.navigate("Profile") }],
+    );
   };
 
   const handleBuy = async () => {
@@ -172,9 +175,17 @@ function NativePaywall() {
     setBusy(true); setLastError(null);
     try {
       const purchases = await ensureRevenueCatConfigured(userId);
-      await purchases.restorePurchases();
-      await purchases.invalidateCustomerInfoCache();
-      await unlock(await purchases.getCustomerInfo(), "restore");
+      const restoredCustomerInfo = await purchases.restorePurchases();
+      const activeIds = getActiveRevenueCatEntitlementIds(restoredCustomerInfo);
+      setActiveEntitlementIds(activeIds);
+      if (!hasRevenueCatEntitlement(restoredCustomerInfo)) {
+        setEntitlementActive(false);
+        const message = "No active DripMaxx Premium purchase was found for this App Store or Google Play account. A cancelled subscription can only be restored while its paid period is still active; after it expires, subscribe again to regain Premium.";
+        setLastError(message);
+        Alert.alert("No active purchase found", message);
+        return;
+      }
+      await unlock(restoredCustomerInfo, "restore");
     } catch (error: any) {
       const message = summarizeError(error);
       setLastError(message);

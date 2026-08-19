@@ -86,7 +86,7 @@ export default function ScanExampleScreen() {
           <Text style={styles.sectionTitle}>Small changes. Clearer outfits.</Text>
           <Text style={styles.subtitle}>The goal is not to change who you are—it is to make your intention read faster.</Text>
           <View style={styles.transformCard}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.transformImages} snapToInterval={272} decelerationRate="fast">
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.transformImages} snapToInterval={162} decelerationRate="fast">
               <View style={styles.transformImageWrap}><Image source={require("../assets/editorial/glowup-01-before.jpg")} style={styles.transformImage} resizeMode="cover" /><Text style={styles.imageLabel}>BEFORE</Text></View>
               <View style={styles.transformImageWrap}><Image source={require("../assets/editorial/glowup-01-after.jpg")} style={styles.transformImage} resizeMode="cover" /><Text style={styles.imageLabel}>AFTER</Text></View>
             </ScrollView>
@@ -94,7 +94,7 @@ export default function ScanExampleScreen() {
             <Text style={styles.transformCopy}>A more intentional silhouette and coordinated finish create a stronger first read.</Text>
           </View>
           <View style={styles.transformCard}>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.transformImages} snapToInterval={272} decelerationRate="fast">
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.transformImages} snapToInterval={162} decelerationRate="fast">
               <View style={styles.transformImageWrap}><Image source={require("../assets/editorial/glowup-02-before.jpg")} style={styles.transformImage} resizeMode="cover" /><Text style={styles.imageLabel}>BEFORE</Text></View>
               <View style={styles.transformImageWrap}><Image source={require("../assets/editorial/glowup-02-after.jpg")} style={styles.transformImage} resizeMode="cover" /><Text style={styles.imageLabel}>AFTER</Text></View>
             </ScrollView>
@@ -176,9 +176,9 @@ const baseStyles = StyleSheet.create({
     fontSize: 28,
     fontWeight: "800",
   },
-  previewFrame: { width: "100%", position: "relative", borderRadius: 12, overflow: "hidden", backgroundColor: colors.surfaceRaised },
+  previewFrame: { width: "100%", position: "relative", borderRadius: 12, overflow: "hidden", backgroundColor: colors.surfaceRaised, alignItems: "center" },
   outfitPlaceholder: {
-    width: "100%",
+    width: 220,
     aspectRatio: 3 / 4,
     borderRadius: 12,
     backgroundColor: "#111827",
@@ -268,7 +268,7 @@ const baseStyles = StyleSheet.create({
   sectionTitle: { color: colors.text, fontSize: 25, lineHeight: 30, fontWeight: "900" },
   transformCard: { borderRadius: 22, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line, padding: 10, gap: 8 },
   transformImages: { gap: 12, paddingRight: 18 },
-  transformImageWrap: { width: 260, position: "relative", overflow: "hidden", borderRadius: 16 },
+  transformImageWrap: { width: 150, position: "relative", overflow: "hidden", borderRadius: 16 },
   transformImage: { width: "100%", aspectRatio: 3 / 4, backgroundColor: colors.surfaceSoft },
   imageLabel: { position: "absolute", left: 8, bottom: 8, color: colors.text, backgroundColor: "rgba(8,10,12,0.78)", borderRadius: 999, paddingHorizontal: 9, paddingVertical: 5, fontSize: 9, fontWeight: "900", letterSpacing: 1 },
   transformTitle: { color: colors.text, fontSize: 16, fontWeight: "900", paddingHorizontal: 4 },

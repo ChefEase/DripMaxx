@@ -188,7 +188,7 @@ export default function ValuePropositionScreen() {
               <Text style={styles.subtitle}>One photo. A clear score, your strongest move, and the fix that matters most.</Text>
             </View>
             <Pressable style={styles.heroButton} onPress={() => navigation.navigate("StylePreference")}>
-              <Text style={styles.heroButtonText}>Personalize & rate</Text>
+              <Text style={styles.heroButtonText}>Set style preferences</Text>
               <Text style={styles.heroButtonArrow}>→</Text>
             </Pressable>
           </View>
@@ -200,6 +200,27 @@ export default function ValuePropositionScreen() {
           <View style={styles.proofItem}><Text style={styles.proofValue}>1</Text><Text style={styles.proofLabel}>priority fix</Text></View>
           <View style={styles.proofDivider} />
           <View style={styles.proofItem}><Text style={styles.proofValue}>∞</Text><Text style={styles.proofLabel}>room to level up</Text></View>
+        </View>
+
+        <View style={styles.aiChoices}>
+          <View style={styles.aiChoiceHeader}>
+            <Text style={styles.aiChoiceEyebrow}>CHOOSE YOUR AI</Text>
+            <Text style={styles.aiChoiceTitle}>What do you need today?</Text>
+          </View>
+          <Pressable style={styles.rateChoice} onPress={() => navigation.navigate("Scan")}>
+            <View style={styles.aiChoiceCopy}>
+              <Text style={styles.rateChoiceTitle}>Rate My Outfit</Text>
+              <Text style={styles.rateChoiceBody}>Evaluate the outfit itself and get your existing Drip Score.</Text>
+            </View>
+            <Text style={styles.rateChoiceArrow}>→</Text>
+          </Pressable>
+          <Pressable style={styles.styleChoice} onPress={() => navigation.navigate("StyleMyOutfit")}>
+            <View style={styles.aiChoiceCopy}>
+              <Text style={styles.styleChoiceTitle}>Style My Outfit</Text>
+              <Text style={styles.styleChoiceBody}>Adapt a look for today’s weather and your occasion. No score.</Text>
+            </View>
+            <Text style={styles.styleChoiceArrow}>→</Text>
+          </Pressable>
         </View>
 
         {rewards ? (
@@ -436,6 +457,19 @@ const baseStyles = StyleSheet.create({
   proofValue: { color: colors.text, fontSize: 19, fontWeight: "900" },
   proofLabel: { color: colors.textSoft, fontSize: 9, fontWeight: "700", textTransform: "uppercase" },
   proofDivider: { width: 1, height: 28, backgroundColor: colors.line },
+  aiChoices: { gap: 10 },
+  aiChoiceHeader: { gap: 4, marginBottom: 2 },
+  aiChoiceEyebrow: { color: colors.lime, fontSize: 12, fontWeight: "900", letterSpacing: 1.2 },
+  aiChoiceTitle: { color: colors.text, fontSize: 22, lineHeight: 28, fontWeight: "900" },
+  aiChoiceCopy: { flex: 1, gap: 4 },
+  rateChoice: { minHeight: 108, flexDirection: "row", alignItems: "center", gap: 14, padding: 18, borderRadius: 20, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.line },
+  rateChoiceTitle: { color: colors.text, fontSize: 19, fontWeight: "900" },
+  rateChoiceBody: { color: colors.textMuted, fontSize: 15, lineHeight: 21 },
+  rateChoiceArrow: { color: colors.lime, fontSize: 26, fontWeight: "900" },
+  styleChoice: { minHeight: 108, flexDirection: "row", alignItems: "center", gap: 14, padding: 18, borderRadius: 20, backgroundColor: colors.surfaceRaised, borderWidth: 2, borderColor: colors.lime },
+  styleChoiceTitle: { color: colors.text, fontSize: 19, fontWeight: "900" },
+  styleChoiceBody: { color: colors.textMuted, fontSize: 15, lineHeight: 21 },
+  styleChoiceArrow: { color: colors.lime, fontSize: 26, fontWeight: "900" },
   heroScoreRing: {
     width: 96,
     height: 96,

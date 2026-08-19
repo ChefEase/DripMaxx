@@ -27,6 +27,7 @@ import LegalScreen from "./app/legal";
 import ChallengeScreen from "./app/challenge";
 import FeatureSubmissionsScreen from "./app/feature-submissions";
 import PrivacySocialOnboardingScreen from "./app/privacy-social-onboarding";
+import StyleMyOutfitScreen from "./app/style-my-outfit";
 import 'react-native-url-polyfill/auto';
 import { syncAuthenticatedUser } from "./lib/authProfile";
 import { logWarn } from "./lib/logger";
@@ -57,6 +58,7 @@ export type RootStackParamList = {
   Challenge: undefined;
   FeatureSubmissions: undefined;
   PrivacySocialOnboarding: undefined;
+  StyleMyOutfit: undefined;
 };
 
 const Stack = createNativeStackNavigator<RootStackParamList>();
@@ -295,6 +297,7 @@ function AppShell() {
         />
         <Stack.Screen name="Paywall" component={PaywallScreen} />
         <Stack.Screen name="Scan" component={ScanStubScreen} />
+        <Stack.Screen name="StyleMyOutfit" component={StyleMyOutfitScreen} />
         <Stack.Screen name="ScanExample" component={ScanExampleScreen} />
         <Stack.Screen name="Profile" component={ProfileScreen} />
         <Stack.Screen name="Leaderboard" component={LeaderboardScreen} />

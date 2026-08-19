@@ -15,6 +15,12 @@
       "expo-localization",
       "expo-secure-store",
       [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Allow DripMaxx to use your location to tailor Style My Outfit advice to current local weather."
+        }
+      ],
+      [
         "expo-image-picker",
         {
           "photosPermission": "Allow DripMaxx to access your photos so you can upload an outfit for analysis.",

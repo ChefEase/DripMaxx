@@ -67,6 +67,6 @@ const createStyles = (colors: AppColors) => StyleSheet.create({
   symbol: { color: colors.textSoft, fontSize: 19, fontWeight: "800" },
   symbolActive: { color: colors.text },
   scanSymbol: { color: colors.limeInk, fontSize: 29 },
-  label: { color: colors.textSoft, fontSize: 10, fontWeight: "700" },
+  label: { color: colors.textSoft, fontSize: 12, fontWeight: "700" },
   labelActive: { color: colors.text },
 });

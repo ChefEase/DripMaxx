@@ -532,5 +532,5 @@ const baseStyles = StyleSheet.create({
   exampleLooksRow: { flexDirection: "row", gap: 8 },
   exampleLook: { flex: 1, borderRadius: 16, overflow: "hidden", backgroundColor: colors.surfaceSoft, position: "relative" },
   exampleLookImage: { width: "100%", aspectRatio: 4 / 5 },
-  exampleLookLabel: { position: "absolute", left: 6, right: 6, bottom: 6, color: colors.text, backgroundColor: "rgba(8,10,12,0.78)", borderRadius: 999, textAlign: "center", paddingVertical: 5, fontSize: 8, fontWeight: "900", letterSpacing: 0.7 },
+  exampleLookLabel: { position: "absolute", left: 6, right: 6, bottom: 6, color: "#FEFEFE", backgroundColor: "rgba(8,10,12,0.88)", borderRadius: 999, textAlign: "center", paddingVertical: 5, fontSize: 8, fontWeight: "900", letterSpacing: 0.7 },
 });

@@ -1,6 +1,6 @@
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import React, { createContext, useContext, useEffect, useMemo, useState } from "react";
-import { StyleSheet } from "react-native";
+import { StyleSheet, useWindowDimensions } from "react-native";
 
 export const THEME_STORAGE_KEY = "dripmaxx:appearance";
 
@@ -33,11 +33,55 @@ export type AppColors = {
   textSoft: string;
   lime: string;
   limeInk: string;
+  /** Accent adjusted for readable text/icons on the current surfaces. */
+  limeText: string;
+  /** Fixed high-contrast roles for content rendered over photography. */
+  imageText: string;
+  imageTextMuted: string;
   cream: string;
   coral: string;
   gold: string;
   success: string;
   danger: string;
+};
+
+const hexRgb = (hex: string) => {
+  const value = hex.replace("#", "");
+  return [0, 2, 4].map((offset) => parseInt(value.slice(offset, offset + 2), 16));
+};
+
+const luminance = (hex: string) => {
+  const channels = hexRgb(hex).map((channel) => {
+    const value = channel / 255;
+    return value <= 0.04045 ? value / 12.92 : ((value + 0.055) / 1.055) ** 2.4;
+  });
+  return channels[0] * 0.2126 + channels[1] * 0.7152 + channels[2] * 0.0722;
+};
+
+const contrast = (a: string, b: string) => {
+  const [light, dark] = [luminance(a), luminance(b)].sort((x, y) => y - x);
+  return (light + 0.05) / (dark + 0.05);
+};
+
+const bestInk = (background: string) =>
+  contrast("#111111", background) >= contrast("#FFFFFF", background) ? "#111111" : "#FFFFFF";
+
+const mixHex = (color: string, target: string, amount: number) => {
+  const from = hexRgb(color);
+  const to = hexRgb(target);
+  return `#${from.map((channel, index) => Math.round(channel + (to[index] - channel) * amount).toString(16).padStart(2, "0")).join("")}`;
+};
+
+const readableAccent = (accent: string, background: string, dark: boolean) => {
+  if (contrast(accent, background) >= 4.5) return accent;
+  // Accent-colored text needs a deeper companion on light surfaces and a
+  // lighter companion on dark surfaces; the decorative accent stays intact.
+  const target = dark ? "#FFFFFF" : "#000000";
+  for (let step = 1; step <= 10; step += 1) {
+    const candidate = mixHex(accent, target, step / 10);
+    if (contrast(candidate, background) >= 4.5) return candidate;
+  }
+  return target;
 };
 
 const seeds: ThemeSeed[] = [
@@ -62,9 +106,13 @@ const toColors = (seed: ThemeSeed): AppColors => ({
   line: seed.dark ? "#383838" : "#D9D9D5",
   text: seed.text,
   textMuted: seed.dark ? "#B7B7B7" : "#62625F",
-  textSoft: seed.dark ? "#8D8D8D" : "#777773",
+  // Meets WCAG AA against both the page and card surfaces, even at caption sizes.
+  textSoft: seed.dark ? "#9A9A9A" : "#686864",
   lime: seed.accent,
-  limeInk: seed.dark && seed.accent === "#B6FF00" ? "#111111" : "#FFFFFF",
+  limeInk: bestInk(seed.accent),
+  limeText: readableAccent(seed.accent, seed.card, seed.dark),
+  imageText: "#FEFEFE",
+  imageTextMuted: "#E2E8F0",
   cream: seed.text,
   coral: "#FF7A66",
   gold: "#F0C66A",
@@ -134,15 +182,24 @@ const paletteRoles: Record<string, keyof AppColors> = {
   "#14532d": "surfaceRaised", "#061a14": "surface", "#204b3a": "line", "#123027": "line", "#0b1424": "surface",
 };
 
-const themedValue = (value: unknown, colors: AppColors, property?: string): unknown => {
+const themedValue = (value: unknown, colors: AppColors, property?: string, typeScale = 1): unknown => {
+  if (typeof value === "number" && property === "fontSize") {
+    return Math.round(Math.max(value, 12) * typeScale * 10) / 10;
+  }
+  if (typeof value === "number" && property === "lineHeight") {
+    return Math.round(value * typeScale * 10) / 10;
+  }
   if (typeof value === "string") {
-    if (property === "color" && value.toLowerCase() === "#ffffff") return colors.text;
+    // Literal white text is intentional (Apple controls, scrims, photography).
+    // Background white still maps to the active surface.
+    if (property === "color" && value.toLowerCase() === "#ffffff") return value;
     const role = paletteRoles[value.toLowerCase()];
+    if (property === "color" && role === "lime") return colors.limeText;
     return role ? colors[role] : value;
   }
-  if (Array.isArray(value)) return value.map((item) => themedValue(item, colors, property));
+  if (Array.isArray(value)) return value.map((item) => themedValue(item, colors, property, typeScale));
   if (value && typeof value === "object") {
-    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, themedValue(item, colors, key)]));
+    return Object.fromEntries(Object.entries(value).map(([key, item]) => [key, themedValue(item, colors, key, typeScale)]));
   }
   return value;
 };
@@ -150,7 +207,13 @@ const themedValue = (value: unknown, colors: AppColors, property?: string): unkn
 /** Converts legacy fixed palette styles into live theme roles without changing layout. */
 export function useThemedStyles<T extends Record<string, any>>(baseStyles: T): T {
   const { theme } = useAppTheme();
-  return useMemo(() => StyleSheet.create(themedValue(baseStyles, theme.colors) as T) as T, [baseStyles, theme.colors]);
+  const { width } = useWindowDimensions();
+  // Keep captions and controls comfortably legible on iPad viewing distances.
+  const typeScale = width >= 768 ? 1.1 : 1;
+  return useMemo(
+    () => StyleSheet.create(themedValue(baseStyles, theme.colors, undefined, typeScale) as T) as T,
+    [baseStyles, theme.colors, typeScale]
+  );
 }
 
 export const radius = { sm: 12, md: 18, lg: 26, pill: 999 } as const;

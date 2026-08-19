@@ -183,7 +183,7 @@ const baseStyles = StyleSheet.create({
     borderRadius: 12,
     backgroundColor: "#111827",
   },
-  previewFrameLabel: { position: "absolute", left: 10, bottom: 10, color: colors.text, backgroundColor: "rgba(8,10,12,0.8)", borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6, fontSize: 9, fontWeight: "900", letterSpacing: 1 },
+  previewFrameLabel: { position: "absolute", left: 10, bottom: 10, color: "#FEFEFE", backgroundColor: "rgba(8,10,12,0.88)", borderRadius: 999, paddingHorizontal: 10, paddingVertical: 6, fontSize: 12, fontWeight: "900", letterSpacing: 1 },
   outfitPlaceholderText: {
     color: "#CBD5E1",
     fontSize: 13,
@@ -270,7 +270,7 @@ const baseStyles = StyleSheet.create({
   transformImages: { gap: 12, paddingRight: 18 },
   transformImageWrap: { width: 150, position: "relative", overflow: "hidden", borderRadius: 16 },
   transformImage: { width: "100%", aspectRatio: 3 / 4, backgroundColor: colors.surfaceSoft },
-  imageLabel: { position: "absolute", left: 8, bottom: 8, color: colors.text, backgroundColor: "rgba(8,10,12,0.78)", borderRadius: 999, paddingHorizontal: 9, paddingVertical: 5, fontSize: 9, fontWeight: "900", letterSpacing: 1 },
+  imageLabel: { position: "absolute", left: 8, bottom: 8, color: "#FEFEFE", backgroundColor: "rgba(8,10,12,0.88)", borderRadius: 999, paddingHorizontal: 9, paddingVertical: 5, fontSize: 12, fontWeight: "900", letterSpacing: 1 },
   transformTitle: { color: colors.text, fontSize: 16, fontWeight: "900", paddingHorizontal: 4 },
   transformCopy: { color: colors.textMuted, fontSize: 13, lineHeight: 19, paddingHorizontal: 4, paddingBottom: 4 },
 });

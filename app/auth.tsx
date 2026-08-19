@@ -266,8 +266,8 @@ const baseStyles = StyleSheet.create({
   },
   onboardingVisual: { width: "100%", height: 260, borderRadius: 28, overflow: "hidden", position: "relative", backgroundColor: colors.surface },
   onboardingImage: { width: "100%", height: "100%" },
-  onboardingShade: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(8,10,12,0.16)" },
-  onboardingLabel: { position: "absolute", left: 14, bottom: 14, color: colors.ink, backgroundColor: colors.lime, borderRadius: 999, paddingHorizontal: 11, paddingVertical: 7, fontSize: 9, fontWeight: "900", letterSpacing: 1 },
+  onboardingShade: { ...StyleSheet.absoluteFillObject, backgroundColor: "rgba(8,10,12,0.34)" },
+  onboardingLabel: { position: "absolute", left: 14, bottom: 14, color: "#FEFEFE", backgroundColor: "rgba(8,10,12,0.84)", borderRadius: 999, paddingHorizontal: 11, paddingVertical: 7, fontSize: 9, fontWeight: "900", letterSpacing: 1 },
   brandPanel: {
     borderWidth: 1,
     borderColor: "#204B3A",

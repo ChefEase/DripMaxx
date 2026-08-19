@@ -323,6 +323,6 @@ const chipStyles = StyleSheet.create({
     fontWeight: "600",
   },
   chipTextActive: {
-    color: colors.cream,
+    color: "#FEFEFE",
   },
 });

@@ -294,7 +294,7 @@ const pillStyles = StyleSheet.create({
     fontWeight: "600",
   },
   pillTextActive: {
-    color: colors.cream,
+    color: "#FEFEFE",
   },
 });
 

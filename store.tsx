@@ -214,6 +214,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
 
   useEffect(() => {
     let active = true;
+    let hasUsableCache = false;
     setPrivacyPreferencesHydrated(false);
     if (!userId) {
       applyPrivacyPreferences({
@@ -231,6 +232,7 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
         if (cached && active) {
           try {
             applyPrivacyPreferences(JSON.parse(cached) as PrivacySocialPreferences);
+            hasUsableCache = true;
             setPrivacyPreferencesHydrated(true);
           } catch {
             await AsyncStorage.removeItem(cacheKey);
@@ -252,6 +254,19 @@ export const StoreProvider: React.FC<{ children: React.ReactNode }> = ({
       })
       .catch((error) => {
         logWarn("[Store] privacy/social preferences load failed", error);
+        if (!active) return;
+        if (!hasUsableCache) {
+          // Never trap the app behind a permanent loading screen. This
+          // compatibility fallback keeps social surfaces off until the server
+          // becomes available, while allowing an existing account into Home.
+          applyPrivacyPreferences({
+            profileVisibility: "private",
+            communityFeedEnabled: false,
+            leaderboardEnabled: false,
+            onboardingCompleted: true,
+          });
+        }
+        setPrivacyPreferencesHydrated(true);
       });
     return () => { active = false; };
   }, [userId]);

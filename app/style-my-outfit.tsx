@@ -146,6 +146,9 @@ export default function StyleMyOutfitScreen() {
       form.append("occasion", occasion);
       form.append("latitude", String(coordinates.latitude));
       form.append("longitude", String(coordinates.longitude));
+      // Reuse the conditions already displayed to the user so one styling
+      // action does not perform a second provider request.
+      form.append("weather_json", JSON.stringify(weather));
       const response = await apiFetch("/v1/styling/advice", {
         method: "POST",
         headers: { Accept: "application/json" },
@@ -236,7 +239,7 @@ export default function StyleMyOutfitScreen() {
               <Pressable style={styles.retry} onPress={() => void loadWeather()}><Text style={styles.retryText}>Try location again</Text></Pressable>
             </View>
           )}
-          <Text style={styles.privacyCopy}>Your coordinates are used only to retrieve current weather for this request. Weather data by Open-Meteo.</Text>
+          <Text style={styles.privacyCopy}>Your coordinates are used only to retrieve current weather for this request. Weather data by Open-Meteo or MET Norway.</Text>
         </View>
 
         {submitError ? <Text style={styles.submitError} accessibilityRole="alert">{submitError}</Text> : null}

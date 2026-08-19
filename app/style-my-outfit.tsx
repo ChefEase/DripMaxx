@@ -109,10 +109,14 @@ export default function StyleMyOutfitScreen() {
   };
 
   const pick = async () => {
-    const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
-    if (permission.status !== ImagePicker.PermissionStatus.GRANTED) {
-      Alert.alert("Gallery access needed", "Allow gallery access to choose an outfit photo.");
-      return;
+    // Browsers require the file picker to be launched directly from the
+    // user's click. Awaiting a permission request first breaks that gesture.
+    if (Platform.OS !== "web") {
+      const permission = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (permission.status !== ImagePicker.PermissionStatus.GRANTED) {
+        Alert.alert("Gallery access needed", "Allow gallery access to choose an outfit photo.");
+        return;
+      }
     }
     const picked = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -123,11 +127,19 @@ export default function StyleMyOutfitScreen() {
     if (!picked.canceled) acceptImage(picked.assets[0]?.uri);
   };
 
-  const choosePhoto = () => Alert.alert("Add an outfit photo", "Take a new photo or choose one to test.", [
-    { text: "Camera", onPress: () => void capture() },
-    { text: "Gallery", onPress: () => void pick() },
-    { text: "Cancel", style: "cancel" },
-  ]);
+  const choosePhoto = () => {
+    // React Native Web does not support native multi-button Alert callbacks.
+    // Open the laptop/desktop file picker directly instead.
+    if (Platform.OS === "web") {
+      void pick();
+      return;
+    }
+    Alert.alert("Add an outfit photo", "Take a new photo or choose one to test.", [
+      { text: "Camera", onPress: () => void capture() },
+      { text: "Gallery", onPress: () => void pick() },
+      { text: "Cancel", style: "cancel" },
+    ]);
+  };
 
   const submit = async () => {
     if (!occasion || !imageUri || !coordinates || !weather) return;

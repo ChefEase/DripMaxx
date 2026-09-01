@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import {
   SafeAreaView,
   View,
@@ -11,6 +11,7 @@ import {
   Platform,
   Share,
   TextInput,
+  Animated,
 } from "react-native";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
@@ -36,6 +37,49 @@ import {
 import { ActivityIndicator } from "react-native";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
+
+type EvolutionRecommendation = {
+  id: string;
+  title: string;
+  type: string;
+  description: string;
+  current_state?: string | null;
+  recommended_change?: string | null;
+  reason?: string | null;
+  importance: "high" | "medium" | "low";
+  target_state?: string | null;
+  impact: number;
+};
+
+type EvolutionRevision = {
+  revision_number: number;
+  previous_score: number;
+  current_score: number;
+  score_change: number;
+  completed_count: number;
+  total_recommendations: number;
+  recommendations: { id: string; status: "completed" | "partial" | "remaining" | "regressed"; confidence: number; evidence: string }[];
+  new_issues: string[];
+  summary: string;
+  confidence: number;
+};
+
+type EvolutionSession = {
+  session_id: string;
+  original_outfit_id: string;
+  original_image_url?: string | null;
+  original_score: number;
+  current_score: number;
+  potential_score: number;
+  target_image_url?: string | null;
+  target_generation_status: "pending" | "queued" | "generating" | "complete" | "failed";
+  target_generation_error?: string | null;
+  recommendations: EvolutionRecommendation[];
+  revisions: EvolutionRevision[];
+  latest_revision?: EvolutionRevision | null;
+};
+
+const ACTIVE_EVOLUTION_KEY = "dripmaxx:activeEvolutionSession";
 
 const ANALYSIS_STEPS = [
   {
@@ -134,6 +178,12 @@ export default function ScanStubScreen() {
   const [analysisProgress, setAnalysisProgress] = useState(0);
   const [saved, setSaved] = useState(false);
   const [scanError, setScanError] = useState<string | null>(null);
+  const [evolution, setEvolution] = useState<EvolutionSession | null>(null);
+  const [revisionMode, setRevisionMode] = useState(false);
+  const [showTargetLook, setShowTargetLook] = useState(false);
+  const [showEvolutionReveal, setShowEvolutionReveal] = useState(false);
+  const revealScale = useRef(new Animated.Value(0.92)).current;
+  const targetOpacity = useRef(new Animated.Value(0)).current;
   const [activeChallenge, setActiveChallenge] = useState<ActiveChallengePayload | null>(null);
   const [challengeConsent, setChallengeConsent] = useState(false);
   const [challengeSubmitted, setChallengeSubmitted] = useState(false);
@@ -162,8 +212,71 @@ export default function ScanStubScreen() {
         suggestions: { title: string; type: string; description: string }[];
         warnings: string[];
         unavailableMetrics: string[];
+        evolution: EvolutionSession | null;
       }
   >(null);
+  useEffect(() => {
+    AsyncStorage.getItem(ACTIVE_EVOLUTION_KEY).then(async (sessionId) => {
+      if (!sessionId) return;
+      try {
+        const response = await apiFetch(`/v1/outfits/evolution/${encodeURIComponent(sessionId)}`);
+        if (!response.ok) {
+          await AsyncStorage.removeItem(ACTIVE_EVOLUTION_KEY);
+          return;
+        }
+        setEvolution(await response.json());
+        setRevisionMode(true);
+      } catch (error) {
+        logWarn("active evolution restore failed", error);
+      }
+    });
+  }, []);
+
+  useEffect(() => {
+    if (!showEvolutionReveal) return;
+    revealScale.setValue(0.92);
+    Animated.spring(revealScale, { toValue: 1, useNativeDriver: true, friction: 7 }).start();
+    const timeout = setTimeout(() => setShowEvolutionReveal(false), 4800);
+    return () => clearTimeout(timeout);
+  }, [revealScale, showEvolutionReveal]);
+
+  useEffect(() => {
+    if (!evolution?.target_image_url) return;
+    targetOpacity.setValue(0);
+    Animated.timing(targetOpacity, { toValue: 1, duration: 900, useNativeDriver: true }).start();
+  }, [evolution?.target_image_url, targetOpacity]);
+
+  useEffect(() => {
+    if (!evolution?.session_id || evolution.target_image_url || evolution.target_generation_status === "failed") return;
+    const interval = setInterval(async () => {
+      try {
+        const response = await apiFetch(`/v1/outfits/evolution/${encodeURIComponent(evolution.session_id)}`);
+        if (!response.ok) return;
+        const updated: EvolutionSession = await response.json();
+        if (updated.target_image_url) {
+          targetOpacity.setValue(0);
+          setEvolution(updated);
+          setResult((current) => current ? { ...current, evolution: updated } : current);
+          Animated.timing(targetOpacity, { toValue: 1, duration: 900, useNativeDriver: true }).start();
+        } else if (updated.target_generation_status === "failed") {
+          setEvolution(updated);
+        }
+      } catch (error) {
+        logWarn("target look polling failed", error);
+      }
+    }, 2500);
+    return () => clearInterval(interval);
+  }, [evolution?.session_id, evolution?.target_image_url, evolution?.target_generation_status, targetOpacity]);
+
+  const retryTargetImage = async () => {
+    if (!evolution) return;
+    try {
+      const response = await apiFetch(`/v1/outfits/evolution/${encodeURIComponent(evolution.session_id)}/target`, { method: "POST" });
+      if (response.ok) setEvolution(await response.json());
+    } catch (error) {
+      logWarn("target look retry failed", error);
+    }
+  };
   useEffect(() => {
     if (!privacyOnboardingCompleted || communityFeedEnabled !== true) {
       setActiveChallenge(null);
@@ -341,6 +454,9 @@ export default function ScanStubScreen() {
           user_id: userId || null,
         })
       );
+      if (revisionMode && evolution?.session_id) {
+        form.append("evolution_session_id", evolution.session_id);
+      }
 
       const resp = await apiFetch("/v1/outfits/score", {
         method: "POST",
@@ -444,7 +560,12 @@ export default function ScanStubScreen() {
         suggestions: data.suggestions,
         warnings: data.warnings || [],
         unavailableMetrics,
+        evolution: data.evolution || null,
       });
+      if (data.evolution) {
+        setEvolution(data.evolution);
+        if (data.evolution.latest_revision) setShowEvolutionReveal(true);
+      }
       if (dripScore >= 7.5 && data.outfit_id) {
         setFeatureUsername(username || "");
         setShowProgressPopup(false);
@@ -479,6 +600,20 @@ export default function ScanStubScreen() {
     setBestOutfit(null);
     setResult(null);
     setSaved(false);
+    setEvolution(null);
+    setRevisionMode(false);
+    AsyncStorage.removeItem(ACTIVE_EVOLUTION_KEY).catch(() => {});
+  };
+
+  const handleImproveOutfit = () => {
+    if (!evolution) return;
+    setRevisionMode(true);
+    AsyncStorage.setItem(ACTIVE_EVOLUTION_KEY, evolution.session_id).catch(() => {});
+    setImageUri(null);
+    setResult(null);
+    setSaved(false);
+    setScanError(null);
+    Alert.alert("Upgrade Mode", "Change any upgrades you want, then take a new full-body photo. You don't need to do everything.");
   };
 
   const handleSaveOutfit = () => {
@@ -589,6 +724,10 @@ export default function ScanStubScreen() {
     : stylePreferences.length > 1
       ? `Style Match (${stylePreferences.length})`
       : "Style (not selected)";
+  const latestEvolutionRevision = evolution?.latest_revision || null;
+  const recommendationStatus = new Map(
+    (latestEvolutionRevision?.recommendations || []).map((item) => [item.id, item])
+  );
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -597,11 +736,21 @@ export default function ScanStubScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View>
-          <Text style={styles.stepLabel}>QUICK SCAN</Text>
-          <Text style={styles.title}>Rate the whole fit.</Text>
+          <Text style={styles.stepLabel}>{revisionMode ? "UPGRADE MODE" : "QUICK SCAN"}</Text>
+          <Text style={styles.title}>{revisionMode ? "Show us what changed." : "Rate the whole fit."}</Text>
           <Text style={styles.subtitle}>
-            Your saved style profile is applied automatically—no setup needed.
+            {revisionMode
+              ? "We'll compare this photo with the original outfit, not treat it like a new look."
+              : "Your saved style profile is applied automatically—no setup needed."}
           </Text>
+          {revisionMode && evolution ? (
+            <View style={styles.evolutionModeBanner}>
+              <Text style={styles.evolutionModeTitle}>Continuing Outfit Evolution</Text>
+              <Text style={styles.evolutionModeText}>
+                Current {evolution.current_score.toFixed(1)} · Potential {evolution.potential_score.toFixed(1)} · Change any upgrades you want.
+              </Text>
+            </View>
+          ) : null}
           <View style={styles.guidelineCard}>
             <Text style={styles.guidelineTitle}>Best results</Text>
             <Text style={styles.guidelineItem}>• Stand centered with full body in frame.</Text>
@@ -762,6 +911,93 @@ export default function ScanStubScreen() {
                   <View style={[styles.scoreMeterFill, { width: `${clampPercent(confidenceScore)}%` }]} />
                 </View>
               </View>
+              {evolution ? (
+                <View style={styles.evolutionCard}>
+                  <View style={styles.sectionHeaderRow}>
+                    <View>
+                      <Text style={styles.evolutionEyebrow}>OUTFIT EVOLUTION</Text>
+                      <Text style={styles.evolutionTitle}>
+                        {latestEvolutionRevision
+                          ? `${latestEvolutionRevision.completed_count}/${latestEvolutionRevision.total_recommendations} upgrades complete`
+                          : `Potential ${evolution.potential_score.toFixed(1)}/10`}
+                      </Text>
+                    </View>
+                    {latestEvolutionRevision ? (
+                      <Text style={latestEvolutionRevision.score_change >= 0 ? styles.deltaPositive : styles.deltaNegative}>
+                        {latestEvolutionRevision.score_change >= 0 ? "+" : ""}{latestEvolutionRevision.score_change.toFixed(1)}
+                      </Text>
+                    ) : null}
+                  </View>
+                  <View style={styles.evolutionScoreRow}>
+                    <View style={styles.evolutionScoreCell}><Text style={styles.evolutionScoreValue}>{evolution.original_score.toFixed(1)}</Text><Text style={styles.evolutionScoreLabel}>Original</Text></View>
+                    <Text style={styles.evolutionArrow}>→</Text>
+                    <View style={styles.evolutionScoreCell}><Text style={styles.evolutionScoreValue}>{evolution.current_score.toFixed(1)}</Text><Text style={styles.evolutionScoreLabel}>Current</Text></View>
+                    <Text style={styles.evolutionArrow}>→</Text>
+                    <View style={styles.evolutionScoreCell}><Text style={[styles.evolutionScoreValue, { color: colors.lime }]}>{evolution.potential_score.toFixed(1)}</Text><Text style={styles.evolutionScoreLabel}>Potential</Text></View>
+                  </View>
+                  <View style={styles.evolutionTrack}>
+                    <View style={[styles.evolutionFill, { width: `${Math.min(100, Math.max(0, (evolution.current_score / evolution.potential_score) * 100))}%` }]} />
+                  </View>
+                  {evolution.revisions.length ? (
+                    <View style={styles.revisionHistory}>
+                      <View style={styles.revisionHistoryRow}><Text style={styles.revisionHistoryLabel}>Original</Text><Text style={styles.revisionHistoryScore}>{evolution.original_score.toFixed(1)}</Text></View>
+                      {evolution.revisions.slice(-4).map((revision) => (
+                        <View key={revision.revision_number} style={styles.revisionHistoryRow}>
+                          <Text style={styles.revisionHistoryLabel}>Revision {revision.revision_number}</Text>
+                          <Text style={styles.revisionHistoryScore}>{revision.current_score.toFixed(1)} {revision.score_change > 0 ? "↑" : revision.score_change < 0 ? "↓" : "—"}</Text>
+                        </View>
+                      ))}
+                    </View>
+                  ) : null}
+                  <Text style={styles.evolutionSummary}>
+                    {latestEvolutionRevision?.summary || "You don't have to do everything. Pick the changes that work for you."}
+                  </Text>
+                  <View style={styles.upgradeList}>
+                    {evolution.recommendations.map((upgrade) => {
+                      const state = recommendationStatus.get(upgrade.id);
+                      const completed = state?.status === "completed";
+                      const partial = state?.status === "partial";
+                      return (
+                        <View key={upgrade.id} style={styles.upgradeRow}>
+                          <View style={[styles.upgradeCheck, completed && styles.upgradeCheckDone, partial && styles.upgradeCheckPartial]}>
+                            <Text style={styles.upgradeCheckText}>{completed ? "✓" : partial ? "½" : ""}</Text>
+                          </View>
+                          <View style={styles.upgradeCopy}>
+                            <View style={styles.upgradeTitleRow}>
+                              <Text style={styles.upgradeTitle}>{upgrade.title}</Text>
+                              <Text style={styles.importanceTag}>{upgrade.importance}</Text>
+                            </View>
+                            <Text style={styles.upgradeText}>{upgrade.recommended_change || upgrade.description}</Text>
+                            {state?.evidence ? <Text style={styles.upgradeEvidence}>{state.evidence}</Text> : null}
+                          </View>
+                        </View>
+                      );
+                    })}
+                  </View>
+                  {evolution.target_image_url ? (
+                    <Animated.View style={[styles.targetPreviewCard, { opacity: targetOpacity }]}>
+                      <Text style={styles.evolutionEyebrow}>YOUR POTENTIAL LOOK</Text>
+                      <RemoteImage uri={evolution.target_image_url} style={styles.targetPreviewImage} />
+                      <Text style={styles.evolutionSummary}>A visual reference—use any changes that feel right for you.</Text>
+                    </Animated.View>
+                  ) : evolution.target_generation_status === "failed" ? (
+                    <View style={styles.targetGeneratingCard}>
+                      <Text style={styles.upgradeTitle}>Target image unavailable</Text>
+                      <Text style={styles.upgradeText}>Your score and recommendations are ready. You can retry the visual separately.</Text>
+                      <Pressable onPress={retryTargetImage}><Text style={styles.targetRetryText}>Try image again</Text></Pressable>
+                    </View>
+                  ) : (
+                    <View style={styles.targetGeneratingCard}>
+                      <ActivityIndicator color={colors.lime} />
+                      <View style={styles.upgradeCopy}><Text style={styles.upgradeTitle}>Generating your potential look…</Text><Text style={styles.upgradeText}>Your score is ready. This image will appear here when finished.</Text></View>
+                    </View>
+                  )}
+                  <View style={styles.previewActions}>
+                    <Pressable style={styles.secondaryButton} onPress={() => setShowTargetLook(true)}><Text style={styles.secondaryButtonText}>See Target Look</Text></Pressable>
+                    <Pressable style={styles.primaryButton} onPress={handleImproveOutfit}><Text style={styles.primaryButtonText}>{latestEvolutionRevision ? "Keep Improving" : "Improve This Outfit"}</Text></Pressable>
+                  </View>
+                </View>
+              ) : null}
               <View style={styles.visualStatsGrid}>
                 {[
                   { label: "Color Harmony", value: colorValue },
@@ -986,6 +1222,66 @@ export default function ScanStubScreen() {
         </View>
       </ScrollView>
       <View style={styles.tabDock}><AppTabBar active="scan" /></View>
+
+      <Modal transparent visible={showTargetLook} animationType="slide" onRequestClose={() => setShowTargetLook(false)}>
+        <View style={styles.featureOverlay}>
+          <View style={styles.targetCard}>
+            <Text style={styles.evolutionEyebrow}>DRIPMAXX TARGET</Text>
+            <Text style={styles.featureTitle}>Your upgrade plan</Text>
+            {evolution?.target_image_url ? (
+              <RemoteImage uri={evolution.target_image_url} style={styles.targetImage} />
+            ) : evolution?.target_generation_status === "failed" ? (
+              <View style={styles.targetModalStatus}><Text style={styles.upgradeTitle}>View recommendations</Text><Text style={styles.upgradeText}>The target image could not be generated, but your complete upgrade plan is below.</Text></View>
+            ) : evolution?.original_image_url ? (
+              <View style={styles.targetModalStatus}><ActivityIndicator color={colors.lime} /><Text style={styles.upgradeTitle}>Generating your potential look…</Text><Text style={styles.upgradeText}>You can close this and keep using your score while it finishes.</Text></View>
+            ) : null}
+            <Text style={styles.evolutionSummary}>Use these targets as a visual checklist—not a requirement. Apply any changes that fit you.</Text>
+            <ScrollView style={styles.targetList}>
+              {evolution?.recommendations.map((upgrade) => (
+                <View key={`target-${upgrade.id}`} style={styles.targetRow}>
+                  <Text style={styles.targetNumber}>✓</Text>
+                  <View style={styles.upgradeCopy}>
+                    <Text style={styles.upgradeTitle}>{upgrade.title}</Text>
+                    <Text style={styles.upgradeText}>{upgrade.target_state || upgrade.recommended_change || upgrade.description}</Text>
+                  </View>
+                </View>
+              ))}
+            </ScrollView>
+            <Pressable style={styles.featurePrimary} onPress={() => setShowTargetLook(false)}><Text style={styles.featurePrimaryText}>Got it</Text></Pressable>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal transparent visible={showEvolutionReveal} animationType="fade" onRequestClose={() => setShowEvolutionReveal(false)}>
+        <Pressable style={styles.revealOverlay} onPress={() => setShowEvolutionReveal(false)}>
+          <Animated.View style={[styles.revealCard, { transform: [{ scale: revealScale }] }]}>
+            <Text style={styles.revealIcon}>{latestEvolutionRevision?.completed_count === latestEvolutionRevision?.total_recommendations ? "🔥" : latestEvolutionRevision && latestEvolutionRevision.score_change > 0.2 ? "✓" : "↗"}</Text>
+            <Text style={styles.evolutionEyebrow}>
+              {latestEvolutionRevision?.completed_count === latestEvolutionRevision?.total_recommendations
+                ? "OUTFIT EVOLVED"
+                : latestEvolutionRevision && latestEvolutionRevision.score_change > 0.2
+                  ? "OUTFIT UPGRADED"
+                  : latestEvolutionRevision && latestEvolutionRevision.score_change < -0.2
+                    ? "KEEP BUILDING"
+                    : "NO MAJOR CHANGE"}
+            </Text>
+            {latestEvolutionRevision ? (
+              <>
+                <View style={styles.revealScoreRow}>
+                  <Text style={styles.revealOldScore}>{latestEvolutionRevision.previous_score.toFixed(1)}</Text>
+                  <Text style={styles.evolutionArrow}>→</Text>
+                  <AnimatedNumber fromValue={latestEvolutionRevision.previous_score} value={latestEvolutionRevision.current_score} duration={1600} decimals={1} style={styles.revealNewScore} />
+                </View>
+                <Text style={latestEvolutionRevision.score_change >= 0 ? styles.deltaPositive : styles.deltaNegative}>
+                  {latestEvolutionRevision.score_change >= 0 ? "+" : ""}{latestEvolutionRevision.score_change.toFixed(1)} points
+                </Text>
+                <Text style={styles.revealComplete}>{latestEvolutionRevision.completed_count}/{latestEvolutionRevision.total_recommendations} upgrades complete</Text>
+                <Text style={styles.evolutionSummary}>{latestEvolutionRevision.summary}</Text>
+              </>
+            ) : null}
+          </Animated.View>
+        </Pressable>
+      </Modal>
 
       <Modal transparent visible={!!previewUrl} animationType="fade">
         <Pressable style={styles.previewOverlay} onPress={() => setPreviewUrl(null)}>
@@ -1325,6 +1621,12 @@ const baseStyles = StyleSheet.create({
     fontSize: 13,
     lineHeight: 18,
   },
+  evolutionModeBanner: {
+    marginTop: 14, borderRadius: 14, borderWidth: 1, borderColor: "#C7FF4A66",
+    backgroundColor: "#12200D", padding: 13, gap: 4,
+  },
+  evolutionModeTitle: { color: colors.lime, fontSize: 14, fontWeight: "900" },
+  evolutionModeText: { color: "#D1FAE5", fontSize: 13, lineHeight: 18 },
   tabDock: { paddingHorizontal: 16, paddingTop: 6, paddingBottom: 8, backgroundColor: "#020617" },
   featureOverlay: {
     flex: 1,
@@ -1523,6 +1825,57 @@ const baseStyles = StyleSheet.create({
     padding: 14,
     gap: 10,
   },
+  evolutionCard: {
+    borderRadius: 18, borderWidth: 1, borderColor: "#C7FF4A55",
+    backgroundColor: "#08150D", padding: 15, gap: 14,
+  },
+  evolutionEyebrow: { color: colors.lime, fontSize: 12, fontWeight: "900", letterSpacing: 1, textAlign: "center" },
+  evolutionTitle: { color: "#F8FAFC", fontSize: 19, fontWeight: "900", marginTop: 3 },
+  evolutionScoreRow: { flexDirection: "row", alignItems: "center", justifyContent: "space-between" },
+  evolutionScoreCell: { alignItems: "center", flex: 1 },
+  evolutionScoreValue: { color: "#F8FAFC", fontSize: 24, fontWeight: "900" },
+  evolutionScoreLabel: { color: "#94A3B8", fontSize: 11, fontWeight: "800", textTransform: "uppercase" },
+  evolutionArrow: { color: "#64748B", fontSize: 22, fontWeight: "900" },
+  evolutionTrack: { height: 11, borderRadius: 999, overflow: "hidden", backgroundColor: "#172033" },
+  evolutionFill: { height: "100%", borderRadius: 999, backgroundColor: colors.lime },
+  evolutionSummary: { color: "#CBD5E1", fontSize: 13, lineHeight: 19, textAlign: "center" },
+  revisionHistory: { borderRadius: 12, backgroundColor: "#0F172A", paddingHorizontal: 11 },
+  revisionHistoryRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 7, borderBottomWidth: 1, borderBottomColor: "#1F2937" },
+  revisionHistoryLabel: { color: "#94A3B8", fontSize: 12, fontWeight: "700" },
+  revisionHistoryScore: { color: "#F8FAFC", fontSize: 12, fontWeight: "900" },
+  deltaPositive: { color: colors.lime, fontSize: 20, fontWeight: "900" },
+  deltaNegative: { color: "#F59E0B", fontSize: 20, fontWeight: "900" },
+  upgradeList: { gap: 11 },
+  upgradeRow: { flexDirection: "row", alignItems: "flex-start", gap: 10 },
+  upgradeCheck: { width: 25, height: 25, borderRadius: 8, borderWidth: 1, borderColor: "#475569", alignItems: "center", justifyContent: "center", marginTop: 1 },
+  upgradeCheckDone: { backgroundColor: colors.lime, borderColor: colors.lime },
+  upgradeCheckPartial: { backgroundColor: "#A16207", borderColor: "#FACC15" },
+  upgradeCheckText: { color: colors.limeInk, fontSize: 13, fontWeight: "900" },
+  upgradeCopy: { flex: 1, gap: 3 },
+  upgradeTitleRow: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: 8 },
+  upgradeTitle: { color: "#F8FAFC", fontSize: 14, fontWeight: "900", flex: 1 },
+  upgradeText: { color: "#CBD5E1", fontSize: 13, lineHeight: 18 },
+  upgradeEvidence: { color: "#A7F3D0", fontSize: 11, lineHeight: 16, fontStyle: "italic" },
+  importanceTag: { color: "#94A3B8", fontSize: 10, fontWeight: "900", textTransform: "uppercase" },
+  targetCard: { width: "100%", maxWidth: 440, maxHeight: "88%", alignSelf: "center", borderRadius: 22, borderWidth: 1, borderColor: "#C7FF4A66", backgroundColor: "#0B1224", padding: 17, gap: 12 },
+  targetImage: { width: "100%", height: 220, borderRadius: 14, backgroundColor: "#111827" },
+  targetPreviewCard: { gap: 9, borderRadius: 14, padding: 10, backgroundColor: "#0F172A" },
+  targetPreviewImage: { width: "100%", height: 300, borderRadius: 12, backgroundColor: "#111827" },
+  targetGeneratingCard: { minHeight: 84, flexDirection: "row", alignItems: "center", gap: 12, borderRadius: 14, padding: 13, backgroundColor: "#0F172A", borderWidth: 1, borderColor: "#263449" },
+  targetModalStatus: { minHeight: 180, alignItems: "center", justifyContent: "center", gap: 10, borderRadius: 14, padding: 20, backgroundColor: "#0F172A" },
+  targetRetryText: { color: colors.lime, fontSize: 13, fontWeight: "900", marginTop: 5 },
+  originalReferenceWrap: { position: "relative" },
+  originalReferenceLabel: { position: "absolute", left: 10, bottom: 10, color: "#F8FAFC", backgroundColor: "#020617CC", borderRadius: 999, paddingHorizontal: 9, paddingVertical: 5, fontSize: 10, fontWeight: "900" },
+  targetList: { maxHeight: 240 },
+  targetRow: { flexDirection: "row", gap: 9, paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: "#1F2937" },
+  targetNumber: { color: colors.lime, fontSize: 16, fontWeight: "900" },
+  revealOverlay: { flex: 1, backgroundColor: "rgba(2,6,23,0.92)", alignItems: "center", justifyContent: "center", padding: 24 },
+  revealCard: { width: "100%", maxWidth: 420, borderRadius: 26, borderWidth: 1, borderColor: "#C7FF4A88", backgroundColor: "#08150D", padding: 24, alignItems: "center", gap: 13 },
+  revealIcon: { fontSize: 42 },
+  revealScoreRow: { flexDirection: "row", alignItems: "center", gap: 16 },
+  revealOldScore: { color: "#64748B", fontSize: 32, fontWeight: "800" },
+  revealNewScore: { color: colors.lime, fontSize: 48, fontWeight: "900" },
+  revealComplete: { color: "#F8FAFC", fontSize: 16, fontWeight: "900" },
   scoreMeterTop: {
     flexDirection: "row",
     justifyContent: "space-between",

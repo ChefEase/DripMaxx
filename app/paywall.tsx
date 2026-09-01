@@ -14,6 +14,7 @@ import {
 } from "../lib/revenueCat";
 import { useStore } from "../store";
 import { colors, useAppTheme, useThemedStyles } from "./ui/theme";
+import { trackEvent } from "../lib/analytics";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 
@@ -64,6 +65,8 @@ function PaywallShell({ priceLabel, metaText, diagnostics, onBuy, onRestore, bus
 }
 
 function WebPaywall() {
+  const { userId } = useStore();
+  useEffect(() => { void trackEvent("paywall_viewed", { billing_available: false }, userId); }, [userId]);
   return <PaywallShell priceLabel="$3.99" metaText="RevenueCat purchases require an iOS or Android build."
     diagnostics={["provider=RevenueCat", "platform=web", "billing=unavailable"]}
     onBuy={() => Alert.alert("Mobile only", "Use the iOS or Android app to subscribe.")}
@@ -136,6 +139,7 @@ function NativePaywall() {
   }, [syncBackend, userId]);
 
   useEffect(() => { void loadRevenueCat(); }, [loadRevenueCat]);
+  useEffect(() => { void trackEvent("paywall_viewed", { billing_available: true }, userId); }, [userId]);
 
   const unlock = async (customerInfo: any, action: "purchase" | "restore") => {
     const activeIds = getActiveRevenueCatEntitlementIds(customerInfo);
@@ -156,12 +160,26 @@ function NativePaywall() {
     if (!userId) { Alert.alert("Sign in required", "Please sign in before upgrading."); nav.navigate("Auth"); return; }
     if (!purchasePackage) { Alert.alert("RevenueCat not ready", lastError || "No package is available."); return; }
     setBusy(true); setLastError(null);
+    void trackEvent("purchase_started", {
+      package_id: purchasePackage.identifier,
+      product_id: purchasePackage.product?.identifier || PRODUCT_ID,
+    }, userId);
     try {
       const purchases = await ensureRevenueCatConfigured(userId);
       const result = await purchases.purchasePackage(purchasePackage);
       await unlock(result.customerInfo, "purchase");
+      void trackEvent("purchase_completed", {
+        package_id: purchasePackage.identifier,
+        product_id: purchasePackage.product?.identifier || PRODUCT_ID,
+      }, userId);
     } catch (error: any) {
-      if (!error?.userCancelled) {
+      if (error?.userCancelled) {
+        void trackEvent("purchase_cancelled", { product_id: purchasePackage.product?.identifier || PRODUCT_ID }, userId);
+      } else {
+        void trackEvent("purchase_failed", {
+          product_id: purchasePackage.product?.identifier || PRODUCT_ID,
+          reason: "provider_error",
+        }, userId);
         const message = summarizeError(error);
         setLastError(message);
         logWarn("[RevenueCat] purchase failed", error);

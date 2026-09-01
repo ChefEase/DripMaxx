@@ -19,6 +19,7 @@ import type { RootStackParamList } from "../App";
 import { useThemedStyles } from "./ui/theme";
 import { apiFetch, apiJsonHeaders } from "../lib/api";
 import { logWarn } from "../lib/logger";
+import { trackEvent } from "../lib/analytics";
 import { startOAuthSignIn, type OAuthProvider } from "../lib/oauth";
 import { supabase } from "../lib/supabase";
 import { useStore } from "../store";
@@ -50,6 +51,7 @@ export default function SignUpScreen() {
     }
 
     setLoading(true);
+    void trackEvent("signup_started", { method: "email" });
     try {
       const emailRedirectTo = Linking.createURL("home", { isTripleSlashed: true });
       const { data, error } = await supabase.auth.signUp({
@@ -90,6 +92,7 @@ export default function SignUpScreen() {
       setUserEmail(normalizedEmail);
       setUsername(normalizedUsername);
       setDisplayName(normalizedUsername);
+      void trackEvent("signup_completed", { method: "email" }, userId);
 
       try {
         await apiFetch("/v1/profile/sync", {
@@ -110,6 +113,7 @@ export default function SignUpScreen() {
         { text: "OK", onPress: () => nav.navigate("ValueProposition", { celebrate: true }) },
       ]);
     } catch (err: any) {
+      void trackEvent("signup_failed", { method: "email", reason: "provider_error" });
       Alert.alert("Sign up failed", err.message || "Try again.");
     } finally {
       setLoading(false);
@@ -118,9 +122,11 @@ export default function SignUpScreen() {
 
   const handleOAuth = async (provider: OAuthProvider) => {
     setOauthLoading(provider);
+    void trackEvent("signup_started", { method: provider });
     try {
       await startOAuthSignIn(provider);
     } catch (err: any) {
+      void trackEvent("signup_failed", { method: provider, reason: "provider_error" });
       Alert.alert("Sign up failed", err.message || "Try again.");
     } finally {
       setOauthLoading(null);

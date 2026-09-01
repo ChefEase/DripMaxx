@@ -3,6 +3,7 @@ import { Animated, Text, TextStyle } from "react-native";
 
 type Props = {
   value: number;
+  fromValue?: number;
   duration?: number;
   decimals?: number;
   style?: TextStyle;
@@ -11,15 +12,18 @@ type Props = {
 
 export default function AnimatedNumber({
   value,
+  fromValue = 0,
   duration = 900,
   decimals = 0,
   style,
   suffix = "",
 }: Props) {
-  const animated = useRef(new Animated.Value(0)).current;
-  const [displayValue, setDisplayValue] = useState(0);
+  const animated = useRef(new Animated.Value(fromValue)).current;
+  const [displayValue, setDisplayValue] = useState(fromValue);
 
   useEffect(() => {
+    animated.setValue(fromValue);
+    setDisplayValue(fromValue);
     const id = animated.addListener(({ value: next }) => {
       setDisplayValue(next);
     });
@@ -33,7 +37,7 @@ export default function AnimatedNumber({
     return () => {
       animated.removeListener(id);
     };
-  }, [animated, duration, value]);
+  }, [animated, duration, fromValue, value]);
 
   return (
     <Text style={style}>

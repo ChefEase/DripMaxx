@@ -33,6 +33,11 @@ import { syncAuthenticatedUser } from "./lib/authProfile";
 import { logWarn } from "./lib/logger";
 import { supabase } from "./lib/supabase";
 import { trackEvent } from "./lib/analytics";
+import {
+  captureAttributionFromUrl,
+  markAttributionSynced,
+  shouldSyncAttributionForUser,
+} from "./lib/attribution";
 import { AppThemeProvider, useAppTheme } from "./app/ui/theme";
 
 export type RootStackParamList = {
@@ -91,6 +96,7 @@ function AppShell() {
     privacyPreferencesHydrated,
   } = useStore();
   const appState = useRef(AppState.currentState);
+  const currentRouteName = useRef<string | undefined>(undefined);
   const passwordRecoveryInProgress = useRef(false);
   const [pendingHomeNavigation, setPendingHomeNavigation] = useState(false);
   const [pendingResetNavigation, setPendingResetNavigation] = useState(false);
@@ -153,6 +159,7 @@ function AppShell() {
     ]);
     const handleDeepLink = async (url: string | null) => {
       if (!url) return;
+      await captureAttributionFromUrl(url);
       const [beforeHash, hash = ""] = url.split("#");
       const query = beforeHash.includes("?") ? beforeHash.split("?").slice(1).join("?") : "";
       const params = new URLSearchParams(query);
@@ -258,13 +265,41 @@ function AppShell() {
   }, [userId]);
 
   useEffect(() => {
+    if (!userId) return;
+    shouldSyncAttributionForUser(userId)
+      .then(async (shouldSync) => {
+        if (!shouldSync) return;
+        const saved = await trackEvent("attribution_captured", {}, userId);
+        if (saved) await markAttributionSynced(userId);
+      })
+      .catch((e) => logWarn("[Analytics] attribution sync failed", e));
+  }, [userId]);
+
+  useEffect(() => {
     if (!userId || !privacyPreferencesHydrated || privacyOnboardingCompleted || !navigationRef.isReady()) return;
     if (navigationRef.getCurrentRoute()?.name === "PrivacySocialOnboarding") return;
     navigationRef.reset({ index: 0, routes: [{ name: "PrivacySocialOnboarding" }] });
   }, [privacyOnboardingCompleted, privacyPreferencesHydrated, userId]);
 
   return (
-    <NavigationContainer ref={navigationRef} linking={linking} onReady={handleNavigationReady}>
+    <NavigationContainer
+      ref={navigationRef}
+      linking={linking}
+      onReady={() => {
+        handleNavigationReady();
+        currentRouteName.current = navigationRef.getCurrentRoute()?.name;
+        if (currentRouteName.current) {
+          void trackEvent("screen_viewed", { screen: currentRouteName.current }, userId);
+        }
+      }}
+      onStateChange={() => {
+        const nextRouteName = navigationRef.getCurrentRoute()?.name;
+        if (nextRouteName && nextRouteName !== currentRouteName.current) {
+          currentRouteName.current = nextRouteName;
+          void trackEvent("screen_viewed", { screen: nextRouteName }, userId);
+        }
+      }}
+    >
       <Stack.Navigator
         id="root-stack"
         screenOptions={{

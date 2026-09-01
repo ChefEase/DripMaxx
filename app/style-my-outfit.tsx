@@ -24,6 +24,8 @@ import {
 } from "../lib/currentWeather";
 import RemoteImage from "./components/RemoteImage";
 import { AppColors, radius, space, useAppTheme } from "./ui/theme";
+import { trackEvent } from "../lib/analytics";
+import { useStore } from "../store";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 type Occasion = "casual" | "school" | "work" | "date_night_out" | "party" | "other";
@@ -54,6 +56,7 @@ const responseError = async (response: Response) => {
 
 export default function StyleMyOutfitScreen() {
   const navigation = useNavigation<Nav>();
+  const { userId } = useStore();
   const { theme } = useAppTheme();
   const styles = useMemo(() => createStyles(theme.colors), [theme.colors]);
   const [occasion, setOccasion] = useState<Occasion | null>(null);
@@ -74,10 +77,12 @@ export default function StyleMyOutfitScreen() {
       const nextWeather = await fetchCurrentWeather(nextCoordinates);
       setCoordinates(nextCoordinates);
       setWeather(nextWeather);
+      void trackEvent("style_weather_loaded", { condition: nextWeather.condition }, userId);
     } catch (error: any) {
       setCoordinates(null);
       setWeather(null);
       setWeatherError(error?.message || "Current weather is unavailable.");
+      void trackEvent("style_weather_failed", { reason: "weather_unavailable" }, userId);
     } finally {
       setWeatherLoading(false);
     }
@@ -90,6 +95,7 @@ export default function StyleMyOutfitScreen() {
     setImageUri(uri);
     setResult(null);
     setSubmitError(null);
+    void trackEvent("style_photo_selected", {}, userId);
   };
 
   const capture = async () => {
@@ -144,6 +150,7 @@ export default function StyleMyOutfitScreen() {
   const submit = async () => {
     if (!occasion || !imageUri || !coordinates || !weather) return;
     setSubmitting(true);
+    void trackEvent("style_started", { occasion }, userId);
     setSubmitError(null);
     setResult(null);
     try {
@@ -168,8 +175,10 @@ export default function StyleMyOutfitScreen() {
       });
       if (!response.ok) throw new Error(await responseError(response));
       setResult(await response.json());
+      void trackEvent("style_completed", { occasion, weather_condition: weather.condition }, userId);
     } catch (error: any) {
       setSubmitError(error?.message || "Styling advice is unavailable. Please try again.");
+      void trackEvent("style_failed", { occasion, reason: "request_failed" }, userId);
     } finally {
       setSubmitting(false);
     }

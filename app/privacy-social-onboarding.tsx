@@ -10,6 +10,7 @@ import {
   useStore,
 } from "../store";
 import { AppColors, radius, space, useAppTheme } from "./ui/theme";
+import { trackEvent } from "../lib/analytics";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
 type Step = 0 | 1 | 2;
@@ -36,7 +37,7 @@ export default function PrivacySocialOnboardingScreen() {
   const navigation = useNavigation<Nav>();
   const { theme } = useAppTheme();
   const styles = useMemo(() => createStyles(theme.colors), [theme.colors]);
-  const { updatePrivacySocialPreferences } = useStore();
+  const { updatePrivacySocialPreferences, userId } = useStore();
   const [step, setStep] = useState<Step>(0);
   const [visibility, setVisibility] = useState<ProfileVisibilityPreference | null>(null);
   const [community, setCommunity] = useState<SocialTogglePreference | null>(null);
@@ -85,6 +86,11 @@ export default function PrivacySocialOnboardingScreen() {
         leaderboardEnabled: leaderboard,
         onboardingCompleted: true,
       });
+      void trackEvent("privacy_onboarding_completed", {
+        profile_visibility: visibility,
+        community_feed_enabled: community,
+        leaderboard_enabled: leaderboard,
+      }, userId);
       navigation.reset({ index: 0, routes: [{ name: "ValueProposition" }] });
     } catch {
       setError("We couldn't save your choices. Please try again.");

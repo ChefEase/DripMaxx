@@ -67,6 +67,7 @@ export default function ChallengeScreen() {
     () => submissions.find((item) => item.id === winnerSubmissionId) || null,
     [submissions, winnerSubmissionId]
   );
+  const requiredAdminPlaces = Math.min(3, submissions.length);
 
   const load = async () => {
     setLoading(true);
@@ -141,8 +142,9 @@ export default function ChallengeScreen() {
   };
 
   const saveAdminRanks = async () => {
-    if (!challenge || !adminRanks[1] || !adminRanks[2] || !adminRanks[3]) {
-      Alert.alert("Pick top 3", "Select first, second, and third place before saving.");
+    const selectedRanks = ([1, 2, 3] as const).slice(0, requiredAdminPlaces);
+    if (!challenge || requiredAdminPlaces === 0 || selectedRanks.some((rank) => !adminRanks[rank])) {
+      Alert.alert("Rank every entry", `Select ${requiredAdminPlaces || "the available"} placement${requiredAdminPlaces === 1 ? "" : "s"} before saving.`);
       return;
     }
     setSaving(true);
@@ -152,8 +154,8 @@ export default function ChallengeScreen() {
         headers: apiJsonHeaders(),
         body: JSON.stringify({
           first_submission_id: adminRanks[1],
-          second_submission_id: adminRanks[2],
-          third_submission_id: adminRanks[3],
+          second_submission_id: requiredAdminPlaces >= 2 ? adminRanks[2] : null,
+          third_submission_id: requiredAdminPlaces >= 3 ? adminRanks[3] : null,
         }),
       });
       if (!response.ok) {
@@ -263,12 +265,12 @@ export default function ChallengeScreen() {
 
             {isAdmin ? (
               <View style={styles.card}>
-                <Text style={styles.sectionTitle}>Admin Top 3</Text>
+                <Text style={styles.sectionTitle}>Admin Placements</Text>
                 <Text style={styles.muted}>
-                  Your picks control the 60% admin side. Save top 3, then select the winner.
+                  Rank every available entry. After the deadline, saving these placements automatically distributes rewards and publishes results for 24 hours.
                 </Text>
                 <View style={styles.adminSlots}>
-                  {([1, 2, 3] as const).map((rank) => (
+                  {([1, 2, 3] as const).slice(0, requiredAdminPlaces).map((rank) => (
                     <View key={rank} style={styles.slot}>
                       <Text style={styles.slotLabel}>{rank === 1 ? "1st" : rank === 2 ? "2nd" : "3rd"}</Text>
                       <Text style={styles.slotValue}>
@@ -280,7 +282,7 @@ export default function ChallengeScreen() {
                   ))}
                 </View>
                 <Pressable style={styles.primaryButton} onPress={saveAdminRanks} disabled={saving}>
-                  <Text style={styles.primaryButtonText}>{saving ? "Saving..." : "Save Admin Top 3"}</Text>
+                  <Text style={styles.primaryButtonText}>{saving ? "Saving..." : `Save ${requiredAdminPlaces} Placement${requiredAdminPlaces === 1 ? "" : "s"}`}</Text>
                 </Pressable>
               </View>
             ) : null}
@@ -330,7 +332,7 @@ export default function ChallengeScreen() {
                       </Pressable>
                       {isAdmin ? (
                         <>
-                          {([1, 2, 3] as const).map((rank) => (
+                          {([1, 2, 3] as const).slice(0, requiredAdminPlaces).map((rank) => (
                             <Pressable
                               key={rank}
                               style={[
@@ -349,15 +351,6 @@ export default function ChallengeScreen() {
                               </Text>
                             </Pressable>
                           ))}
-                          <Pressable
-                            style={styles.winnerButton}
-                            onPress={() => selectWinner(item.id)}
-                            disabled={saving || Boolean(winnerSubmissionId)}
-                          >
-                            <Text style={styles.winnerButtonText}>
-                              {winnerSubmissionId === item.id ? "Winner" : "Winner"}
-                            </Text>
-                          </Pressable>
                         </>
                       ) : null}
                     </View>

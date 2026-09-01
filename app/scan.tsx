@@ -179,6 +179,7 @@ export default function ScanStubScreen() {
   const [saved, setSaved] = useState(false);
   const [scanError, setScanError] = useState<string | null>(null);
   const [evolution, setEvolution] = useState<EvolutionSession | null>(null);
+  const [savedEvolutions, setSavedEvolutions] = useState<EvolutionSession[]>([]);
   const [revisionMode, setRevisionMode] = useState(false);
   const [showTargetLook, setShowTargetLook] = useState(false);
   const [showEvolutionReveal, setShowEvolutionReveal] = useState(false);
@@ -215,7 +216,20 @@ export default function ScanStubScreen() {
         evolution: EvolutionSession | null;
       }
   >(null);
+  const refreshSavedEvolutions = async () => {
+    try {
+      const response = await apiFetch("/v1/outfits/evolutions");
+      if (response.ok) {
+        const data = await response.json();
+        setSavedEvolutions(Array.isArray(data.sessions) ? data.sessions : []);
+      }
+    } catch (error) {
+      logWarn("saved evolutions fetch failed", error);
+    }
+  };
+
   useEffect(() => {
+    void refreshSavedEvolutions();
     AsyncStorage.getItem(ACTIVE_EVOLUTION_KEY).then(async (sessionId) => {
       if (!sessionId) return;
       try {
@@ -564,6 +578,7 @@ export default function ScanStubScreen() {
       });
       if (data.evolution) {
         setEvolution(data.evolution);
+        void refreshSavedEvolutions();
         if (data.evolution.latest_revision) setShowEvolutionReveal(true);
       }
       if (dripScore >= 7.5 && data.outfit_id) {
@@ -614,6 +629,24 @@ export default function ScanStubScreen() {
     setSaved(false);
     setScanError(null);
     Alert.alert("Upgrade Mode", "Change any upgrades you want, then take a new full-body photo. You don't need to do everything.");
+  };
+
+  const pauseEvolution = () => {
+    setRevisionMode(false);
+    setEvolution(null);
+    setImageUri(null);
+    setResult(null);
+    setScanError(null);
+    AsyncStorage.removeItem(ACTIVE_EVOLUTION_KEY).catch(() => {});
+  };
+
+  const resumeEvolution = (session: EvolutionSession) => {
+    setEvolution(session);
+    setRevisionMode(true);
+    setImageUri(null);
+    setResult(null);
+    setScanError(null);
+    AsyncStorage.setItem(ACTIVE_EVOLUTION_KEY, session.session_id).catch(() => {});
   };
 
   const handleSaveOutfit = () => {
@@ -749,6 +782,9 @@ export default function ScanStubScreen() {
               <Text style={styles.evolutionModeText}>
                 Current {evolution.current_score.toFixed(1)} · Potential {evolution.potential_score.toFixed(1)} · Change any upgrades you want.
               </Text>
+              <Pressable onPress={pauseEvolution} style={styles.leaveEvolutionButton}>
+                <Text style={styles.leaveEvolutionText}>Rate a different outfit</Text>
+              </Pressable>
             </View>
           ) : null}
           <View style={styles.guidelineCard}>
@@ -861,6 +897,26 @@ export default function ScanStubScreen() {
             </View>
           </View>
         )}
+
+        {!revisionMode && !imageUri && !result && savedEvolutions.length ? (
+          <View style={styles.savedEvolutionSection}>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionTitle}>Continue an outfit</Text>
+              <Text style={styles.sectionMeta}>{savedEvolutions.length} saved</Text>
+            </View>
+            <Text style={styles.previewHint}>Your upgrade journeys stay saved. Return whenever you’re ready.</Text>
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.savedEvolutionRow}>
+              {savedEvolutions.map((session) => (
+                <Pressable key={session.session_id} style={styles.savedEvolutionCard} onPress={() => resumeEvolution(session)}>
+                  {session.original_image_url ? <RemoteImage uri={session.original_image_url} style={styles.savedEvolutionImage} /> : null}
+                  <Text style={styles.savedEvolutionScore}>{session.current_score.toFixed(1)} / {session.potential_score.toFixed(1)}</Text>
+                  <Text style={styles.savedEvolutionMeta}>{session.revisions.length} revision{session.revisions.length === 1 ? "" : "s"}</Text>
+                  <Text style={styles.savedEvolutionAction}>Continue →</Text>
+                </Pressable>
+              ))}
+            </ScrollView>
+          </View>
+        ) : null}
 
         {result ? (
           <View style={styles.resultCard}>
@@ -1627,6 +1683,15 @@ const baseStyles = StyleSheet.create({
   },
   evolutionModeTitle: { color: colors.lime, fontSize: 14, fontWeight: "900" },
   evolutionModeText: { color: "#D1FAE5", fontSize: 13, lineHeight: 18 },
+  leaveEvolutionButton: { alignSelf: "flex-start", marginTop: 7, borderWidth: 1, borderColor: "#C7FF4A66", borderRadius: 999, paddingHorizontal: 11, paddingVertical: 7 },
+  leaveEvolutionText: { color: colors.lime, fontSize: 12, fontWeight: "900" },
+  savedEvolutionSection: { borderRadius: 16, borderWidth: 1, borderColor: "#1F2937", backgroundColor: "#07111F", padding: 14, gap: 9 },
+  savedEvolutionRow: { gap: 10, paddingRight: 4 },
+  savedEvolutionCard: { width: 142, borderRadius: 13, borderWidth: 1, borderColor: "#263449", backgroundColor: "#0F172A", padding: 8, gap: 5 },
+  savedEvolutionImage: { width: "100%", height: 130, borderRadius: 9, backgroundColor: "#111827" },
+  savedEvolutionScore: { color: "#F8FAFC", fontSize: 15, fontWeight: "900" },
+  savedEvolutionMeta: { color: "#94A3B8", fontSize: 11, fontWeight: "700" },
+  savedEvolutionAction: { color: colors.lime, fontSize: 12, fontWeight: "900" },
   tabDock: { paddingHorizontal: 16, paddingTop: 6, paddingBottom: 8, backgroundColor: "#020617" },
   featureOverlay: {
     flex: 1,

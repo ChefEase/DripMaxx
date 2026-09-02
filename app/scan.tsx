@@ -64,7 +64,7 @@ type EvolutionRevision = {
   confidence: number;
 };
 
-type EvolutionSession = {
+export type EvolutionSession = {
   session_id: string;
   original_outfit_id: string;
   original_image_url?: string | null;
@@ -78,8 +78,6 @@ type EvolutionSession = {
   revisions: EvolutionRevision[];
   latest_revision?: EvolutionRevision | null;
 };
-
-const ACTIVE_EVOLUTION_KEY = "dripmaxx:activeEvolutionSession";
 
 const ANALYSIS_STEPS = [
   {
@@ -155,7 +153,7 @@ const scanErrorMessage = (statusCode: number, bodyText: string) => {
   return detail || "Scan failed. Try another clear full-body photo.";
 };
 
-export default function ScanStubScreen() {
+export default function ScanStubScreen({ route }: { route?: { params?: { sessionId?: string } } }) {
   const styles = useThemedStyles(baseStyles);
   const navigation = useNavigation<Nav>();
   const {
@@ -179,8 +177,12 @@ export default function ScanStubScreen() {
   const [saved, setSaved] = useState(false);
   const [scanError, setScanError] = useState<string | null>(null);
   const [evolution, setEvolution] = useState<EvolutionSession | null>(null);
-  const [savedEvolutions, setSavedEvolutions] = useState<EvolutionSession[]>([]);
-  const [revisionMode, setRevisionMode] = useState(false);
+  const requestedSessionId = route?.params?.sessionId;
+  const upgradeOnly = Boolean(requestedSessionId);
+  const [revisionMode, setRevisionMode] = useState(upgradeOnly);
+  // Legacy inline journey carousel is intentionally disabled; saved journeys now
+  // live on their own selection screen so new scans remain visually distinct.
+  const savedEvolutions: EvolutionSession[] = [];
   const [showTargetLook, setShowTargetLook] = useState(false);
   const [showEvolutionReveal, setShowEvolutionReveal] = useState(false);
   const revealScale = useRef(new Animated.Value(0.92)).current;
@@ -216,35 +218,19 @@ export default function ScanStubScreen() {
         evolution: EvolutionSession | null;
       }
   >(null);
-  const refreshSavedEvolutions = async () => {
-    try {
-      const response = await apiFetch("/v1/outfits/evolutions");
-      if (response.ok) {
-        const data = await response.json();
-        setSavedEvolutions(Array.isArray(data.sessions) ? data.sessions : []);
-      }
-    } catch (error) {
-      logWarn("saved evolutions fetch failed", error);
-    }
-  };
-
   useEffect(() => {
-    void refreshSavedEvolutions();
-    AsyncStorage.getItem(ACTIVE_EVOLUTION_KEY).then(async (sessionId) => {
-      if (!sessionId) return;
+    if (!requestedSessionId) return;
+    apiFetch(`/v1/outfits/evolution/${encodeURIComponent(requestedSessionId)}`).then(async (response) => {
       try {
-        const response = await apiFetch(`/v1/outfits/evolution/${encodeURIComponent(sessionId)}`);
-        if (!response.ok) {
-          await AsyncStorage.removeItem(ACTIVE_EVOLUTION_KEY);
-          return;
-        }
+        if (!response.ok) throw new Error("Saved outfit could not be loaded.");
         setEvolution(await response.json());
         setRevisionMode(true);
       } catch (error) {
-        logWarn("active evolution restore failed", error);
+        logWarn("evolution load failed", error);
+        setScanError("This saved outfit could not be loaded. Return to your saved outfits and try again.");
       }
     });
-  }, []);
+  }, [requestedSessionId]);
 
   useEffect(() => {
     if (!showEvolutionReveal) return;
@@ -578,7 +564,6 @@ export default function ScanStubScreen() {
       });
       if (data.evolution) {
         setEvolution(data.evolution);
-        void refreshSavedEvolutions();
         if (data.evolution.latest_revision) setShowEvolutionReveal(true);
       }
       if (dripScore >= 7.5 && data.outfit_id) {
@@ -611,42 +596,29 @@ export default function ScanStubScreen() {
   };
 
   const handleRescan = () => {
+    if (upgradeOnly) {
+      navigation.navigate("OutfitEvolutions");
+      return;
+    }
     setImageUri(null);
     setBestOutfit(null);
     setResult(null);
     setSaved(false);
     setEvolution(null);
     setRevisionMode(false);
-    AsyncStorage.removeItem(ACTIVE_EVOLUTION_KEY).catch(() => {});
   };
 
   const handleImproveOutfit = () => {
     if (!evolution) return;
-    setRevisionMode(true);
-    AsyncStorage.setItem(ACTIVE_EVOLUTION_KEY, evolution.session_id).catch(() => {});
-    setImageUri(null);
-    setResult(null);
-    setSaved(false);
-    setScanError(null);
-    Alert.alert("Upgrade Mode", "Change any upgrades you want, then take a new full-body photo. You don't need to do everything.");
+    navigation.navigate("UpgradeScan", { sessionId: evolution.session_id });
   };
 
   const pauseEvolution = () => {
-    setRevisionMode(false);
-    setEvolution(null);
-    setImageUri(null);
-    setResult(null);
-    setScanError(null);
-    AsyncStorage.removeItem(ACTIVE_EVOLUTION_KEY).catch(() => {});
+    navigation.navigate("Scan");
   };
 
   const resumeEvolution = (session: EvolutionSession) => {
-    setEvolution(session);
-    setRevisionMode(true);
-    setImageUri(null);
-    setResult(null);
-    setScanError(null);
-    AsyncStorage.setItem(ACTIVE_EVOLUTION_KEY, session.session_id).catch(() => {});
+    navigation.navigate("UpgradeScan", { sessionId: session.session_id });
   };
 
   const handleSaveOutfit = () => {
@@ -761,6 +733,9 @@ export default function ScanStubScreen() {
   const recommendationStatus = new Map(
     (latestEvolutionRevision?.recommendations || []).map((item) => [item.id, item])
   );
+  const activeRecommendations = evolution?.recommendations.filter(
+    (item) => recommendationStatus.get(item.id)?.status !== "completed"
+  ) || [];
 
   return (
     <SafeAreaView style={styles.safeArea}>
@@ -769,7 +744,7 @@ export default function ScanStubScreen() {
         showsVerticalScrollIndicator={false}
       >
         <View>
-          <Text style={styles.stepLabel}>{revisionMode ? "UPGRADE MODE" : "QUICK SCAN"}</Text>
+          <Text style={styles.stepLabel}>{revisionMode ? "UPGRADE SCAN" : "NEW OUTFIT SCAN"}</Text>
           <Text style={styles.title}>{revisionMode ? "Show us what changed." : "Rate the whole fit."}</Text>
           <Text style={styles.subtitle}>
             {revisionMode
@@ -778,13 +753,67 @@ export default function ScanStubScreen() {
           </Text>
           {revisionMode && evolution ? (
             <View style={styles.evolutionModeBanner}>
-              <Text style={styles.evolutionModeTitle}>Continuing Outfit Evolution</Text>
+              <Text style={styles.evolutionModeTitle}>Continuing a saved outfit</Text>
               <Text style={styles.evolutionModeText}>
                 Current {evolution.current_score.toFixed(1)} · Potential {evolution.potential_score.toFixed(1)} · Change any upgrades you want.
               </Text>
               <Pressable onPress={pauseEvolution} style={styles.leaveEvolutionButton}>
                 <Text style={styles.leaveEvolutionText}>Rate a different outfit</Text>
               </Pressable>
+            </View>
+          ) : null}
+          {revisionMode && evolution && !result ? (
+            <View style={styles.savedPlanCard}>
+              <View style={styles.savedPlanHeader}>
+                <View>
+                  <Text style={styles.savedPlanEyebrow}>YOUR SAVED UPGRADE PLAN</Text>
+                  <Text style={styles.savedPlanTitle}>Target potential</Text>
+                </View>
+                <Text style={styles.savedPlanPotential}>{evolution.potential_score.toFixed(1)}<Text style={styles.savedPlanOutOf}>/10</Text></Text>
+              </View>
+              <Text style={styles.savedPlanProgress}>
+                {latestEvolutionRevision?.completed_count || 0}/{evolution.recommendations.length} complete · {activeRecommendations.length} remaining
+              </Text>
+              {evolution.target_image_url ? (
+                <View style={styles.savedTargetWrap}>
+                  <RemoteImage uri={evolution.target_image_url} style={styles.savedTargetImage} />
+                  <View style={styles.savedTargetBadge}><Text style={styles.savedTargetBadgeText}>TARGET LOOK</Text></View>
+                </View>
+              ) : evolution.target_generation_status === "failed" ? (
+                <View style={styles.savedTargetStatus}>
+                  <Text style={styles.savedPlanItemTitle}>Target picture unavailable</Text>
+                  <Text style={styles.savedPlanItemText}>Your written upgrade plan is still saved below.</Text>
+                  <Pressable onPress={retryTargetImage}><Text style={styles.targetRetryText}>Generate target picture</Text></Pressable>
+                </View>
+              ) : (
+                <View style={styles.savedTargetStatus}>
+                  <ActivityIndicator color={colors.lime} />
+                  <Text style={styles.savedPlanItemText}>Generating your saved target look…</Text>
+                </View>
+              )}
+              <Text style={styles.savedPlanSectionTitle}>
+                {activeRecommendations.length ? "Improvements still to try" : "All original improvements completed"}
+              </Text>
+              <View style={styles.savedPlanList}>
+                {activeRecommendations.map((upgrade, index) => {
+                  const state = recommendationStatus.get(upgrade.id);
+                  return (
+                    <View key={upgrade.id} style={styles.savedPlanItem}>
+                      <View style={styles.savedPlanNumber}><Text style={styles.savedPlanNumberText}>{index + 1}</Text></View>
+                      <View style={styles.upgradeCopy}>
+                        <View style={styles.upgradeTitleRow}>
+                          <Text style={styles.savedPlanItemTitle}>{upgrade.title}</Text>
+                          <Text style={styles.importanceTag}>{upgrade.importance}</Text>
+                        </View>
+                        <Text style={styles.savedPlanItemText}>{upgrade.recommended_change || upgrade.description}</Text>
+                        {state?.status === "partial" ? <Text style={styles.savedPlanPartial}>Partly completed — keep refining this one.</Text> : null}
+                        {state?.status === "regressed" && state.evidence ? <Text style={styles.savedPlanRegressed}>{state.evidence}</Text> : null}
+                      </View>
+                    </View>
+                  );
+                })}
+              </View>
+              <Text style={styles.savedPlanNote}>You do not need to copy everything. The target is a visual guide for this specific outfit.</Text>
             </View>
           ) : null}
           <View style={styles.guidelineCard}>
@@ -898,7 +927,7 @@ export default function ScanStubScreen() {
           </View>
         )}
 
-        {!revisionMode && !imageUri && !result && savedEvolutions.length ? (
+        {false ? (
           <View style={styles.savedEvolutionSection}>
             <View style={styles.sectionHeaderRow}>
               <Text style={styles.sectionTitle}>Continue an outfit</Text>
@@ -916,6 +945,18 @@ export default function ScanStubScreen() {
               ))}
             </ScrollView>
           </View>
+        ) : null}
+
+        {!revisionMode && !imageUri && !result ? (
+          <Pressable style={styles.continueJourneyCard} onPress={() => navigation.navigate("OutfitEvolutions")}>
+            <View style={styles.continueJourneyIcon}><Text style={styles.continueJourneyIconText}>↻</Text></View>
+            <View style={styles.continueJourneyCopy}>
+              <Text style={styles.continueJourneyEyebrow}>SEPARATE UPGRADE MODE</Text>
+              <Text style={styles.continueJourneyTitle}>Rerate an already scanned outfit</Text>
+              <Text style={styles.continueJourneyText}>Choose a saved outfit and continue only its unfinished improvements.</Text>
+            </View>
+            <Text style={styles.continueJourneyArrow}>›</Text>
+          </Pressable>
         ) : null}
 
         {result ? (
@@ -1009,7 +1050,7 @@ export default function ScanStubScreen() {
                     {latestEvolutionRevision?.summary || "You don't have to do everything. Pick the changes that work for you."}
                   </Text>
                   <View style={styles.upgradeList}>
-                    {evolution.recommendations.map((upgrade) => {
+                    {activeRecommendations.map((upgrade) => {
                       const state = recommendationStatus.get(upgrade.id);
                       const completed = state?.status === "completed";
                       const partial = state?.status === "partial";
@@ -1147,7 +1188,7 @@ export default function ScanStubScreen() {
                   ))}
                 </View>
               </View>
-              <View style={styles.suggestions}>
+              {!revisionMode && result.suggestions.length ? <View style={styles.suggestions}>
                 <View style={styles.sectionHeaderRow}>
                   <Text style={styles.sectionTitle}>Style cards</Text>
                   <Text style={styles.sectionMeta}>{result.suggestions.length} tips</Text>
@@ -1159,7 +1200,7 @@ export default function ScanStubScreen() {
                     <Text style={styles.suggestionText}>{tip.description}</Text>
                   </View>
                 ))}
-              </View>
+              </View> : null}
               <View style={styles.warningBox}>
                 {result.warnings.map((w) => (
                   <Text key={w} style={styles.warningText}>
@@ -1560,9 +1601,24 @@ const baseStyles = StyleSheet.create({
     letterSpacing: 0.4,
   },
   previewHint: {
-    color: "#6B7280",
+    color: "#CBD5E1",
     fontSize: 14,
   },
+  continueJourneyCard: {
+    flexDirection: "row", alignItems: "center", gap: 13, padding: 16,
+    borderRadius: 18, borderWidth: 2, borderColor: "#C7FF4A",
+    backgroundColor: "#10220E", marginBottom: 16,
+  },
+  continueJourneyIcon: {
+    width: 48, height: 48, borderRadius: 16, backgroundColor: "#C7FF4A",
+    alignItems: "center", justifyContent: "center",
+  },
+  continueJourneyIconText: { color: "#142000", fontSize: 27, fontWeight: "900" },
+  continueJourneyCopy: { flex: 1, gap: 3 },
+  continueJourneyEyebrow: { color: "#C7FF4A", fontSize: 10, fontWeight: "900", letterSpacing: 1 },
+  continueJourneyTitle: { color: "#F8FAFC", fontSize: 16, fontWeight: "900" },
+  continueJourneyText: { color: "#D1FAE5", fontSize: 12, lineHeight: 17 },
+  continueJourneyArrow: { color: "#F8FAFC", fontSize: 30, fontWeight: "500" },
   previewImage: {
     width: "100%",
     aspectRatio: 3 / 4,
@@ -1685,12 +1741,34 @@ const baseStyles = StyleSheet.create({
   evolutionModeText: { color: "#D1FAE5", fontSize: 13, lineHeight: 18 },
   leaveEvolutionButton: { alignSelf: "flex-start", marginTop: 7, borderWidth: 1, borderColor: "#C7FF4A66", borderRadius: 999, paddingHorizontal: 11, paddingVertical: 7 },
   leaveEvolutionText: { color: colors.lime, fontSize: 12, fontWeight: "900" },
+  savedPlanCard: { marginTop: 14, borderRadius: 18, borderWidth: 1, borderColor: "#3F6212", backgroundColor: "#07150B", padding: 15, gap: 13 },
+  savedPlanHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 },
+  savedPlanEyebrow: { color: "#C7FF4A", fontSize: 10, fontWeight: "900", letterSpacing: 1 },
+  savedPlanTitle: { color: "#F8FAFC", fontSize: 19, fontWeight: "900", marginTop: 3 },
+  savedPlanPotential: { color: "#C7FF4A", fontSize: 31, fontWeight: "900" },
+  savedPlanOutOf: { color: "#D1FAE5", fontSize: 13, fontWeight: "800" },
+  savedPlanProgress: { color: "#E2E8F0", fontSize: 13, fontWeight: "800" },
+  savedTargetWrap: { position: "relative" },
+  savedTargetImage: { width: "100%", height: 340, borderRadius: 14, backgroundColor: "#111827" },
+  savedTargetBadge: { position: "absolute", left: 10, bottom: 10, borderRadius: 999, backgroundColor: "#020617DD", paddingHorizontal: 10, paddingVertical: 6 },
+  savedTargetBadgeText: { color: "#C7FF4A", fontSize: 10, fontWeight: "900", letterSpacing: 1 },
+  savedTargetStatus: { minHeight: 100, borderRadius: 14, borderWidth: 1, borderColor: "#334155", backgroundColor: "#0F172A", alignItems: "center", justifyContent: "center", padding: 16, gap: 7 },
+  savedPlanSectionTitle: { color: "#F8FAFC", fontSize: 15, fontWeight: "900" },
+  savedPlanList: { gap: 10 },
+  savedPlanItem: { flexDirection: "row", alignItems: "flex-start", gap: 10, borderRadius: 12, backgroundColor: "#0F172A", padding: 11 },
+  savedPlanNumber: { width: 25, height: 25, borderRadius: 8, backgroundColor: "#C7FF4A", alignItems: "center", justifyContent: "center" },
+  savedPlanNumberText: { color: "#142000", fontSize: 12, fontWeight: "900" },
+  savedPlanItemTitle: { color: "#F8FAFC", fontSize: 14, fontWeight: "900", flex: 1 },
+  savedPlanItemText: { color: "#CBD5E1", fontSize: 13, lineHeight: 18 },
+  savedPlanPartial: { color: "#FDE68A", fontSize: 11, lineHeight: 16 },
+  savedPlanRegressed: { color: "#FED7AA", fontSize: 11, lineHeight: 16 },
+  savedPlanNote: { color: "#D1FAE5", fontSize: 12, lineHeight: 17, textAlign: "center" },
   savedEvolutionSection: { borderRadius: 16, borderWidth: 1, borderColor: "#1F2937", backgroundColor: "#07111F", padding: 14, gap: 9 },
   savedEvolutionRow: { gap: 10, paddingRight: 4 },
   savedEvolutionCard: { width: 142, borderRadius: 13, borderWidth: 1, borderColor: "#263449", backgroundColor: "#0F172A", padding: 8, gap: 5 },
   savedEvolutionImage: { width: "100%", height: 130, borderRadius: 9, backgroundColor: "#111827" },
   savedEvolutionScore: { color: "#F8FAFC", fontSize: 15, fontWeight: "900" },
-  savedEvolutionMeta: { color: "#94A3B8", fontSize: 11, fontWeight: "700" },
+  savedEvolutionMeta: { color: "#CBD5E1", fontSize: 11, fontWeight: "700" },
   savedEvolutionAction: { color: colors.lime, fontSize: 12, fontWeight: "900" },
   tabDock: { paddingHorizontal: 16, paddingTop: 6, paddingBottom: 8, backgroundColor: "#020617" },
   featureOverlay: {
@@ -1906,7 +1984,7 @@ const baseStyles = StyleSheet.create({
   evolutionSummary: { color: "#CBD5E1", fontSize: 13, lineHeight: 19, textAlign: "center" },
   revisionHistory: { borderRadius: 12, backgroundColor: "#0F172A", paddingHorizontal: 11 },
   revisionHistoryRow: { flexDirection: "row", justifyContent: "space-between", paddingVertical: 7, borderBottomWidth: 1, borderBottomColor: "#1F2937" },
-  revisionHistoryLabel: { color: "#94A3B8", fontSize: 12, fontWeight: "700" },
+  revisionHistoryLabel: { color: "#CBD5E1", fontSize: 12, fontWeight: "700" },
   revisionHistoryScore: { color: "#F8FAFC", fontSize: 12, fontWeight: "900" },
   deltaPositive: { color: colors.lime, fontSize: 20, fontWeight: "900" },
   deltaNegative: { color: "#F59E0B", fontSize: 20, fontWeight: "900" },
@@ -1921,7 +1999,7 @@ const baseStyles = StyleSheet.create({
   upgradeTitle: { color: "#F8FAFC", fontSize: 14, fontWeight: "900", flex: 1 },
   upgradeText: { color: "#CBD5E1", fontSize: 13, lineHeight: 18 },
   upgradeEvidence: { color: "#A7F3D0", fontSize: 11, lineHeight: 16, fontStyle: "italic" },
-  importanceTag: { color: "#94A3B8", fontSize: 10, fontWeight: "900", textTransform: "uppercase" },
+  importanceTag: { color: "#CBD5E1", fontSize: 10, fontWeight: "900", textTransform: "uppercase" },
   targetCard: { width: "100%", maxWidth: 440, maxHeight: "88%", alignSelf: "center", borderRadius: 22, borderWidth: 1, borderColor: "#C7FF4A66", backgroundColor: "#0B1224", padding: 17, gap: 12 },
   targetImage: { width: "100%", height: 220, borderRadius: 14, backgroundColor: "#111827" },
   targetPreviewCard: { gap: 9, borderRadius: 14, padding: 10, backgroundColor: "#0F172A" },

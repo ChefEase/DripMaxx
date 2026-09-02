@@ -10,6 +10,7 @@ import StyleInspirationScreen from "./app/style-inspiration";
 import BodyFitScreen from "./app/body-fit";
 import CameraPermissionScreen from "./app/camera-permission";
 import ScanStubScreen from "./app/scan";
+import OutfitEvolutionsScreen from "./app/outfit-evolutions";
 import ScanExampleScreen from "./app/scan-example";
 import { StoreProvider, useStore } from "./store";
 import AuthScreen from "./app/auth";
@@ -47,6 +48,8 @@ export type RootStackParamList = {
   BodyFit: undefined;
   CameraPermission: undefined;
   Scan: undefined;
+  OutfitEvolutions: undefined;
+  UpgradeScan: { sessionId: string };
   ScanExample: undefined;
   Auth: undefined;
   SignUp: undefined;
@@ -332,6 +335,8 @@ function AppShell() {
         />
         <Stack.Screen name="Paywall" component={PaywallScreen} />
         <Stack.Screen name="Scan" component={ScanStubScreen} />
+        <Stack.Screen name="OutfitEvolutions" component={OutfitEvolutionsScreen} />
+        <Stack.Screen name="UpgradeScan" component={ScanStubScreen} />
         <Stack.Screen name="StyleMyOutfit" component={StyleMyOutfitScreen} />
         <Stack.Screen name="ScanExample" component={ScanExampleScreen} />
         <Stack.Screen name="Profile" component={ProfileScreen} />

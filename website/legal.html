@@ -48,7 +48,7 @@
   <div class="container">
     <div class="kicker">Legal</div>
     <div class="title">Privacy Policy</div>
-    <div class="updated">Last updated: March 17, 2026</div>
+    <div class="updated">Last updated: September 4, 2026</div>
 
     <div class="card">
       <div class="card-title">Information We Collect</div>
@@ -62,12 +62,17 @@
       
       <div class="card">
       <div class="card-title">How We Use Information</div>
-      We use your data to authenticate your account, analyze uploaded outfit images, generate AI ratings and suggestions, maintain scan history, enforce free and premium plan limits, support sharing features, improve model quality, investigate abuse, and operate the service.
+      We use your data to authenticate your account, provide the outfit analysis and Target Look features you request, maintain scan history, enforce plan limits, support sharing features you choose, investigate abuse, and operate the service. We do not use outfit photos for advertising or facial recognition.
       </div>
       
       <div class="card">
-      <div class="card-title">AI and Service Providers</div>
-      Outfit images and related context may be processed by infrastructure and AI service providers used to run DripMaxx, including hosting, storage, authentication, analytics, and image-analysis vendors. Data is shared with those providers only as needed to deliver the service.
+      <div class="card-title">Replicate AI Processing</div>
+      With your explicit permission, DripMaxx sends the outfit photo you select—which may incidentally contain your face—to Replicate, a third-party AI provider. Replicate runs the vision and image-generation models used for outfit scoring, recommendations, revision comparison, styling advice, and Target Look generation. We also send only the selected style and body-profile context needed for those results. DripMaxx does not perform facial recognition, biometric identification, identity matching, or create face embeddings.
+      </div>
+
+      <div class="card">
+      <div class="card-title">Photo Storage and Access</div>
+      Original scans, revision scans, and generated Target Look images are stored in a private Supabase Storage bucket. DripMaxx stores private object references rather than public links. Short-lived signed links are created for an authenticated display request or a specific Replicate operation and expire quickly. Photos are not submitted to challenges or feature review unless you separately choose and consent to that sharing.
       </div>
       
       <div class="card">
@@ -77,7 +82,7 @@
       
       <div class="card">
       <div class="card-title">Retention</div>
-      We retain account data, outfit images, scan history, event logs, and subscription records for as long as needed to operate the app, comply with legal obligations, resolve disputes, enforce terms, and prevent abuse, unless deletion is requested where available.
+      DripMaxx keeps successful original scans, revisions, generated Target Looks, and their results until you delete your account. Photos from failed scans are deleted from DripMaxx storage. Account deletion removes original scans, revisions, generated Target Looks, and related database records. Replicate controls its own processing retention; its API documentation currently states that API prediction inputs, outputs, files, and logs are removed after one hour by default.
       </div>
       
       <div class="card">

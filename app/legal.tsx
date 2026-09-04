@@ -26,7 +26,7 @@ const TERMS_SECTIONS = [
   {
     title: "User Content",
     body:
-      "You keep ownership of the photos and content you upload. You grant DripMaxx the rights needed to host, process, analyze, store, and display that content for app functionality, safety, support, and service improvement.",
+      "You keep ownership of the photos and content you upload. You grant DripMaxx only the rights needed to host, process, analyze, store, and display that content for the features you request, account history, safety, and support. Outfit photos are not licensed for advertising or facial-recognition use.",
   },
   {
     title: "Acceptable Use",
@@ -74,12 +74,17 @@ const PRIVACY_SECTIONS = [
   {
     title: "How We Use Information",
     body:
-      "We use your data to authenticate your account, analyze uploaded outfit images, generate AI ratings and suggestions, maintain scan history, enforce free and premium plan limits, support sharing features, improve model quality, investigate abuse, and operate the service.",
+      "We use your data to authenticate your account, provide the outfit analysis and target-look features you request, maintain your scan history, enforce plan limits, support sharing features you choose, investigate abuse, and operate the service. We do not use outfit photos for advertising or facial recognition.",
   },
   {
-    title: "AI and Service Providers",
+    title: "Replicate AI Processing",
     body:
-      "Outfit images and related context may be processed by infrastructure and AI service providers used to run DripMaxx, including hosting, storage, authentication, analytics, and image-analysis vendors. Data is shared with those providers only as needed to deliver the service.",
+      "With your explicit permission, DripMaxx sends the outfit photo you select—which may incidentally contain your face—to Replicate, a third-party AI provider. Replicate runs the models used for outfit scoring, recommendations, revision comparison, styling advice, and automatic Target Look generation after an original scan. We also send only the selected style and body-profile context needed for those results. DripMaxx does not perform facial recognition, biometric identification, identity matching, or create face embeddings.",
+  },
+  {
+    title: "Photo Storage and Access",
+    body:
+      "Original scans, revision scans, and generated Target Look images are stored in a private Supabase Storage bucket. DripMaxx stores private object references rather than public image links. Short-lived signed links are created for an authenticated display request or a specific Replicate operation and expire quickly. Photos are not submitted to community challenges or feature review unless you separately choose and consent to that sharing.",
   },
   {
     title: "Payments and Subscriptions",
@@ -89,7 +94,7 @@ const PRIVACY_SECTIONS = [
   {
     title: "Retention",
     body:
-      "We retain account data, outfit images, scan history, event logs, and subscription records for as long as needed to operate the app, comply with legal obligations, resolve disputes, enforce terms, and prevent abuse, unless deletion is requested where available.",
+      "DripMaxx keeps successful original scans, revisions, generated Target Looks, and their results until you delete your account. A photo uploaded for a failed scan is deleted from DripMaxx storage. Account deletion removes original scans, revisions, generated Target Looks, and related database records. Replicate controls its own temporary processing retention; according to its API documentation, API prediction inputs, outputs, files, and logs are removed after one hour by default. Contact us if you need assistance with deletion.",
   },
   {
     title: "Your Choices",
@@ -130,7 +135,7 @@ export default function LegalScreen() {
       <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
         <Text style={styles.kicker}>Legal</Text>
         <Text style={styles.title}>{title}</Text>
-        <Text style={styles.updated}>Last updated: March 17, 2026</Text>
+        <Text style={styles.updated}>Last updated: September 4, 2026</Text>
         {sections.map((section) => (
           <View key={section.title} style={styles.card}>
             <Text style={styles.cardTitle}>{section.title}</Text>

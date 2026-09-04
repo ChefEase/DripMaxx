@@ -11,6 +11,7 @@ import {
   View,
 } from "react-native";
 import * as ImagePicker from "expo-image-picker";
+import AsyncStorage from "@react-native-async-storage/async-storage";
 import { useNavigation } from "@react-navigation/native";
 import type { NativeStackNavigationProp } from "@react-navigation/native-stack";
 
@@ -39,6 +40,7 @@ type StylingResult = {
   weather_recommendations: Advice[];
   occasion_note: string;
 };
+const AI_CONSENT_KEY = "dripmaxx:replicateAiConsent:v1";
 
 const occasions: { label: string; value: Occasion }[] = [
   { label: "Casual", value: "casual" },
@@ -68,6 +70,7 @@ export default function StyleMyOutfitScreen() {
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<StylingResult | null>(null);
   const [submitError, setSubmitError] = useState<string | null>(null);
+  const [aiConsentGranted, setAiConsentGranted] = useState(false);
 
   const loadWeather = async () => {
     setWeatherLoading(true);
@@ -89,6 +92,10 @@ export default function StyleMyOutfitScreen() {
   };
 
   useEffect(() => { void loadWeather(); }, []);
+  useEffect(() => {
+    if (!userId) return setAiConsentGranted(false);
+    AsyncStorage.getItem(`${AI_CONSENT_KEY}:${userId}`).then((value) => setAiConsentGranted(value === "granted"));
+  }, [userId]);
 
   const acceptImage = (uri?: string) => {
     if (!uri) return;
@@ -149,6 +156,21 @@ export default function StyleMyOutfitScreen() {
 
   const submit = async () => {
     if (!occasion || !imageUri || !coordinates || !weather) return;
+    if (!aiConsentGranted) {
+      Alert.alert(
+        "AI photo processing permission",
+        "DripMaxx needs your permission to send this outfit photo, which may include your face, to Replicate for AI styling analysis. DripMaxx does not use facial recognition or face embeddings.",
+        [
+          { text: "Not now", style: "cancel" },
+          { text: "Privacy Policy", onPress: () => navigation.navigate("Legal", { doc: "privacy" }) },
+          { text: "I agree", onPress: () => {
+            setAiConsentGranted(true);
+            if (userId) AsyncStorage.setItem(`${AI_CONSENT_KEY}:${userId}`, "granted").catch(() => {});
+          } },
+        ]
+      );
+      return;
+    }
     setSubmitting(true);
     void trackEvent("style_started", { occasion }, userId);
     setSubmitError(null);
@@ -168,6 +190,7 @@ export default function StyleMyOutfitScreen() {
       // Reuse the conditions already displayed to the user so one styling
       // action does not perform a second provider request.
       form.append("weather_json", JSON.stringify(weather));
+      form.append("ai_processing_consent", "true");
       const response = await apiFetch("/v1/styling/advice", {
         method: "POST",
         headers: { Accept: "application/json" },

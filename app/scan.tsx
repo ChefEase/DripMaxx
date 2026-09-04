@@ -37,6 +37,7 @@ import {
 import { ActivityIndicator } from "react-native";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
+const AI_CONSENT_KEY = "dripmaxx:replicateAiConsent:v1";
 
 type EvolutionRecommendation = {
   id: string;
@@ -205,6 +206,9 @@ export default function ScanStubScreen({ route }: { route?: { params?: { session
   const [tiktokUrl, setTiktokUrl] = useState("");
   const [featureConsent, setFeatureConsent] = useState(false);
   const [isSubmittingFeature, setIsSubmittingFeature] = useState(false);
+  const [aiConsentGranted, setAiConsentGranted] = useState(false);
+  const [aiConsentHydrated, setAiConsentHydrated] = useState(false);
+  const [showAiConsent, setShowAiConsent] = useState(false);
   const [result, setResult] = useState<
     | null
     | {
@@ -218,6 +222,19 @@ export default function ScanStubScreen({ route }: { route?: { params?: { session
         evolution: EvolutionSession | null;
       }
   >(null);
+  useEffect(() => {
+    if (!userId) {
+      setAiConsentGranted(false);
+      setAiConsentHydrated(true);
+      return;
+    }
+    AsyncStorage.getItem(`${AI_CONSENT_KEY}:${userId}`).then((value) => {
+      const granted = value === "granted";
+      setAiConsentGranted(granted);
+      setAiConsentHydrated(true);
+      if (!granted) setShowAiConsent(true);
+    });
+  }, [userId]);
   useEffect(() => {
     if (!requestedSessionId) return;
     apiFetch(`/v1/outfits/evolution/${encodeURIComponent(requestedSessionId)}`).then(async (response) => {
@@ -406,6 +423,10 @@ export default function ScanStubScreen({ route }: { route?: { params?: { session
       Alert.alert("Add a photo first", "Pick an outfit photo to score.");
       return;
     }
+    if (!aiConsentGranted) {
+      setShowAiConsent(true);
+      return;
+    }
     setScanError(null);
     setIsScoring(true);
     setAnalysisProgress(0.1);
@@ -457,6 +478,7 @@ export default function ScanStubScreen({ route }: { route?: { params?: { session
       if (revisionMode && evolution?.session_id) {
         form.append("evolution_session_id", evolution.session_id);
       }
+      form.append("ai_processing_consent", "true");
 
       const resp = await apiFetch("/v1/outfits/score", {
         method: "POST",
@@ -951,11 +973,11 @@ export default function ScanStubScreen({ route }: { route?: { params?: { session
           <Pressable style={styles.continueJourneyCard} onPress={() => navigation.navigate("OutfitEvolutions")}>
             <View style={styles.continueJourneyIcon}><Text style={styles.continueJourneyIconText}>↻</Text></View>
             <View style={styles.continueJourneyCopy}>
-              <Text style={styles.continueJourneyEyebrow}>SEPARATE UPGRADE MODE</Text>
-              <Text style={styles.continueJourneyTitle}>Rerate an already scanned outfit</Text>
-              <Text style={styles.continueJourneyText}>Choose a saved outfit and continue only its unfinished improvements.</Text>
+              <Text style={[styles.continueJourneyEyebrow, { color: "#C7FF4A" }]}>SEPARATE UPGRADE MODE</Text>
+              <Text style={[styles.continueJourneyTitle, { color: "#FFFFFF" }]}>Rerate an already scanned outfit</Text>
+              <Text style={[styles.continueJourneyText, { color: "#FFFFFF" }]}>Choose a saved outfit and continue only its unfinished improvements.</Text>
             </View>
-            <Text style={styles.continueJourneyArrow}>›</Text>
+            <Text style={[styles.continueJourneyArrow, { color: "#FFFFFF" }]}>›</Text>
           </Pressable>
         ) : null}
 
@@ -1319,6 +1341,37 @@ export default function ScanStubScreen({ route }: { route?: { params?: { session
         </View>
       </ScrollView>
       <View style={styles.tabDock}><AppTabBar active="scan" /></View>
+
+      <Modal transparent visible={aiConsentHydrated && showAiConsent} animationType="fade" onRequestClose={() => setShowAiConsent(false)}>
+        <View style={styles.featureOverlay}>
+          <View style={styles.featureCard}>
+            <Text style={styles.featureTitle}>AI Outfit Analysis</Text>
+            <Text style={styles.featureBody}>
+              DripMaxx uses third-party AI services to analyze your outfit photo and provide ratings and recommendations.
+            </Text>
+            <Text style={styles.aiConsentDetail}>
+              Your photo—which may include your face—will be sent to Replicate, a third-party AI service, for processing. By continuing, you allow DripMaxx to send your photo and selected style preferences to Replicate for outfit analysis, recommendations, and Target Look generation. DripMaxx does not perform facial recognition, identify you, or create face embeddings.
+            </Text>
+            <Pressable onPress={() => navigation.navigate("Legal", { doc: "privacy" })}>
+              <Text style={styles.targetRetryText}>Read the Privacy Policy</Text>
+            </Pressable>
+            <Pressable
+              style={styles.featurePrimary}
+              onPress={() => {
+                setAiConsentGranted(true);
+                setShowAiConsent(false);
+                if (userId) AsyncStorage.setItem(`${AI_CONSENT_KEY}:${userId}`, "granted").catch(() => {});
+              }}
+            >
+              <Text style={styles.featurePrimaryText}>Continue</Text>
+            </Pressable>
+            <Pressable style={styles.featureSecondary} onPress={() => setShowAiConsent(false)}>
+              <Text style={styles.featureSecondaryText}>Cancel</Text>
+            </Pressable>
+            <Text style={styles.featureHint}>No photo is uploaded or sent to Replicate if you choose Not now.</Text>
+          </View>
+        </View>
+      </Modal>
 
       <Modal transparent visible={showTargetLook} animationType="slide" onRequestClose={() => setShowTargetLook(false)}>
         <View style={styles.featureOverlay}>
@@ -1788,6 +1841,7 @@ const baseStyles = StyleSheet.create({
   featureStar: { fontSize: 34, textAlign: "center" },
   featureTitle: { color: "#F8FAFC", fontSize: 24, fontWeight: "900", textAlign: "center" },
   featureBody: { color: "#CBD5E1", fontSize: 16, lineHeight: 22, textAlign: "center" },
+  aiConsentDetail: { color: "#E2E8F0", fontSize: 13, lineHeight: 19 },
   featureHint: { color: "#94A3B8", fontSize: 12, textAlign: "center" },
   featureInput: {
     color: "#F8FAFC",

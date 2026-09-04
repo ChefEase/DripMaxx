@@ -2,7 +2,7 @@
   "expo": {
     "name": "DripMaxx",
     "slug": "DripMaxx",
-    "version": "1.0.3",
+    "version": "1.0.4",
     "scheme": "acme",
     "sdkVersion": "54.0.0",
     "icon": "./assets/icon.png",
@@ -23,8 +23,8 @@
       [
         "expo-image-picker",
         {
-          "photosPermission": "Allow DripMaxx to access your photos so you can upload an outfit for analysis.",
-          "cameraPermission": "Allow DripMaxx to use your camera so you can photograph an outfit for analysis.",
+          "photosPermission": "Allow DripMaxx to access a photo you choose for outfit analysis by our third-party AI provider, Replicate.",
+          "cameraPermission": "Allow DripMaxx to photograph an outfit for analysis by our third-party AI provider, Replicate.",
           "microphonePermission": false
         }
       ]
@@ -44,7 +44,7 @@
     },
     "ios": {
       "bundleIdentifier": "com.anonymous.dripmaxx",
-      "buildNumber": "26",
+      "buildNumber": "17",
       "usesAppleSignIn": true,
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false

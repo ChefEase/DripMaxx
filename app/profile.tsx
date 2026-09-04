@@ -17,6 +17,7 @@ import RankingsCard from "./components/RankingsCard";
 import RemoteImage from "./components/RemoteImage";
 
 type Nav = NativeStackNavigationProp<RootStackParamList>;
+const AI_CONSENT_KEY = "dripmaxx:replicateAiConsent:v1";
 
 export default function ProfileScreen() {
   const styles = useThemedStyles(baseStyles);
@@ -24,6 +25,7 @@ export default function ProfileScreen() {
   const { theme, themeName, setThemeName } = useAppTheme();
   const colors = theme.colors;
   const themed = useMemo(() => makeThemedStyles(colors), [colors]);
+  const [aiConsentGranted, setAiConsentGranted] = useState(false);
   const {
     userId,
     userEmail,
@@ -41,6 +43,10 @@ export default function ProfileScreen() {
     leaderboardEnabled,
     updatePrivacySocialPreferences,
   } = useStore();
+  useFocusEffect(React.useCallback(() => {
+    if (!userId) return;
+    AsyncStorage.getItem(`${AI_CONSENT_KEY}:${userId}`).then((value) => setAiConsentGranted(value === "granted"));
+  }, [userId]));
   const [recent, setRecent] = useState<any[]>([]);
   const [history, setHistory] = useState<any[]>([]);
   const [scoreCards, setScoreCards] = useState<any[]>([]);
@@ -390,6 +396,22 @@ export default function ProfileScreen() {
               </Pressable>
             ))}
           </View>
+
+          <View style={styles.settingDivider} />
+          <Text style={[styles.value, themed.text]}>Third-party AI photo processing</Text>
+          <Text style={[styles.muted, themed.muted]}>
+            {aiConsentGranted ? "Allowed for Replicate. You can withdraw permission for future scans." : "Not allowed. DripMaxx will ask before your next AI photo scan."}
+          </Text>
+          {aiConsentGranted ? (
+            <Pressable
+              style={styles.visibilityChip}
+              onPress={() => {
+                if (userId) AsyncStorage.removeItem(`${AI_CONSENT_KEY}:${userId}`).then(() => setAiConsentGranted(false));
+              }}
+            >
+              <Text style={styles.visibilityChipText}>Withdraw AI permission</Text>
+            </Pressable>
+          ) : null}
         </View>
         <View style={[styles.card, themed.card]}>
           <Text style={styles.label}>Style Preferences</Text>

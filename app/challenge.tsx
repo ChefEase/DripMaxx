@@ -493,18 +493,18 @@ const baseStyles = StyleSheet.create({
     gap: 10,
   },
   winnerEyebrow: {
-    color: colors.lime,
+    color: "#FEFEFE",
     fontSize: 12,
     fontWeight: "900",
     textTransform: "uppercase",
   },
   winnerName: {
-    color: "#F9FAFB",
+    color: "#FEFEFE",
     fontSize: 22,
     fontWeight: "900",
   },
   winnerMeta: {
-    color: colors.cream,
+    color: "rgba(255,255,255,0.82)",
     fontSize: 13,
     fontWeight: "800",
   },

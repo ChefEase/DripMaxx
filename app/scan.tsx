@@ -180,6 +180,7 @@ export default function ScanStubScreen({ route }: { route?: { params?: { session
   const [evolution, setEvolution] = useState<EvolutionSession | null>(null);
   const requestedSessionId = route?.params?.sessionId;
   const upgradeOnly = Boolean(requestedSessionId);
+  const [isEvolutionLoading, setIsEvolutionLoading] = useState(upgradeOnly);
   const [revisionMode, setRevisionMode] = useState(upgradeOnly);
   // Legacy inline journey carousel is intentionally disabled; saved journeys now
   // live on their own selection screen so new scans remain visually distinct.
@@ -237,16 +238,26 @@ export default function ScanStubScreen({ route }: { route?: { params?: { session
   }, [userId]);
   useEffect(() => {
     if (!requestedSessionId) return;
-    apiFetch(`/v1/outfits/evolution/${encodeURIComponent(requestedSessionId)}`).then(async (response) => {
+    let mounted = true;
+    setIsEvolutionLoading(true);
+    setScanError(null);
+    void (async () => {
       try {
+        const response = await apiFetch(`/v1/outfits/evolution/${encodeURIComponent(requestedSessionId)}`);
         if (!response.ok) throw new Error("Saved outfit could not be loaded.");
-        setEvolution(await response.json());
-        setRevisionMode(true);
+        const savedEvolution: EvolutionSession = await response.json();
+        if (mounted) {
+          setEvolution(savedEvolution);
+          setRevisionMode(true);
+        }
       } catch (error) {
         logWarn("evolution load failed", error);
-        setScanError("This saved outfit could not be loaded. Return to your saved outfits and try again.");
+        if (mounted) setScanError("This saved outfit could not be loaded. Return to your saved outfits and try again.");
+      } finally {
+        if (mounted) setIsEvolutionLoading(false);
       }
-    });
+    })();
+    return () => { mounted = false; };
   }, [requestedSessionId]);
 
   useEffect(() => {
@@ -739,7 +750,6 @@ export default function ScanStubScreen({ route }: { route?: { params?: { session
   const topCategories = result
     ? [...result.categories].sort((a, b) => b.value - a.value).slice(0, 3)
     : [];
-  const improveTips = result?.suggestions.slice(0, 3) || [];
   const confidenceScore = result
     ? Math.max(1, Math.min(10, result.dripScore - result.warnings.length * 0.4))
     : 0;
@@ -773,6 +783,21 @@ export default function ScanStubScreen({ route }: { route?: { params?: { session
               ? "We'll compare this photo with the original outfit, not treat it like a new look."
               : "Your saved style profile is applied automatically—no setup needed."}
           </Text>
+          {upgradeOnly && isEvolutionLoading ? (
+            <View style={styles.savedJourneyStateCard}>
+              <ActivityIndicator color={colors.lime} />
+              <Text style={styles.savedPlanItemTitle}>Loading your saved upgrade plan…</Text>
+            </View>
+          ) : null}
+          {upgradeOnly && !isEvolutionLoading && !evolution && scanError ? (
+            <View style={styles.savedJourneyStateCard}>
+              <Text style={styles.savedPlanItemTitle}>We couldn’t open this outfit</Text>
+              <Text style={styles.savedPlanItemText}>{scanError}</Text>
+              <Pressable onPress={() => navigation.navigate("OutfitEvolutions")}>
+                <Text style={styles.targetRetryText}>Back to saved outfits</Text>
+              </Pressable>
+            </View>
+          ) : null}
           {revisionMode && evolution ? (
             <View style={styles.evolutionModeBanner}>
               <Text style={styles.evolutionModeTitle}>Continuing a saved outfit</Text>
@@ -1186,7 +1211,7 @@ export default function ScanStubScreen({ route }: { route?: { params?: { session
               ) : null}
               <View style={styles.insightGrid}>
                 <View style={styles.insightColumn}>
-                  <Text style={styles.sectionTitle}>Strengths</Text>
+                  <Text style={styles.sectionTitle}>What worked</Text>
                   {topCategories.map((item) => (
                     <View key={item.label} style={styles.insightRow}>
                       <Text style={styles.insightBullet}>+</Text>
@@ -1197,32 +1222,7 @@ export default function ScanStubScreen({ route }: { route?: { params?: { session
                     </View>
                   ))}
                 </View>
-                <View style={styles.insightColumn}>
-                  <Text style={styles.sectionTitle}>Improve</Text>
-                  {improveTips.map((tip, idx) => (
-                    <View key={`${tip.title}-improve-${idx}`} style={styles.insightRow}>
-                      <Text style={styles.insightBullet}>!</Text>
-                      <View style={styles.insightCopy}>
-                        <Text style={styles.insightTitle}>{tip.title}</Text>
-                        <Text style={styles.insightText}>{tip.description}</Text>
-                      </View>
-                    </View>
-                  ))}
-                </View>
               </View>
-              {!revisionMode && result.suggestions.length ? <View style={styles.suggestions}>
-                <View style={styles.sectionHeaderRow}>
-                  <Text style={styles.sectionTitle}>Style cards</Text>
-                  <Text style={styles.sectionMeta}>{result.suggestions.length} tips</Text>
-                </View>
-                {result.suggestions.map((tip, idx) => (
-                  <View key={`${tip.title}-${idx}`} style={styles.suggestionCard}>
-                    <Text style={styles.suggestionTag}>{tip.type}</Text>
-                    <Text style={styles.suggestionTitle}>{tip.title}</Text>
-                    <Text style={styles.suggestionText}>{tip.description}</Text>
-                  </View>
-                ))}
-              </View> : null}
               <View style={styles.warningBox}>
                 {result.warnings.map((w) => (
                   <Text key={w} style={styles.warningText}>
@@ -1795,6 +1795,7 @@ const baseStyles = StyleSheet.create({
   leaveEvolutionButton: { alignSelf: "flex-start", marginTop: 7, borderWidth: 1, borderColor: "#C7FF4A66", borderRadius: 999, paddingHorizontal: 11, paddingVertical: 7 },
   leaveEvolutionText: { color: colors.lime, fontSize: 12, fontWeight: "900" },
   savedPlanCard: { marginTop: 14, borderRadius: 18, borderWidth: 1, borderColor: "#3F6212", backgroundColor: "#07150B", padding: 15, gap: 13 },
+  savedJourneyStateCard: { marginTop: 14, minHeight: 96, borderRadius: 16, borderWidth: 1, borderColor: "#3F6212", backgroundColor: "#07150B", padding: 16, gap: 9, alignItems: "center", justifyContent: "center" },
   savedPlanHeader: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: 12 },
   savedPlanEyebrow: { color: "#C7FF4A", fontSize: 10, fontWeight: "900", letterSpacing: 1 },
   savedPlanTitle: { color: "#F8FAFC", fontSize: 19, fontWeight: "900", marginTop: 3 },

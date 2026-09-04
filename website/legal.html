@@ -64,15 +64,20 @@
       <div class="card-title">How We Use Information</div>
       We use your data to authenticate your account, provide the outfit analysis and Target Look features you request, maintain scan history, enforce plan limits, support sharing features you choose, investigate abuse, and operate the service. We do not use outfit photos for advertising or facial recognition.
       </div>
+
+      <div class="card">
+      <div class="card-title">Outfit Photos and Face Data</div>
+      You choose whether to take or upload an outfit photo. An outfit photo may contain your face. DripMaxx uses the complete photo to evaluate visible clothing, colors, fit, styling, and changes between outfit revisions, and to generate recommendations and Target Looks. DripMaxx does not use your face to identify or authenticate you, does not compare facial identity, does not create facial or biometric identifiers or embeddings, and does not infer sensitive traits from your face.
+      </div>
       
       <div class="card">
       <div class="card-title">Replicate AI Processing</div>
-      With your explicit permission, DripMaxx sends the outfit photo you select—which may incidentally contain your face—to Replicate, a third-party AI provider. Replicate runs the vision and image-generation models used for outfit scoring, recommendations, revision comparison, styling advice, and Target Look generation. We also send only the selected style and body-profile context needed for those results. DripMaxx does not perform facial recognition, biometric identification, identity matching, or create face embeddings.
+      With your explicit permission, DripMaxx transmits the outfit photo you select to Replicate, a third-party AI service. Replicate processes images for outfit analysis and scoring, recommendations, revision comparisons, automatic Target Look generation after an original scan, and Style My Outfit processing. Relevant context may accompany the image, including selected style preferences, inspirations, height, body type, gender-style preference, occasion, weather conditions, original outfit analysis, saved recommendations, and revision history when needed for the requested feature. DripMaxx limits each request to the image and context needed for that operation.
       </div>
 
       <div class="card">
       <div class="card-title">Photo Storage and Access</div>
-      Original scans, revision scans, and generated Target Look images are stored in a private Supabase Storage bucket. DripMaxx stores private object references rather than public links. Short-lived signed links are created for an authenticated display request or a specific Replicate operation and expire quickly. Photos are not submitted to challenges or feature review unless you separately choose and consent to that sharing.
+      Original scans, revision scans, and generated Target Look images are stored in private Supabase Storage. They are not stored as permanent public URLs. DripMaxx stores private object references and creates a signed URL that expires after five minutes only when an authenticated display request or a specific Replicate operation requires temporary access. Photos are not submitted to challenges or feature review unless you separately choose and consent to that sharing.
       </div>
       
       <div class="card">
@@ -82,12 +87,12 @@
       
       <div class="card">
       <div class="card-title">Retention</div>
-      DripMaxx keeps successful original scans, revisions, generated Target Looks, and their results until you delete your account. Photos from failed scans are deleted from DripMaxx storage. Account deletion removes original scans, revisions, generated Target Looks, and related database records. Replicate controls its own processing retention; its API documentation currently states that API prediction inputs, outputs, files, and logs are removed after one hour by default.
+      DripMaxx keeps successful original scans, revision scans, generated Target Looks, and their results until you delete your account. Photos from failed scans are deleted from DripMaxx storage. When you delete your account, DripMaxx deletes original photos, revision photos, generated Target Looks, and related database records. Replicate controls its own provider-side retention. Replicate's API documentation currently states that prediction inputs, outputs, files, and logs are removed after one hour by default, but DripMaxx does not independently control, guarantee, or verify Replicate's deletion process.
       </div>
       
       <div class="card">
       <div class="card-title">Your Choices</div>
-      You can update certain profile data, control whether you upload photos, and cancel premium subscriptions through the app store tied to your device. You may also request account-related support by contacting mangaficustomercare@gmail.com.
+      Before DripMaxx sends an outfit image to Replicate, you are shown an AI disclosure and asked for permission. If you decline, the photo is not uploaded or sent for AI processing. You can withdraw permission for future AI photo processing at any time under Profile &gt; Privacy &amp; Social. You can also control photo uploads and social sharing, delete your account and stored images, or contact mangaficustomercare@gmail.com for privacy support.
       </div>
       
     <div class="card"><div class="card-title">Security</div>
